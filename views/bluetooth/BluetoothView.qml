@@ -238,20 +238,20 @@ ColumnLayout {
       spacing: 8
 
       Text {
-        id: busyGlyph
         anchors.verticalCenter: parent.verticalCenter
         visible: device.busy
         text: "󰑐"
         color: bt.textMuted
         font.family: bt.host.fontFamily
         font.pixelSize: 15
-        // Stepped at ~40 fps rather than the display's refresh rate, like the
-        // plugin's other spinners (see SoundWave.qml).
-        Timer {
-          interval: 25
-          repeat: true
-          running: busyGlyph.visible
-          onTriggered: busyGlyph.rotation = (busyGlyph.rotation + 360 * 25 / 900) % 360
+        // On the render loop, so it spins at the display's refresh rate. Only
+        // alive while an action is in flight.
+        RotationAnimation on rotation {
+          running: device.busy
+          from: 0
+          to: 360
+          duration: 900
+          loops: Animation.Infinite
         }
       }
       Text {

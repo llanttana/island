@@ -2,10 +2,9 @@ import QtQuick
 
 // iOS-style "now playing" wave: bars that bounce to random heights while
 // `playing`, flanked by a small dot at each end. Shared by the media pill and
-// the player view. The bars ease toward their targets in ~30 steps a second
-// instead of a vsync-driven animation: Qt only redraws when something moves,
-// so this keeps a playing wave from repainting the island at the display's
-// full refresh rate (360 Hz here) for bars a few pixels tall.
+// the player view. The bars are stepped on the render loop, so they stay
+// smooth at the display's refresh rate; the easing is time-based, so the
+// motion looks the same at 60 Hz and at 120 Hz.
 Row {
   id: wave
   property color color: "white"
@@ -33,23 +32,39 @@ Row {
     }
   }
 
-  property int tick: 0
-  Timer {
-    interval: 33
-    repeat: true
+  // The constants match the original 30 Hz timer: 0.45 of the remaining
+  // distance per 33 ms step, retargeted every 5 steps (~165 ms).
+  readonly property real easingTau: 33 / -Math.log(1 - 0.45)
+  readonly property real retargetEvery: 165
+  property double sinceRetarget: 0
+  property double lastFrame: 0
+
+  function step(dt) {
+    if (dt <= 0) return
+    dt = Math.min(dt, 100)
+    sinceRetarget += dt
+    var retarget = sinceRetarget >= retargetEvery
+    if (retarget) sinceRetarget = 0
+    var middle = (wave.bars + 1) / 2
+    var k = 1 - Math.exp(-dt / easingTau)
+    for (var i = 1; i <= wave.bars; i++) {
+      var bar = repeater.itemAt(i)
+      if (!bar) continue
+      // The middle bars swing wider than the outer ones, like iOS's.
+      var reach = 1 - Math.abs(i - middle) / middle * 0.45
+      if (retarget) bar.target = (0.15 + Math.random() * 0.85) * reach
+      bar.level += (bar.target - bar.level) * k
+    }
+  }
+
+  FrameAnimation {
     running: wave.playing && wave.visible
+    onRunningChanged: if (running) wave.lastFrame = 0
     onTriggered: {
-      var middle = (wave.bars + 1) / 2
-      // New targets every ~170 ms, like before.
-      var retarget = wave.tick++ % 5 === 0
-      for (var i = 1; i <= wave.bars; i++) {
-        var bar = repeater.itemAt(i)
-        if (!bar) continue
-        // The middle bars swing wider than the outer ones, like iOS's.
-        var reach = 1 - Math.abs(i - middle) / middle * 0.45
-        if (retarget) bar.target = (0.15 + Math.random() * 0.85) * reach
-        bar.level += (bar.target - bar.level) * 0.45
-      }
+      var now = Date.now()
+      var dt = wave.lastFrame > 0 ? now - wave.lastFrame : 16.7
+      wave.lastFrame = now
+      wave.step(dt)
     }
   }
 }

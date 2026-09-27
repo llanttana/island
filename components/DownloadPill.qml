@@ -60,14 +60,14 @@ Item {
           ctx.arc(width / 2, height / 2, width / 2 - 1.25, -Math.PI / 2, Math.PI * 0.9)
           ctx.stroke()
         }
-        // One turn every 1.4 s, stepped ~40 times a second: a vsync-driven
-        // animation would repaint the island at the display's full refresh
-        // rate for as long as a download or update runs.
-        Timer {
-          interval: 25
-          repeat: true
+        // One turn every 1.4 s, driven by the render loop so it stays smooth at
+        // whatever the display runs at (120 Hz here).
+        RotationAnimation on rotation {
           running: pill.downloading && pill.visible
-          onTriggered: parent.rotation = (parent.rotation + 360 * 25 / 1400) % 360
+          from: 0
+          to: 360
+          duration: 1400
+          loops: Animation.Infinite
         }
       }
       Text {
