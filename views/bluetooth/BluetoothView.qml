@@ -238,18 +238,20 @@ ColumnLayout {
       spacing: 8
 
       Text {
+        id: busyGlyph
         anchors.verticalCenter: parent.verticalCenter
         visible: device.busy
         text: "󰑐"
         color: bt.textMuted
         font.family: bt.host.fontFamily
         font.pixelSize: 15
-        RotationAnimation on rotation {
-          running: device.busy
-          from: 0
-          to: 360
-          duration: 900
-          loops: Animation.Infinite
+        // Stepped at ~40 fps rather than the display's refresh rate, like the
+        // plugin's other spinners (see SoundWave.qml).
+        Timer {
+          interval: 25
+          repeat: true
+          running: busyGlyph.visible
+          onTriggered: busyGlyph.rotation = (busyGlyph.rotation + 360 * 25 / 900) % 360
         }
       }
       Text {
@@ -321,17 +323,13 @@ ColumnLayout {
       Behavior on color { ColorAnimation { duration: bt.animDuration } }
       Text {
         anchors.centerIn: parent
-        text: bt.discovering ? "󰑐" : "󰒕"
+        // Deliberately static: discovery runs the whole time the page is open,
+        // so anything animated here would repaint the island forever. The
+        // "Scanning for devices…" line and the appearing rows are the feedback.
+        text: "󰒕"
         color: bt.text
         font.family: bt.host.fontFamily
         font.pixelSize: 17
-        RotationAnimation on rotation {
-          running: bt.discovering
-          from: 0
-          to: 360
-          duration: 1400
-          loops: Animation.Infinite
-        }
       }
       MouseArea {
         id: rescanMouse

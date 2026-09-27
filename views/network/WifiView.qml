@@ -392,17 +392,20 @@ ColumnLayout {
                   spacing: 8
 
                   Text {
+                    id: busyGlyph
                     visible: netRow.isBusy
                     text: "󰑐"
                     color: wifi.textMuted
                     font.family: wifi.host.fontFamily
                     font.pixelSize: 15
-                    RotationAnimation on rotation {
-                      running: netRow.isBusy
-                      from: 0
-                      to: 360
-                      duration: 900
-                      loops: Animation.Infinite
+                    // Stepped at ~40 fps instead of the display's refresh rate, like
+                    // the plugin's other spinners: a vsync animation would repaint the
+                    // island the whole time a join is in flight.
+                    Timer {
+                      interval: 25
+                      repeat: true
+                      running: busyGlyph.visible
+                      onTriggered: busyGlyph.rotation = (busyGlyph.rotation + 360 * 25 / 900) % 360
                     }
                   }
                   Text {
