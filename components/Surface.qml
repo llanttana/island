@@ -29,10 +29,14 @@ Item {
   readonly property real islandWidth: fixedWidth > 0 ? fixedWidth : implicitWidth + 2 * padding
   readonly property real islandHeight: Math.min(implicitHeight + 2 * padding, maxHeight)
 
-  anchors.left: parent ? parent.left : undefined
-  anchors.right: parent ? parent.right : undefined
-  anchors.top: parent ? parent.top : undefined
-  anchors.margins: padding
+  // Geometry comes from this surface's own size and never from the island's
+  // (or the shared Views item's) animating size: opening or closing a view
+  // then costs no layout at all, instead of re-laying out every view on the
+  // frame the view changes.
+  x: padding
+  y: padding
+  width: Math.max(0, islandWidth - 2 * padding)
+  height: Math.max(0, islandHeight - 2 * padding)
   implicitWidth: view ? view.implicitWidth : 0
   implicitHeight: view ? view.implicitHeight : 0
 

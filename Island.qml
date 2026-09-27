@@ -675,17 +675,21 @@ Item {
           HoverHandler { id: clockHover; enabled: root.view === "rest" }
           color: root.colorBackground
           clip: true
-          readonly property real springStiffness: 6.5 / root.motionScale
-          property real springWidth: targetWidth
-          property real springHeight: targetHeight
-          Behavior on springWidth {
-            SpringAnimation { spring: island.springStiffness; damping: 0.4; mass: 1; epsilon: 0.2 }
+          // A plain eased resize rather than a spring: the spring overshoots and
+          // keeps settling for hundreds of milliseconds after the motion has
+          // visually finished, re-laying out the island on every one of those
+          // frames. This reaches the target exactly, and stops.
+          readonly property int morphDuration: Math.round(300 * root.motionScale)
+          property real morphWidth: targetWidth
+          property real morphHeight: targetHeight
+          Behavior on morphWidth {
+            NumberAnimation { duration: island.morphDuration; easing.type: Easing.OutQuint }
           }
-          Behavior on springHeight {
-            SpringAnimation { spring: island.springStiffness; damping: 0.4; mass: 1; epsilon: 0.2 }
+          Behavior on morphHeight {
+            NumberAnimation { duration: island.morphDuration; easing.type: Easing.OutQuint }
           }
-          width: Math.max(40, springWidth)
-          height: Math.max(28, springHeight)
+          width: Math.max(40, Math.round(morphWidth))
+          height: Math.max(28, Math.round(morphHeight))
           Behavior on color { ColorAnimation { duration: 240 * root.motionScale; easing.type: Easing.InOutQuad } }
 
           MouseArea {
@@ -714,7 +718,18 @@ Item {
 
           IslandLabel { host: root; anchors.centerIn: parent }
 
-          Views { id: views; host: root; anchors.fill: parent }
+          Views {
+            id: views
+            host: root
+            // Sized to the island's destination, not to its animating size: the
+            // view tree then lays out once per view change instead of on every
+            // frame of the morph. The island clips it while it is still growing
+            // (the content is hidden until the morph is nearly done anyway).
+            width: island.targetWidth
+            height: island.targetHeight
+            x: Math.round((island.width - width) / 2)
+            y: 0
+          }
 
           WorkspaceDots {
             id: workspaceDots
