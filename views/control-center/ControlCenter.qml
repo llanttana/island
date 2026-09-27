@@ -5,6 +5,7 @@ import Quickshell.Bluetooth
 import Quickshell.Io
 import Quickshell.Networking
 import Quickshell.Services.Pipewire
+import Quickshell.Services.UPower
 import Quickshell.Widgets
 
 // The expanded "controls" surface: two rows of toggle pills with a round
@@ -88,6 +89,51 @@ ColumnLayout {
     gameModeWrite.running = true
   }
 
+  // --- Power profiles (power-profiles-daemon, via Omarchy) ---
+  // Omarchy remembers a profile per power source, and `autodetect` makes the
+  // helper resolve ac/battery from UPower exactly as the shell does, so both
+  // entry points save under the same key.
+  readonly property var profileLabels: ({
+    "power-saver": "Power Saver",
+    "balanced": "Balanced",
+    "performance": "Performance"
+  })
+  // Same glyphs the stock Omarchy power panel uses.
+  readonly property var profileIcons: ({
+    "power-saver": "󰌪",
+    "balanced": "󰊚",
+    "performance": "󰓅"
+  })
+  property var powerProfiles: []
+  property string activeProfile: ""
+  Process {
+    id: profilesRead
+    command: ["omarchy-powerprofiles-list", "--active-state"]
+    stdout: StdioCollector {
+      waitForEnd: true
+      onStreamFinished: {
+        var lines = String(text || "").trim().split("\n")
+        var list = [], active = ""
+        for (var i = 0; i < lines.length; i++) {
+          var parts = lines[i].split("\t")
+          var name = String(parts[0] || "").trim()
+          if (name === "") continue
+          list.push(name)
+          if (String(parts[1] || "").trim() === "1") active = name
+        }
+        cc.powerProfiles = list
+        cc.activeProfile = active
+      }
+    }
+  }
+  Process { id: profileWrite; onExited: profilesRead.running = true }
+  function setProfile(name) {
+    if (name === cc.activeProfile) return
+    cc.activeProfile = name   // optimistic; profilesRead confirms
+    profileWrite.command = ["omarchy-powerprofiles-set", "autodetect", name]
+    profileWrite.running = true
+  }
+
   // --- Brightness (the Display card hides when the output has no control) ---
   property bool brightnessAvailable: false
   property int brightness: 0
@@ -96,6 +142,7 @@ ColumnLayout {
     Qt.callLater(function() { cc.forceActiveFocus() })
     if (!brightnessRead.running) brightnessRead.running = true
     if (!gameModeRead.running) gameModeRead.running = true
+    if (!profilesRead.running) profilesRead.running = true
   }
   Process {
     id: brightnessRead
@@ -508,6 +555,72 @@ ColumnLayout {
     }
   }
 
+
+  CcSection {
+    title: "Power"
+    visible: cc.powerProfiles.length > 0
+
+    RowLayout {
+      Layout.fillWidth: true
+      spacing: 6
+
+      Repeater {
+        model: cc.powerProfiles
+        delegate: Rectangle {
+          id: profile
+          required property var modelData
+          readonly property bool selected: modelData === cc.activeProfile
+
+          Layout.fillWidth: true
+          Layout.preferredHeight: 44
+          radius: 15
+          color: profile.selected ? cc.accent : cc.well
+          scale: profileMouse.pressed ? 0.97 : 1
+          Behavior on color { ColorAnimation { duration: cc.animDuration; easing.type: Easing.OutCubic } }
+          Behavior on scale { NumberAnimation { duration: 120 * cc.host.motionScale; easing.type: Easing.OutCubic } }
+
+          Row {
+            anchors.centerIn: parent
+            spacing: 6
+            Text {
+              anchors.verticalCenter: parent.verticalCenter
+              text: cc.profileIcons[profile.modelData] || ""
+              color: profile.selected ? cc.accentInk : cc.text
+              font.family: cc.iconFont
+              font.pixelSize: 15
+            }
+            Text {
+              anchors.verticalCenter: parent.verticalCenter
+              text: cc.profileLabels[profile.modelData] || profile.modelData
+              color: profile.selected ? cc.accentInk : cc.text
+              font.family: "Adwaita Sans"
+              font.pixelSize: 12
+              font.weight: profile.selected ? Font.DemiBold : Font.Normal
+            }
+          }
+
+          MouseArea {
+            id: profileMouse
+            anchors.fill: parent
+            cursorShape: Qt.PointingHandCursor
+            onClicked: cc.setProfile(profile.modelData)
+          }
+        }
+      }
+    }
+
+    // Omarchy keeps a separate choice per power source; say which one this is.
+    Text {
+      Layout.fillWidth: true
+      Layout.leftMargin: 8
+      Layout.rightMargin: 8
+      Layout.topMargin: 2
+      text: UPower.onBattery ? "Saved for battery" : "Saved while plugged in"
+      color: cc.textMuted
+      font.family: "Adwaita Sans"
+      font.pixelSize: 11
+    }
+  }
 
   // ---------- Notifications ----------
 
