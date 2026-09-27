@@ -285,10 +285,18 @@ ColumnLayout {
         SettingsRow {
           label: "Volume HUD"
           detail: "Show the level when the volume changes"
-          last: true
           SettingsSwitch {
             checked: settingsView.settings.volumeHud
             onToggled: function(on) { settingsView.settings.volumeHud = on }
+          }
+        }
+        SettingsRow {
+          label: "Hide in Fullscreen"
+          detail: "Slide the pill away while a window is fullscreen"
+          last: true
+          SettingsSwitch {
+            checked: settingsView.settings.hideFullscreen
+            onToggled: function(on) { settingsView.settings.hideFullscreen = on }
           }
         }
       }

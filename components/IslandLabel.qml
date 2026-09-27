@@ -20,7 +20,7 @@ Text {
     : Qt.formatDateTime(host.clockDate, "h:mm AP").replace(/\s*[AP]M$/i, "")
   // A fixed soft off-white on the always-black island; the setup
   // warning keeps the theme's urgent color.
-  color: host.view === "rest" && host.companionNeedsSetup ? host.colorUrgent : "#e2e6de"
+  color: host.view === "rest" && host.companionNeedsSetup ? host.colorUrgent : host.ink
   // Adwaita Sans (Inter-based) at semibold; tabular figures keep the
   // digits from shifting as the time changes.
   font.family: "Adwaita Sans"

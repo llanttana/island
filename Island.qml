@@ -4,6 +4,7 @@ import Quickshell
 import Quickshell.Hyprland
 import Quickshell.Io
 import Quickshell.Services.Pipewire
+import Quickshell.Services.UPower
 import Quickshell.Wayland
 import qs.Commons
 import "components"
@@ -95,6 +96,18 @@ Item {
     if (focused && focused.name) return String(focused.name)
     return screens.length ? String(screens[0].name) : ""
   }
+  // The Hyprland monitor the pill is showing on, and whether a window there is
+  // fullscreen — used to slide the pill away for fullscreen video and games.
+  readonly property var islandMonitor: {
+    var list = Hyprland.monitors.values
+    for (var i = 0; i < list.length; i++)
+      if (String(list[i].name) === outputName) return list[i]
+    return Hyprland.focusedMonitor
+  }
+  readonly property bool outputFullscreen: {
+    var monitor = islandMonitor
+    return !!(monitor && monitor.activeWorkspace && monitor.activeWorkspace.hasFullscreen)
+  }
   readonly property string home: Quickshell.env("HOME")
 
   readonly property QtObject settings: settingsData
@@ -121,6 +134,7 @@ Item {
       property bool downloads: true
       property bool clipboard: true
       property bool systemUpdates: true
+      property bool hideFullscreen: true
       property string askAi: "chatgpt"
     }
   }
@@ -194,6 +208,8 @@ Item {
   readonly property color colorAccentText: contrastOn(Color.accent)
   readonly property color colorUrgent: Color.urgent
   readonly property color colorSurface: Qt.tint(colorBackground, withAlpha(colorText, 0.07))
+  // The pill is always black, so its own text is a fixed soft off-white.
+  readonly property color ink: "#e2e6de"
 
   function withAlpha(c, a) { return Qt.rgba(c.r, c.g, c.b, a) }
   function luminance(x) { return 0.2126 * x.r + 0.7152 * x.g + 0.0722 * x.b }
@@ -203,6 +219,83 @@ Item {
   }
 
   readonly property real motionScale: settings.motionScale > 0 ? settings.motionScale : 1.5
+
+  // Small status accessories (workspace dots, battery) sit beside the clock
+  // only in the plain resting state, so they never crowd a live activity.
+  readonly property bool accessoriesShown: view === "rest" && !mediaPill && !downloadPill && !companionNeedsSetup
+  // Room reserved for the clock text so the accessories never crowd it.
+  readonly property real clockSlot: 56
+  // The pill slides off-screen while a window is fullscreen (the widget can be
+  // turned off in Settings). The manual `Super + Shift + Space` toggle stays.
+  readonly property bool pillHidden: (barHidden || (settings.hideFullscreen && outputFullscreen && !companionNeedsSetup)) && view === "rest"
+
+  // ---------- Status accessories on the resting pill ----------
+
+  // Battery (UPower): charge glyph + percentage, accent on wall power, urgent
+  // while low and draining. Hidden entirely when there is no battery.
+  readonly property var batteryDevice: UPower.displayDevice
+  readonly property bool batteryPresent: !!(batteryDevice && batteryDevice.isPresent)
+  readonly property real batteryFraction: batteryPresent
+    ? Math.max(0, Math.min(1, Number(batteryDevice.percentage) || 0)) : 0
+  readonly property int batteryPercent: Math.round(batteryFraction * 100)
+  readonly property bool batteryDischarging: batteryPresent && batteryDevice.state === UPowerDeviceState.Discharging
+  readonly property bool batteryFull: batteryPresent && batteryDevice.state === UPowerDeviceState.FullyCharged
+  readonly property bool batteryLow: batteryDischarging && batteryPercent <= 20
+  readonly property color batteryTint: batteryLow ? colorUrgent : UPower.onBattery ? ink : colorAccent
+  function batteryIcon() {
+    if (!batteryPresent) return ""
+    // Same glyph set the stock Omarchy power panel uses.
+    var dischargingIcons = ["󰁺", "󰁻", "󰁼", "󰁽", "󰁾", "󰁿", "󰂀", "󰂁", "󰂂", "󰁹"]
+    var chargingIcons = ["󰢜", "󰂆", "󰂇", "󰂈", "󰢝", "󰂉", "󰢞", "󰂊", "󰂋", "󰂅"]
+    var index = Math.max(0, Math.min(9, Math.floor(batteryFraction * 10)))
+    if (batteryFull) return "󰂅"
+    return UPower.onBattery ? dischargingIcons[index] : chargingIcons[index]
+  }
+
+  // Workspaces: the same set the stock bar shows (1–5, plus any occupied
+  // workspace up to 10). Clicking a dot switches to that workspace.
+  readonly property var workspaceIds: {
+    var list = [1, 2, 3, 4, 5]
+    var values = Hyprland.workspaces.values
+    for (var i = 0; i < values.length; i++) {
+      var id = values[i].id
+      if (id > 0 && id <= 10 && list.indexOf(id) === -1) list.push(id)
+    }
+    list.sort(function(a, b) { return a - b })
+    return list
+  }
+  function workspaceById(id) {
+    var values = Hyprland.workspaces.values
+    for (var i = 0; i < values.length; i++) if (values[i].id === id) return values[i]
+    return null
+  }
+  function focusWorkspace(id) {
+    Hyprland.dispatch('hl.dsp.focus({ workspace = "' + id + '" })')
+  }
+  readonly property int workspaceDotSize: 5
+  readonly property int workspaceDotGap: 4
+  readonly property real workspaceDotsWidth: {
+    var count = workspaceIds.length
+    return count > 0 ? count * workspaceDotSize + (count - 1) * workspaceDotGap : 0
+  }
+
+  // Width the resting pill needs for the clock plus whichever accessories are
+  // actually present, so the centred clock never collides with them.
+  TextMetrics {
+    id: batteryMetrics
+    font.family: "Adwaita Sans"
+    font.pixelSize: 12
+    font.weight: Font.DemiBold
+    text: root.batteryPercent + "%"
+  }
+  readonly property real batteryBadgeWidth: batteryPresent ? 13 + 3 + batteryMetrics.width + 4 : 0
+  readonly property real restWidth: {
+    if (!accessoriesShown) return 100
+    var width = 24 + clockSlot
+    if (workspaceDotsWidth > 0) width += workspaceDotsWidth + 10
+    if (batteryBadgeWidth > 0) width += batteryBadgeWidth + 10
+    return Math.max(100, Math.round(width))
+  }
 
   function notificationIconSource(row, appIconOnly) {
     if (!row) return ""
@@ -550,7 +643,7 @@ Item {
         Rectangle {
           id: island
           x: (parent.width - width) / 2
-          y: root.barHidden && root.view === "rest" ? -height - 12 : root.settings.notch ? 0 : 8
+          y: root.pillHidden ? -height - 12 : root.settings.notch ? 0 : 8
           Behavior on y { NumberAnimation { duration: 300 * root.motionScale; easing.type: Easing.OutCubic } }
           readonly property Item activeSurface: views.surfaceFor(root.view)
           readonly property real targetWidth: activeSurface ? activeSurface.islandWidth
@@ -562,7 +655,7 @@ Item {
             : root.downloadDone ? 360
             : root.downloadActive ? (root.downloadTracker.active ? 240 : 280)
             : root.mediaPill ? 240
-            : 100
+            : root.restWidth
           readonly property real targetHeight: activeSurface ? activeSurface.islandHeight
             : root.notificationPill ? 84
             : root.clipboardPill ? (root.settings.notch ? 40 : 44)
@@ -622,6 +715,28 @@ Item {
           IslandLabel { host: root; anchors.centerIn: parent }
 
           Views { id: views; host: root; anchors.fill: parent }
+
+          WorkspaceDots {
+            id: workspaceDots
+            host: root
+            anchors.left: parent.left
+            anchors.leftMargin: 12
+            anchors.verticalCenter: parent.verticalCenter
+            opacity: root.accessoriesShown ? 1 : 0
+            visible: opacity > 0.01
+            Behavior on opacity { NumberAnimation { duration: 150 * root.motionScale; easing.type: Easing.InOutQuad } }
+          }
+
+          BatteryBadge {
+            id: batteryBadge
+            host: root
+            anchors.right: parent.right
+            anchors.rightMargin: 12
+            anchors.verticalCenter: parent.verticalCenter
+            opacity: root.accessoriesShown && root.batteryPresent ? 1 : 0
+            visible: opacity > 0.01
+            Behavior on opacity { NumberAnimation { duration: 150 * root.motionScale; easing.type: Easing.InOutQuad } }
+          }
         }
       }
     }
