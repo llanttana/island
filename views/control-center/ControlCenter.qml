@@ -128,7 +128,8 @@ ColumnLayout {
 
   // ---------- Reusable pieces ----------
 
-  // Pill toggle: icon badge (accent-filled when on), title, and state.
+  // Pill toggle: icon badge (accent-filled when on), title, and state. With
+  // `chevron` it reads as "opens a page" instead of "toggles in place".
   component CcTile: Rectangle {
     id: t
     property string icon: ""
@@ -136,6 +137,7 @@ ColumnLayout {
     property string subtitle: ""
     property bool checked: false
     property bool available: true
+    property bool chevron: false
     signal clicked()
 
     Layout.fillWidth: true
@@ -167,7 +169,7 @@ ColumnLayout {
       anchors.left: badge.right
       anchors.leftMargin: 11
       anchors.right: parent.right
-      anchors.rightMargin: 14
+      anchors.rightMargin: t.chevron ? 28 : 14
       anchors.verticalCenter: parent.verticalCenter
       spacing: 1
       Text {
@@ -186,10 +188,20 @@ ColumnLayout {
         text: t.subtitle
         textFormat: Text.PlainText
         elide: Text.ElideRight
-        color: cc.textMuted
+        color: t.checked ? cc.accent : cc.textMuted
         font.family: "Adwaita Sans"
         font.pixelSize: 12
       }
+    }
+    Text {
+      visible: t.chevron
+      anchors.right: parent.right
+      anchors.rightMargin: 13
+      anchors.verticalCenter: parent.verticalCenter
+      text: "󰅂"
+      color: cc.textMuted
+      font.family: cc.iconFont
+      font.pixelSize: 15
     }
     MouseArea {
       id: tileMouse
@@ -232,8 +244,13 @@ ColumnLayout {
   component CcSlider: Rectangle {
     id: s
     property string icon: ""
+    // Shown at the right end; kept clear of the fill by its own colour swap.
+    property string valueText: ""
     property real value: 0
     signal moved(real value)
+
+    readonly property real fraction: Math.max(0, Math.min(1, s.value))
+    readonly property real fillWidth: Math.max(s.height, s.width * s.fraction)
 
     Layout.fillWidth: true
     Layout.preferredHeight: 46
@@ -244,7 +261,7 @@ ColumnLayout {
     Rectangle {
       height: parent.height
       radius: parent.radius
-      width: Math.max(parent.height, parent.width * Math.max(0, Math.min(1, s.value)))
+      width: s.fillWidth
       color: cc.accent
       Behavior on width {
         enabled: !sliderMouse.pressed
@@ -256,9 +273,22 @@ ColumnLayout {
       anchors.leftMargin: 16
       anchors.verticalCenter: parent.verticalCenter
       text: s.icon
-      color: cc.accentInk
+      // Over the accent fill or over the track, whichever is behind it.
+      color: s.fillWidth > 46 ? cc.accentInk : cc.text
       font.family: cc.iconFont
       font.pixelSize: 18
+    }
+    Text {
+      visible: s.valueText !== ""
+      anchors.right: parent.right
+      anchors.rightMargin: 16
+      anchors.verticalCenter: parent.verticalCenter
+      text: s.valueText
+      color: s.fillWidth > s.width - 54 ? cc.accentInk : cc.textMuted
+      font.family: "Adwaita Sans"
+      font.pixelSize: 12
+      font.weight: Font.DemiBold
+      font.features: { "tnum": 1 }
     }
     MouseArea {
       id: sliderMouse
@@ -341,9 +371,10 @@ ColumnLayout {
         ? (!Networking.wifiEnabled ? "Off" : cc.wifiNetwork ? cc.wifiNetwork.name : "Not connected")
         : (cc.wiredDevice && cc.wiredDevice.connected ? "Connected" : "Disconnected")
       checked: wifi ? Networking.wifiEnabled : !!(cc.wiredDevice && cc.wiredDevice.connected)
-      available: wifi ? Networking.wifiHardwareEnabled !== false : false
+      available: wifi
+      chevron: wifi
       opacity: 1
-      onClicked: Networking.wifiEnabled = !Networking.wifiEnabled
+      onClicked: cc.host.view = "wifi"
     }
     CcTile {
       icon: "󰍶"
@@ -368,7 +399,8 @@ ColumnLayout {
       subtitle: !cc.btAdapter ? "Unavailable" : !cc.btAdapter.enabled ? "Off" : cc.btConnected ? String(cc.btConnected.name || "Connected") : "On"
       checked: !!(cc.btAdapter && cc.btAdapter.enabled)
       available: !!cc.btAdapter
-      onClicked: cc.btAdapter.enabled = !cc.btAdapter.enabled
+      chevron: !!cc.btAdapter
+      onClicked: cc.host.view = "bluetooth"
     }
     CcTile {
       icon: "󰊗"
@@ -396,11 +428,25 @@ ColumnLayout {
 
     CcSlider {
       icon: cc.muted || cc.volume <= 0 ? "󰖁" : cc.volume < 0.34 ? "󰕿" : cc.volume < 0.67 ? "󰖀" : "󰕾"
+      valueText: Math.round((cc.muted ? 0 : cc.volume) * 100) + "%"
       value: cc.muted ? 0 : cc.volume
       onMoved: function(v) {
         cc.sink.audio.volume = v
         if (cc.sink.audio.muted && v > 0) cc.sink.audio.muted = false
       }
+    }
+    Text {
+      Layout.fillWidth: true
+      Layout.leftMargin: 8
+      Layout.rightMargin: 8
+      Layout.topMargin: 2
+      visible: text !== ""
+      text: cc.sink ? String(cc.sink.description || cc.sink.nickname || cc.sink.name || "") : ""
+      textFormat: Text.PlainText
+      elide: Text.ElideRight
+      color: cc.textMuted
+      font.family: "Adwaita Sans"
+      font.pixelSize: 11
     }
     // Output picker, revealed by the › button.
     Repeater {
@@ -453,6 +499,7 @@ ColumnLayout {
     visible: cc.brightnessAvailable
     CcSlider {
       icon: "󰃠"
+      valueText: cc.brightness + "%"
       value: cc.brightness / 100
       onMoved: function(v) {
         cc.brightness = Math.round(v * 100)

@@ -12,6 +12,8 @@ import "menu"
 import "player"
 import "settings"
 import "answer"
+import "network"
+import "bluetooth"
 
 // Every view the island can open. Each is a Surface: its name (also its IPC
 // route: `omarchy-shell guilhermerisu.island show <name>`), how wide the
@@ -21,7 +23,7 @@ Item {
   id: views
   required property var host
 
-  readonly property var surfaces: [controlsSurface, themesSurface, wallpapersSurface, appsSurface, powerSurface, emojiSurface, keybindsSurface, clipboardSurface, menuSurface, playerSurface, settingsSurface, answerSurface]
+  readonly property var surfaces: [controlsSurface, themesSurface, wallpapersSurface, appsSurface, powerSurface, emojiSurface, keybindsSurface, clipboardSurface, menuSurface, playerSurface, settingsSurface, answerSurface, wifiSurface, bluetoothSurface]
   function surfaceFor(name) {
     for (var i = 0; i < surfaces.length; i++) if (surfaces[i].viewName === name) return surfaces[i]
     return null
@@ -119,6 +121,24 @@ Item {
     viewName: "settings"
     fixedWidth: 540
     SettingsView { host: views.host; active: settingsSurface.active; anchors.fill: parent }
+  }
+
+  Surface {
+    id: wifiSurface
+    host: views.host
+    viewName: "wifi"
+    fixedWidth: 460
+    maxHeight: 720
+    WifiView { host: views.host; active: wifiSurface.active; anchors.fill: parent }
+  }
+
+  Surface {
+    id: bluetoothSurface
+    host: views.host
+    viewName: "bluetooth"
+    fixedWidth: 460
+    maxHeight: 720
+    BluetoothView { host: views.host; active: bluetoothSurface.active; anchors.fill: parent }
   }
 
   Surface {
