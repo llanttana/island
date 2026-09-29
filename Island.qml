@@ -149,6 +149,7 @@ Item {
   property string view: "rest"
   readonly property bool notificationPill: view === "feedback" && feedbackKind === "notification"
   readonly property bool volumePill: view === "feedback" && feedbackKind === "volume"
+  readonly property bool brightnessPill: view === "feedback" && feedbackKind === "brightness"
   readonly property bool clipboardPill: view === "feedback" && feedbackKind === "clipboard"
 
   property var lastClip: null
@@ -533,6 +534,25 @@ Item {
   onMutedChanged: {
     if (initialized && volume >= 0 && settings.volumeHud) showFeedback("", 1800, "volume")
   }
+
+  // Brightness HUD. The brightness keys run `omarchy-brightness-display` and
+  // then ping the island, which reads the value back here: sysfs backlight
+  // attributes don't emit inotify, so a file watch would never fire.
+  property real brightnessLevel: 0
+  Process {
+    id: brightnessProbe
+    command: ["omarchy-brightness-display", "--monitor", root.outputName]
+    stdout: StdioCollector {
+      waitForEnd: true
+      onStreamFinished: {
+        var value = parseInt(String(text || "").trim(), 10)
+        if (isNaN(value)) return
+        root.brightnessLevel = Math.max(0, Math.min(1, value / 100))
+        root.showFeedback("", 1800, "brightness")
+      }
+    }
+  }
+
   Component.onCompleted: {
     initialized = true
     companionCheck.running = true
@@ -719,6 +739,12 @@ Item {
       root.view = "controls"
       return root.view
     }
+    // Called by the brightness keys (see the user's bindings.lua) after
+    // omarchy-brightness-display has moved the backlight.
+    function brightness(): string {
+      if (!brightnessProbe.running) brightnessProbe.running = true
+      return "ok"
+    }
     function close(): string {
       root.view = "rest"
       return "rest"
@@ -742,7 +768,12 @@ Item {
         WlrLayershell.layer: WlrLayer.Overlay
         WlrLayershell.keyboardFocus: island.activeSurface && island.activeSurface.wantsKeyboard
           ? WlrKeyboardFocus.Exclusive : WlrKeyboardFocus.None
-        mask: Region { item: island }
+        // While a view is open the whole window takes input, so a click
+        // anywhere outside the pill lands on the dismiss layer below and
+        // closes it. The rest of the time only the pill itself is interactive,
+        // which is what keeps the band from swallowing clicks aimed at the
+        // windows underneath.
+        mask: Region { item: root.surfaceOpen ? dismissArea : island }
         // The frost comes from a Hyprland layer rule on this namespace (see
         // ~/.config/hypr/looknfeel.lua), not from BackgroundEffect: a protocol
         // blur region is a plain rectangle, which left a frosted border around
@@ -764,6 +795,16 @@ Item {
         Connections {
           target: root
           function onSurfaceOpenChanged() { if (!root.surfaceOpen) focusGrab.armed = false }
+        }
+
+        // Everything that is not the pill. Declared before it, so the pill's own
+        // handlers stay on top; only reachable while a view is open (the mask
+        // above is what limits input the rest of the time).
+        MouseArea {
+          id: dismissArea
+          anchors.fill: parent
+          enabled: root.surfaceOpen
+          onClicked: root.view = "rest"
         }
 
         Canvas {
@@ -816,6 +857,7 @@ Item {
           readonly property real targetWidth: activeSurface ? activeSurface.islandWidth
             : root.notificationPill ? 440
             : root.volumePill ? 240
+            : root.brightnessPill ? 240
             : root.clipboardPill ? 320
             : root.view === "feedback" ? 330
             : root.companionNeedsSetup ? 250
@@ -829,8 +871,9 @@ Item {
             : root.downloadDone ? 64
             : root.mediaPill || root.downloadPill ? (root.settings.notch ? 40 : 44)
             : root.volumePill ? 56
+            : root.brightnessPill ? 56
             : root.view === "rest" ? (root.settings.notch ? 36 : 40) : 52
-          property real radiusCap: root.volumePill ? 20 : root.view === "answer" ? 44 : root.surfaceOpen ? 30 : 38
+          property real radiusCap: root.volumePill || root.brightnessPill ? 20 : root.view === "answer" ? 44 : root.surfaceOpen ? 30 : 38
           Behavior on radiusCap {
             NumberAnimation { duration: 390 * root.motionScale; easing.type: Easing.OutQuint }
           }
@@ -908,8 +951,12 @@ Item {
 
           MouseArea {
             anchors.fill: parent
-            enabled: root.view === "rest" || root.view === "feedback"
+            // Always on, so a click on the pill is consumed here rather than
+            // reaching the dismiss layer underneath and closing the view. It
+            // only *acts* on the resting pill and the feedback pill; the views
+            // declare their own handlers on top.
             onClicked: function(mouse) {
+              if (root.view !== "rest" && root.view !== "feedback") return
               feedbackTimer.stop()
               if (root.notificationPill) root.activateNotification(root.lastNotification)
               else if (root.clipboardPill) root.view = "clipboard"
@@ -923,6 +970,8 @@ Item {
           NotificationPill { host: root; shape: island; anchors.fill: parent }
 
           VolumeSlider { host: root; shape: island; anchors.fill: parent }
+
+          BrightnessSlider { host: root; shape: island; anchors.fill: parent }
 
           ClipboardPill { host: root; anchors.fill: parent }
 

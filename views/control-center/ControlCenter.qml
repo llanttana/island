@@ -5,11 +5,13 @@ import Quickshell.Bluetooth
 import Quickshell.Io
 import Quickshell.Networking
 import Quickshell.Services.Pipewire
+import Quickshell.Services.SystemTray
 import Quickshell.Services.UPower
 import Quickshell.Widgets
 
 // The expanded "controls" surface: two rows of toggle pills with a round
-// button at the end of each, Sound and Display cards with sliders, and the
+// button at the end of each, a Levels card with vertical volume and brightness
+// sliders, a System card carrying the panel indicators and the tray, and the
 // recent notifications. Reads its state from the island root passed in as
 // `host`.
 ColumnLayout {
@@ -54,11 +56,49 @@ ColumnLayout {
   readonly property var sink: Pipewire.defaultAudioSink
   readonly property bool muted: !!(sink && sink.audio && sink.audio.muted)
   readonly property real volume: sink && sink.audio ? sink.audio.volume : 0
+  readonly property var source: Pipewire.defaultAudioSource
+  readonly property bool sourcePresent: !!(source && source.audio)
+  readonly property bool sourceMuted: sourcePresent && source.audio.muted
   readonly property var outputs: {
     var nodes = Pipewire.nodes ? Pipewire.nodes.values : []
     return nodes.filter(function(n) { return n && n.isSink && !n.isStream && n.audio })
   }
   property bool outputsOpen: false
+
+  // --- System: keyboard layout, recording, stay awake, tray ---
+  readonly property var idleService: host.shell ? host.shell.firstPartyServiceFor("omarchy.idle") : null
+  readonly property bool stayAwake: idleService ? !!idleService.stayAwake : false
+  property string keyboardLayout: ""
+  Process {
+    id: layoutRead
+    command: ["hyprctl", "devices", "-j"]
+    stdout: StdioCollector {
+      waitForEnd: true
+      onStreamFinished: {
+        try {
+          var boards = JSON.parse(String(text || "{}")).keyboards || []
+          for (var i = 0; i < boards.length; i++) {
+            if (boards[i] && boards[i].main) { cc.keyboardLayout = String(boards[i].active_keymap || ""); return }
+          }
+          cc.keyboardLayout = boards.length ? String(boards[0].active_keymap || "") : ""
+        } catch (e) {
+          cc.keyboardLayout = ""
+        }
+      }
+    }
+  }
+  property bool recording: false
+  Process {
+    id: recordingRead
+    // Same check the stock indicator uses.
+    command: ["pgrep", "--quiet", "-f", "^gpu-screen-recorder"]
+    onExited: function(code) { cc.recording = code === 0 }
+  }
+  readonly property var trayItems: SystemTray.items ? SystemTray.items.values : []
+
+  readonly property bool hasIndicators: cc.recording || cc.dnd || cc.nightOn || cc.stayAwake
+    || cc.keyboardLayout !== ""
+  readonly property bool hasSystemRow: hasIndicators || trayItems.length > 0
 
   // --- Bluetooth ---
   readonly property var btAdapter: Bluetooth.defaultAdapter
@@ -129,6 +169,32 @@ ColumnLayout {
     }
   }
   Process { id: profileWrite; onExited: profilesRead.running = true }
+  Process { id: recordingStop }
+  function stopRecording() {
+    recordingStop.command = ["omarchy-capture-screenrecording", "--stop-recording"]
+    recordingStop.running = true
+    cc.recording = false
+  }
+  function toggleDnd() {
+    if (!cc.notifications) return
+    var next = !cc.dnd
+    cc.notifications.setDoNotDisturb(next)
+    cc.host.announce(next ? "Focus on" : "Focus off")
+  }
+  function toggleNightlight() {
+    if (!cc.nightlight) return
+    var next = !cc.nightOn
+    cc.nightlight.setNightlight(next)
+    cc.host.announce(next ? "Night light on" : "Night light off")
+  }
+  function toggleStayAwake() {
+    if (!cc.idleService) return
+    var next = !cc.stayAwake
+    // Mirrors the stock indicator: set_idle_enabled(false) is what keeps the
+    // lock and screensaver away.
+    cc.idleService.setIdleEnabled(!next)
+    cc.host.announce(next ? "Staying awake" : "Idle lock back on")
+  }
   function setProfile(name) {
     if (name === cc.activeProfile) return
     cc.activeProfile = name   // optimistic; profilesRead confirms
@@ -146,6 +212,8 @@ ColumnLayout {
     if (!brightnessRead.running) brightnessRead.running = true
     if (!gameModeRead.running) gameModeRead.running = true
     if (!profilesRead.running) profilesRead.running = true
+    if (!layoutRead.running) layoutRead.running = true
+    if (!recordingRead.running) recordingRead.running = true
   }
   Process {
     id: brightnessRead
@@ -357,6 +425,111 @@ ColumnLayout {
   }
 
   // Section card with a title row (and an optional › button) over content.
+  // Vertical level slider: fills from the foot, glyph at the bottom, value at
+  // the top. Volume and brightness sit side by side this way instead of
+  // stacking two full-width cards.
+  component CcVertical: Rectangle {
+    id: v
+    property string icon: ""
+    property real value: 0
+    property string valueText: ""
+    signal moved(real value)
+
+    readonly property real fraction: Math.max(0, Math.min(1, v.value))
+    readonly property real fillHeight: v.height * v.fraction
+
+    Layout.preferredWidth: 56
+    Layout.preferredHeight: 118
+    radius: 20
+    color: cc.well
+    border.width: 1
+    border.color: cc.border
+    clip: true
+
+    Rectangle {
+      anchors.left: parent.left
+      anchors.right: parent.right
+      anchors.bottom: parent.bottom
+      height: v.fillHeight
+      color: cc.accent
+      Behavior on height {
+        enabled: !vMouse.pressed
+        NumberAnimation { duration: 140 * cc.host.motionScale; easing.type: Easing.OutCubic }
+      }
+    }
+    Text {
+      anchors.horizontalCenter: parent.horizontalCenter
+      anchors.bottom: parent.bottom
+      anchors.bottomMargin: 12
+      text: v.icon
+      color: v.fillHeight > 36 ? cc.accentInk : cc.text
+      font.family: cc.iconFont
+      font.pixelSize: 20
+    }
+    Text {
+      anchors.horizontalCenter: parent.horizontalCenter
+      anchors.top: parent.top
+      anchors.topMargin: 10
+      text: v.valueText
+      color: v.fillHeight > v.height - 30 ? cc.accentInk : cc.textMuted
+      font.family: "Adwaita Sans"
+      font.pixelSize: 11
+      font.weight: Font.DemiBold
+      font.features: { "tnum": 1 }
+    }
+    MouseArea {
+      id: vMouse
+      anchors.fill: parent
+      cursorShape: Qt.PointingHandCursor
+      function apply(y) { v.moved(Math.max(0, Math.min(1, 1 - y / height))) }
+      onPressed: function(e) { apply(e.y) }
+      onPositionChanged: function(e) { if (pressed) apply(e.y) }
+      onWheel: function(e) { v.moved(Math.max(0, Math.min(1, v.value + (e.angleDelta.y > 0 ? 0.05 : -0.05)))) }
+    }
+  }
+
+  // Small capsule for the status row.
+  component CcChip: Rectangle {
+    id: chip
+    property string icon: ""
+    property string label: ""
+    property bool urgent: false
+    signal clicked()
+
+    implicitWidth: chipRow.implicitWidth + 22
+    implicitHeight: 26
+    radius: 13
+    color: chip.urgent ? cc.host.withAlpha(cc.host.colorUrgent, 0.2) : cc.well
+    border.width: 1
+    border.color: cc.border
+
+    Row {
+      id: chipRow
+      anchors.centerIn: parent
+      spacing: 5
+      Text {
+        anchors.verticalCenter: parent.verticalCenter
+        text: chip.icon
+        color: chip.urgent ? cc.host.colorUrgent : cc.text
+        font.family: cc.iconFont
+        font.pixelSize: 13
+      }
+      Text {
+        anchors.verticalCenter: parent.verticalCenter
+        visible: chip.label !== ""
+        text: chip.label
+        color: chip.urgent ? cc.host.colorUrgent : cc.text
+        font.family: "Adwaita Sans"
+        font.pixelSize: 11
+      }
+    }
+    MouseArea {
+      anchors.fill: parent
+      cursorShape: Qt.PointingHandCursor
+      onClicked: chip.clicked()
+    }
+  }
+
   component CcSection: Rectangle {
     id: sec
     property string title: ""
@@ -485,35 +658,129 @@ ColumnLayout {
   // ---------- Sound / Display ----------
 
   CcSection {
-    title: "Sound"
-    visible: !!(cc.sink && cc.sink.audio)
-    showChevron: cc.outputs.length > 1
-    chevronOpen: cc.outputsOpen
-    onChevronClicked: cc.outputsOpen = !cc.outputsOpen
+    title: "Levels"
+    visible: !!(cc.sink && cc.sink.audio) || cc.brightnessAvailable
 
-    CcSlider {
-      icon: cc.muted || cc.volume <= 0 ? "󰖁" : cc.volume < 0.34 ? "󰕿" : cc.volume < 0.67 ? "󰖀" : "󰕾"
-      valueText: Math.round((cc.muted ? 0 : cc.volume) * 100) + "%"
-      value: cc.muted ? 0 : cc.volume
-      onMoved: function(v) {
-        cc.sink.audio.volume = v
-        if (cc.sink.audio.muted && v > 0) cc.sink.audio.muted = false
+    RowLayout {
+      Layout.fillWidth: true
+      Layout.topMargin: 2
+      spacing: 10
+
+      CcVertical {
+        icon: cc.muted || cc.volume <= 0 ? "󰖁" : cc.volume < 0.34 ? "󰕿" : cc.volume < 0.67 ? "󰖀" : "󰕾"
+        valueText: Math.round((cc.muted ? 0 : cc.volume) * 100) + "%"
+        value: cc.muted ? 0 : cc.volume
+        onMoved: function(v) {
+          if (!cc.sink || !cc.sink.audio) return
+          cc.sink.audio.volume = v
+          if (cc.sink.audio.muted && v > 0) cc.sink.audio.muted = false
+        }
+      }
+
+      CcVertical {
+        visible: cc.brightnessAvailable
+        icon: cc.brightness <= 25 ? "󰃞" : cc.brightness <= 60 ? "󰃟" : "󰃠"
+        valueText: cc.brightness + "%"
+        value: cc.brightness / 100
+        onMoved: function(v) {
+          cc.brightness = Math.round(v * 100)
+          brightnessDebounce.restart()
+        }
+      }
+
+      ColumnLayout {
+        Layout.fillWidth: true
+        Layout.alignment: Qt.AlignVCenter
+        spacing: 8
+
+        // Microphone: muting is the control that actually gets used.
+        Rectangle {
+          Layout.fillWidth: true
+          Layout.preferredHeight: 42
+          radius: 14
+          color: cc.sourceMuted ? cc.host.withAlpha(cc.host.colorUrgent, 0.18) : cc.well
+          border.width: 1
+          border.color: cc.border
+          opacity: cc.sourcePresent ? 1 : 0.5
+
+          RowLayout {
+            anchors.fill: parent
+            anchors.leftMargin: 12
+            anchors.rightMargin: 12
+            spacing: 8
+            Text {
+              text: cc.sourceMuted ? "󰍭" : "󰍬"
+              color: cc.sourceMuted ? cc.host.colorUrgent : cc.text
+              font.family: cc.iconFont
+              font.pixelSize: 16
+            }
+            Text {
+              Layout.fillWidth: true
+              text: "Microphone"
+              elide: Text.ElideRight
+              color: cc.text
+              font.family: "Adwaita Sans"
+              font.pixelSize: 12
+            }
+            Text {
+              text: cc.sourceMuted ? "Muted" : "On"
+              color: cc.sourceMuted ? cc.host.colorUrgent : cc.textMuted
+              font.family: "Adwaita Sans"
+              font.pixelSize: 11
+            }
+          }
+          MouseArea {
+            anchors.fill: parent
+            cursorShape: Qt.PointingHandCursor
+            enabled: cc.sourcePresent
+            onClicked: if (cc.source && cc.source.audio) cc.source.audio.muted = !cc.source.audio.muted
+          }
+        }
+
+        // Output device, and the picker when there is more than one.
+        Rectangle {
+          Layout.fillWidth: true
+          Layout.fillHeight: true
+          radius: 14
+          color: cc.outputsOpen ? cc.host.withAlpha(cc.text, 0.14) : cc.well
+          border.width: 1
+          border.color: cc.border
+
+          RowLayout {
+            anchors.fill: parent
+            anchors.leftMargin: 12
+            anchors.rightMargin: 12
+            spacing: 6
+            Text {
+              Layout.fillWidth: true
+              text: cc.sink ? String(cc.sink.description || cc.sink.nickname || cc.sink.name || "") : "No output"
+              textFormat: Text.PlainText
+              elide: Text.ElideRight
+              color: cc.text
+              font.family: "Adwaita Sans"
+              font.pixelSize: 11
+            }
+            Text {
+              visible: cc.outputs.length > 1
+              text: "󰅂"
+              rotation: cc.outputsOpen ? 90 : 0
+              color: cc.textMuted
+              font.family: cc.iconFont
+              font.pixelSize: 13
+              Behavior on rotation { NumberAnimation { duration: cc.animDuration; easing.type: Easing.OutCubic } }
+            }
+          }
+          MouseArea {
+            anchors.fill: parent
+            enabled: cc.outputs.length > 1
+            cursorShape: enabled ? Qt.PointingHandCursor : Qt.ArrowCursor
+            onClicked: cc.outputsOpen = !cc.outputsOpen
+          }
+        }
       }
     }
-    Text {
-      Layout.fillWidth: true
-      Layout.leftMargin: 8
-      Layout.rightMargin: 8
-      Layout.topMargin: 2
-      visible: text !== ""
-      text: cc.sink ? String(cc.sink.description || cc.sink.nickname || cc.sink.name || "") : ""
-      textFormat: Text.PlainText
-      elide: Text.ElideRight
-      color: cc.textMuted
-      font.family: "Adwaita Sans"
-      font.pixelSize: 11
-    }
-    // Output picker, revealed by the › button.
+
+    // Output picker, revealed by the output row.
     Repeater {
       model: cc.outputsOpen ? cc.outputs : []
       delegate: Rectangle {
@@ -521,8 +788,8 @@ ColumnLayout {
         required property var modelData
         readonly property bool isDefault: modelData === cc.sink
         Layout.fillWidth: true
-        Layout.preferredHeight: 34
-        radius: 12
+        Layout.preferredHeight: 32
+        radius: 11
         color: outputMouse.containsMouse ? cc.well : "transparent"
         Text {
           anchors.left: parent.left
@@ -535,7 +802,7 @@ ColumnLayout {
           elide: Text.ElideRight
           color: outputRow.isDefault ? cc.text : cc.textMuted
           font.family: "Adwaita Sans"
-          font.pixelSize: 12
+          font.pixelSize: 11
         }
         Text {
           id: outputCheck
@@ -559,20 +826,74 @@ ColumnLayout {
     }
   }
 
+  // The pieces of the old status bar that still earn their place: what the
+  // keyboard is set to, what is currently running, and the tray.
   CcSection {
-    title: "Display"
-    visible: cc.brightnessAvailable
-    CcSlider {
-      icon: "󰃠"
-      valueText: cc.brightness + "%"
-      value: cc.brightness / 100
-      onMoved: function(v) {
-        cc.brightness = Math.round(v * 100)
-        brightnessDebounce.restart()
+    title: "System"
+    visible: cc.hasSystemRow
+
+    RowLayout {
+      Layout.fillWidth: true
+      Layout.topMargin: 2
+      spacing: 6
+
+      CcChip {
+        visible: cc.keyboardLayout !== ""
+        icon: "󰌌"
+        label: cc.keyboardLayout
+      }
+      CcChip {
+        visible: cc.recording
+        icon: "󰻂"
+        label: "REC"
+        urgent: true
+        onClicked: cc.stopRecording()
+      }
+      CcChip {
+        visible: cc.dnd
+        icon: "󰍶"
+        label: "Focus"
+        onClicked: cc.toggleDnd()
+      }
+      CcChip {
+        visible: cc.nightOn
+        icon: "󰖔"
+        label: "Night"
+        onClicked: cc.toggleNightlight()
+      }
+      CcChip {
+        visible: cc.stayAwake
+        icon: "󰅶"
+        label: "Awake"
+        onClicked: cc.toggleStayAwake()
+      }
+
+      Item { Layout.fillWidth: true }
+
+      Repeater {
+        model: cc.trayItems
+        delegate: Item {
+          required property var modelData
+          Layout.preferredWidth: 24
+          Layout.preferredHeight: 24
+          Image {
+            anchors.fill: parent
+            anchors.margins: 3
+            source: modelData.icon
+            sourceSize.width: 32
+            sourceSize.height: 32
+            fillMode: Image.PreserveAspectFit
+            asynchronous: true
+          }
+          MouseArea {
+            anchors.fill: parent
+            cursorShape: Qt.PointingHandCursor
+            onClicked: modelData.activate()
+          }
+        }
       }
     }
   }
-
 
   CcSection {
     title: "Power"
