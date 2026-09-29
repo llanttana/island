@@ -1096,14 +1096,21 @@ ColumnLayout {
                     anchors.fill: parent
                     modelData: trayCell.modelData
                   }
+                  // Left click opens the app, right click its menu - and for
+                  // the handful of items that declare themselves menu-only
+                  // (Steam does), left click opens the menu too, because that is
+                  // the only action such an item offers.
                   MouseArea {
                     anchors.fill: parent
                     cursorShape: Qt.PointingHandCursor
-                    acceptedButtons: Qt.LeftButton | Qt.RightButton
+                    acceptedButtons: Qt.LeftButton | Qt.RightButton | Qt.MiddleButton
                     onClicked: function(mouse) {
                       if (mouse.button === Qt.RightButton) cc.openTrayMenu(trayCell.modelData)
+                      else if (mouse.button === Qt.MiddleButton) trayCell.modelData.secondaryActivate()
+                      else if (trayCell.modelData.onlyMenu) cc.openTrayMenu(trayCell.modelData)
                       else trayCell.modelData.activate()
                     }
+                    onWheel: function(wheel) { trayCell.modelData.scroll(wheel.angleDelta.y, false) }
                   }
                 }
               }
@@ -1476,18 +1483,6 @@ ColumnLayout {
               }
             }
           }
-        }
-
-        // Omarchy keeps a separate choice per power source; say which one this is.
-        Text {
-          Layout.fillWidth: true
-          Layout.leftMargin: 8
-          Layout.rightMargin: 8
-          Layout.topMargin: 2
-          text: UPower.onBattery ? "Saved for battery" : "Saved while plugged in"
-          color: cc.textMuted
-          font.family: "Adwaita Sans"
-          font.pixelSize: 11
         }
       }
 

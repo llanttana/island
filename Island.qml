@@ -926,8 +926,20 @@ Item {
           function scheduleMorph() {
             island.expanding = island.targetWidth >= island.morphWidth
             if (island.expanding) {
-              Qt.callLater(island.syncMorphTarget)
+              // The change that starts a view change moves the pill at once.
+              // Anything arriving while it is still moving - a network list
+              // streaming results in one row at a time, a scan filling in - is
+              // coalesced instead: re-targeting a running animation on every
+              // row is what made opening Wi-Fi look like a stutter. The pill
+              // then makes one more smooth move to wherever the content
+              // settled.
+              if (!island.moving) {
+                island.moving = true
+                Qt.callLater(island.syncMorphTarget)
+              }
+              morphSettle.restart()
             } else {
+              island.moving = false
               morphDelay.interval = island.collapseDelay
               morphDelay.restart()
             }
@@ -935,6 +947,23 @@ Item {
           onTargetWidthChanged: island.scheduleMorph()
           onTargetHeightChanged: island.scheduleMorph()
           Timer { id: morphDelay; onTriggered: island.syncMorphTarget() }
+
+          // Set while the pill is heading somewhere; cleared once the content
+          // has held still for a moment.
+          property bool moving: false
+          Timer {
+            id: morphSettle
+            interval: 120
+            onTriggered: {
+              island.moving = false
+              if (Math.abs(island.morphTargetWidth - island.targetWidth) > 1.5
+                  || Math.abs(island.morphTargetHeight - island.targetHeight) > 1.5) {
+                island.syncMorphTarget()
+                island.moving = true
+                morphSettle.restart()
+              }
+            }
+          }
 
           property real morphWidth: morphTargetWidth
           property real morphHeight: morphTargetHeight

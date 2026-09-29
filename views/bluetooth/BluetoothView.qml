@@ -153,11 +153,19 @@ ColumnLayout {
   onActiveChanged: {
     if (active) {
       Qt.callLater(function() { bt.forceActiveFocus() })
-      startScan()
+      // Same as Wi-Fi: discovery is what costs the shell frames, so it waits
+      // for the opening animation to finish.
+      scanStart.restart()
     } else {
+      scanStart.stop()
       stopScan()
       clearPending()
     }
+  }
+  Timer {
+    id: scanStart
+    interval: 420
+    onTriggered: bt.startScan()
   }
   Component.onDestruction: if (adapter && adapter.discovering) adapter.discovering = false
 

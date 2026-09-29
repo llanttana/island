@@ -206,12 +206,21 @@ ColumnLayout {
   onActiveChanged: {
     if (active) {
       Qt.callLater(function() { wifi.forceActiveFocus() })
-      if (wifi.device) wifi.device.scannerEnabled = true
+      // NetworkManager's first scan blocks the shell for the better part of a
+      // second, and starting it on the same frame as the opening animation
+      // froze the whole move. Let the pill land first, then scan.
+      scanStart.restart()
     } else {
+      scanStart.stop()
       if (wifi.device) wifi.device.scannerEnabled = false
       clearAction()
       clearPrompts()
     }
+  }
+  Timer {
+    id: scanStart
+    interval: 420
+    onTriggered: if (wifi.device) wifi.device.scannerEnabled = true
   }
   Component.onDestruction: if (device) device.scannerEnabled = false
 
