@@ -925,7 +925,10 @@ Item {
           }
           function scheduleMorph() {
             island.expanding = island.targetWidth >= island.morphWidth
-            if (island.expanding) {
+            // Closing to the rest pill is staged (the outgoing view fades
+            // first). A move between two open views is not: there the pill
+            // should just take its new shape, with the views cross-fading.
+            if (island.expanding || root.view !== "rest") {
               // The change that starts a view change moves the pill at once.
               // Anything arriving while it is still moving - a network list
               // streaming results in one row at a time, a scan filling in - is

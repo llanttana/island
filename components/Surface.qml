@@ -44,7 +44,14 @@ Item {
   visible: active || opacity > 0.01
   enabled: active
   opacity: active && host.surfaceContentReady ? 1 : 0
-  Behavior on opacity { NumberAnimation { duration: (surface.host.surfaceContentReady ? 190 : 110) * surface.host.motionScale; easing.type: Easing.InOutQuad } }
+  // Leaving is quick and arriving is unhurried, so a view change reads as one
+  // page replacing another instead of two layouts showing through each other.
+  Behavior on opacity {
+    NumberAnimation {
+      duration: (surface.active ? (surface.host.surfaceContentReady ? 190 : 110) : 80) * surface.host.motionScale
+      easing.type: Easing.InOutQuad
+    }
+  }
 
   // Lets the island know this view exists (for its open/closed logic).
   Component.onCompleted: host.registerSurface(viewName)

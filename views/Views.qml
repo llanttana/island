@@ -127,7 +127,10 @@ Item {
     id: wifiSurface
     host: views.host
     viewName: "wifi"
-    fixedWidth: 460
+    // Same width as the control center: switching between panel views
+    // then moves the pill in one axis only, instead of sliding the outgoing
+    // view sideways while it fades.
+    fixedWidth: 480
     maxHeight: 720
     WifiView { host: views.host; active: wifiSurface.active; anchors.fill: parent }
   }
@@ -136,7 +139,10 @@ Item {
     id: bluetoothSurface
     host: views.host
     viewName: "bluetooth"
-    fixedWidth: 460
+    // Same width as the control center: switching between panel views
+    // then moves the pill in one axis only, instead of sliding the outgoing
+    // view sideways while it fades.
+    fixedWidth: 480
     maxHeight: 720
     BluetoothView { host: views.host; active: bluetoothSurface.active; anchors.fill: parent }
   }
