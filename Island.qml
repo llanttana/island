@@ -847,21 +847,60 @@ Item {
           // visually finished, re-laying out the island on every one of those
           // frames. This reaches the target exactly, and stops.
           readonly property int morphDuration: Math.round(300 * root.motionScale)
-          // The morph starts one frame after a view change: the incoming view
-          // builds its scene graph and paints on the frame of the change, and
-          // that frame is over budget on its own. Giving it its own frame keeps
-          // the motion itself clean.
+          // Collapsing is a two-stage move: the outgoing view fades first, so
+          // the shell can then shrink on its own. That stage is shorter than the
+          // opening one, because it no longer has to hide the content swap too.
+          readonly property int collapseDuration: Math.round(240 * root.motionScale)
+          readonly property int collapseDelay: Math.round(110 * root.motionScale)
+          // Where the pill is heading, and which way. Opening starts on the next
+          // frame (the incoming view builds and paints on the frame of the
+          // change, and that frame is over budget on its own); closing waits for
+          // the outgoing view to fade, so the content is gone before the pill
+          // starts collapsing instead of being wiped away by the shrinking edge
+          // while it is still fading.
           property real morphTargetWidth: targetWidth
           property real morphTargetHeight: targetHeight
-          onTargetWidthChanged: Qt.callLater(function() { island.morphTargetWidth = island.targetWidth })
-          onTargetHeightChanged: Qt.callLater(function() { island.morphTargetHeight = island.targetHeight })
+          property bool expanding: true
+
+          // True once the size animations have reached their destination. The
+          // status accessories wait for it, so they fade in against a settled
+          // pill rather than flying in from the edges of a collapsing one.
+          readonly property bool settled: Math.abs(morphWidth - targetWidth) < 1.5
+            && Math.abs(morphHeight - targetHeight) < 1.5
+          readonly property bool accessoriesVisible: root.accessoriesShown && settled
+
+          function syncMorphTarget() {
+            island.morphTargetWidth = island.targetWidth
+            island.morphTargetHeight = island.targetHeight
+          }
+          function scheduleMorph() {
+            island.expanding = island.targetWidth >= island.morphWidth
+            if (island.expanding) {
+              Qt.callLater(island.syncMorphTarget)
+            } else {
+              morphDelay.interval = island.collapseDelay
+              morphDelay.restart()
+            }
+          }
+          onTargetWidthChanged: island.scheduleMorph()
+          onTargetHeightChanged: island.scheduleMorph()
+          Timer { id: morphDelay; onTriggered: island.syncMorphTarget() }
+
           property real morphWidth: morphTargetWidth
           property real morphHeight: morphTargetHeight
           Behavior on morphWidth {
-            NumberAnimation { duration: island.morphDuration; easing.type: Easing.OutQuint }
+            NumberAnimation {
+              duration: island.expanding ? island.morphDuration : island.collapseDuration
+              // OutQuint snaps and settles, which reads as a twitch on the way
+              // down; the collapse gets a gentler curve.
+              easing.type: island.expanding ? Easing.OutQuint : Easing.OutCubic
+            }
           }
           Behavior on morphHeight {
-            NumberAnimation { duration: island.morphDuration; easing.type: Easing.OutQuint }
+            NumberAnimation {
+              duration: island.expanding ? island.morphDuration : island.collapseDuration
+              easing.type: island.expanding ? Easing.OutQuint : Easing.OutCubic
+            }
           }
           width: Math.max(40, Math.round(morphWidth))
           height: Math.max(28, Math.round(morphHeight))
@@ -893,15 +932,28 @@ Item {
 
           IslandLabel { host: root; anchors.centerIn: parent }
 
+          // The view tree is sized to the *surface* it belongs to and not to the
+          // island's animating (or destination) size. Two reasons: the tree then
+          // lays out once per view change instead of on every frame of the
+          // morph, and during a close it keeps the content still while it fades
+          // -- deriving the position from the destination width made the whole
+          // panel jump sideways by ~176px as the island closed.
+          readonly property Item contentSurface: views.surfaceFor(root.view)
+          property real lastContentWidth: 540
+          property real lastContentHeight: 620
+          onContentSurfaceChanged: {
+            if (!contentSurface) return
+            island.lastContentWidth = contentSurface.islandWidth
+            island.lastContentHeight = contentSurface.islandHeight
+          }
+          readonly property real contentWidth: contentSurface ? contentSurface.islandWidth : lastContentWidth
+          readonly property real contentHeight: contentSurface ? contentSurface.islandHeight : lastContentHeight
+
           Views {
             id: views
             host: root
-            // Sized to the island's destination, not to its animating size: the
-            // view tree then lays out once per view change instead of on every
-            // frame of the morph. The island clips it while it is still growing
-            // (the content is hidden until the morph is nearly done anyway).
-            width: island.targetWidth
-            height: island.targetHeight
+            width: island.contentWidth
+            height: island.contentHeight
             x: Math.round((island.width - width) / 2)
             y: 0
           }
@@ -912,7 +964,7 @@ Item {
             anchors.left: parent.left
             anchors.leftMargin: 12
             anchors.verticalCenter: parent.verticalCenter
-            opacity: root.accessoriesShown ? 1 : 0
+            opacity: island.accessoriesVisible ? 1 : 0
             visible: opacity > 0.01
             Behavior on opacity { NumberAnimation { duration: 150 * root.motionScale; easing.type: Easing.InOutQuad } }
           }
@@ -923,7 +975,7 @@ Item {
             anchors.right: parent.right
             anchors.rightMargin: 12
             anchors.verticalCenter: parent.verticalCenter
-            opacity: root.accessoriesShown && root.batteryPresent ? 1 : 0
+            opacity: island.accessoriesVisible && root.batteryPresent ? 1 : 0
             visible: opacity > 0.01
             Behavior on opacity { NumberAnimation { duration: 150 * root.motionScale; easing.type: Easing.InOutQuad } }
           }
