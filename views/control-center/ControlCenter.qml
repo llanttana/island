@@ -244,6 +244,8 @@ ColumnLayout {
   function openTrayMenu(item) {
     if (!item) return
     if (!item.menu) { item.activate(); return }
+    // Right clicking the same icon again closes it, like every other menu.
+    if (cc.trayMenuItem === item) { cc.closeTrayMenu(); return }
     cc.trayStack = []
     cc.trayMenuItem = item
     trayMenu.menu = item.menu
@@ -421,7 +423,13 @@ ColumnLayout {
   property bool brightnessAvailable: false
   property int brightness: 0
   onActiveChanged: {
-    if (!active) { outputsOpen = false; inputsOpen = false; return }
+    if (!active) {
+      outputsOpen = false
+      inputsOpen = false
+      // Leaving the panel must not leave a tray menu behind for next time.
+      cc.closeTrayMenu()
+      return
+    }
     Qt.callLater(function() { cc.forceActiveFocus() })
     if (!brightnessRead.running) brightnessRead.running = true
     if (!gameModeRead.running) gameModeRead.running = true
@@ -461,7 +469,12 @@ ColumnLayout {
   spacing: 8
 
   // Esc closes the control center.
-  Keys.onEscapePressed: cc.host.view = "rest"
+  Keys.onEscapePressed: {
+    if (cc.trayMenuItem !== null) cc.closeTrayMenu()
+    else cc.host.view = "rest"
+  }
+
+
 
 
 
@@ -598,7 +611,7 @@ ColumnLayout {
     readonly property real fraction: Math.max(0, Math.min(1, v.value))
     readonly property real fillHeight: v.height * v.fraction
 
-    Layout.preferredWidth: 56
+    Layout.preferredWidth: 52
     Layout.preferredHeight: 118
     radius: 20
     color: cc.well
@@ -719,6 +732,15 @@ ColumnLayout {
     color: cc.card
     border.width: 1
     border.color: cc.border
+
+    // Tapping the card's own background puts an open tray menu away. Declared
+    // first, so every control in the card is on top of it and keeps its own
+    // clicks; it only listens while a menu is actually open.
+    MouseArea {
+      anchors.fill: parent
+      enabled: cc.trayMenuItem !== null
+      onClicked: cc.closeTrayMenu()
+    }
 
     Text {
       anchors.left: parent.left
@@ -855,7 +877,7 @@ ColumnLayout {
         RowLayout {
           Layout.fillWidth: true
           Layout.topMargin: 2
-          spacing: 10
+          spacing: 8
 
           CcVertical {
             icon: cc.muted || cc.volume <= 0 ? "󰖁" : cc.volume < 0.34 ? "󰕿" : cc.volume < 0.67 ? "󰖀" : "󰕾"
@@ -865,6 +887,20 @@ ColumnLayout {
               if (!cc.sink || !cc.sink.audio) return
               cc.sink.audio.volume = v
               if (cc.sink.audio.muted && v > 0) cc.sink.audio.muted = false
+            }
+          }
+
+          // The microphone gets its own slider rather than a wheel-only row: a
+          // touchpad has no wheel, so the level has to be draggable.
+          CcVertical {
+            visible: cc.sourcePresent
+            icon: cc.sourceMuted ? "󰍭" : "󰍬"
+            valueText: cc.sourceMuted ? "Mute" : Math.round(cc.sourceVolume * 100) + "%"
+            value: cc.sourceMuted ? 0 : cc.sourceVolume
+            onMoved: function(v) {
+              if (!cc.sourcePresent) return
+              cc.source.audio.volume = v
+              if (cc.source.audio.muted && v > 0) cc.source.audio.muted = false
             }
           }
 
@@ -1234,8 +1270,46 @@ ColumnLayout {
             width: trayMenuScroll.width
             spacing: 0
 
-            // A tray item's own menu, rendered in place. Right click opens it; entries
-            // with children drill in and the first row walks back out.
+            // A tray item's own menu, rendered in place. Right click opens it
+            // (and closes it again), entries with children drill in, and the
+            // first row walks back out. A menu you can only leave by accident
+            // is a trap, so there is an explicit close row too.
+            Rectangle {
+              visible: cc.trayMenuItem !== null
+              Layout.fillWidth: true
+              Layout.topMargin: 6
+              Layout.preferredHeight: 30
+              radius: 10
+              color: closeMouse.containsMouse ? cc.well : "transparent"
+              Row {
+                anchors.left: parent.left
+                anchors.leftMargin: 10
+                anchors.verticalCenter: parent.verticalCenter
+                spacing: 6
+                Text {
+                  anchors.verticalCenter: parent.verticalCenter
+                  text: "󰅖"
+                  color: cc.textMuted
+                  font.family: cc.iconFont
+                  font.pixelSize: 13
+                }
+                Text {
+                  anchors.verticalCenter: parent.verticalCenter
+                  text: "Close menu"
+                  color: cc.text
+                  font.family: "Adwaita Sans"
+                  font.pixelSize: 12
+                }
+              }
+              MouseArea {
+                id: closeMouse
+                anchors.fill: parent
+                hoverEnabled: true
+                cursorShape: Qt.PointingHandCursor
+                onClicked: cc.closeTrayMenu()
+              }
+            }
+
             Rectangle {
               visible: cc.trayMenuItem !== null && cc.trayStack.length > 0
               Layout.fillWidth: true
