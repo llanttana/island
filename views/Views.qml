@@ -33,7 +33,7 @@ Item {
     id: controlsSurface
     host: views.host
     viewName: "controls"
-    fixedWidth: 540
+    fixedWidth: 480
     maxHeight: 780
     ControlCenter { host: views.host; active: controlsSurface.active; anchors.fill: parent }
   }

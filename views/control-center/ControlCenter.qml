@@ -171,7 +171,7 @@ ColumnLayout {
     }
   }
 
-  spacing: 10
+  spacing: 8
 
   // Esc closes the control center.
   Keys.onEscapePressed: cc.host.view = "rest"
@@ -192,8 +192,8 @@ ColumnLayout {
 
     Layout.fillWidth: true
     Layout.preferredWidth: 1
-    Layout.preferredHeight: 62
-    radius: 31
+    Layout.preferredHeight: 52
+    radius: 26
     color: cc.tile
     border.width: 1
     border.color: cc.border
@@ -204,9 +204,9 @@ ColumnLayout {
     Rectangle {
       id: badge
       anchors.left: parent.left
-      anchors.leftMargin: 10
+      anchors.leftMargin: 8
       anchors.verticalCenter: parent.verticalCenter
-      width: 42; height: 42; radius: 21
+      width: 36; height: 36; radius: 18
       color: t.checked ? cc.accent : cc.host.withAlpha(cc.text, 0.1)
       Behavior on color { ColorAnimation { duration: cc.animDuration; easing.type: Easing.OutCubic } }
       Text {
@@ -214,12 +214,12 @@ ColumnLayout {
         text: t.icon
         color: t.checked ? cc.accentInk : cc.text
         font.family: cc.iconFont
-        font.pixelSize: 19
+        font.pixelSize: 17
       }
     }
     Column {
       anchors.left: badge.right
-      anchors.leftMargin: 11
+      anchors.leftMargin: 9
       anchors.right: parent.right
       anchors.rightMargin: t.chevron ? 28 : 14
       anchors.verticalCenter: parent.verticalCenter
@@ -230,7 +230,7 @@ ColumnLayout {
         elide: Text.ElideRight
         color: cc.text
         font.family: "Adwaita Sans"
-        font.pixelSize: 14
+        font.pixelSize: 13
         font.weight: Font.DemiBold
         font.letterSpacing: -0.2
       }
@@ -242,7 +242,7 @@ ColumnLayout {
         elide: Text.ElideRight
         color: t.checked ? cc.accent : cc.textMuted
         font.family: "Adwaita Sans"
-        font.pixelSize: 12
+        font.pixelSize: 11
       }
     }
     Text {
@@ -253,7 +253,7 @@ ColumnLayout {
       text: "󰅂"
       color: cc.textMuted
       font.family: cc.iconFont
-      font.pixelSize: 15
+      font.pixelSize: 14
     }
     MouseArea {
       id: tileMouse
@@ -271,9 +271,9 @@ ColumnLayout {
     property bool checked: false
     signal clicked()
 
-    Layout.preferredWidth: 62
-    Layout.preferredHeight: 62
-    radius: 31
+    Layout.preferredWidth: 52
+    Layout.preferredHeight: 52
+    radius: 26
     color: checked ? cc.accent : cc.tile
     border.width: checked ? 0 : 1
     border.color: cc.border
@@ -286,7 +286,7 @@ ColumnLayout {
       text: r.icon
       color: r.checked ? cc.accentInk : cc.text
       font.family: cc.iconFont
-      font.pixelSize: 20
+      font.pixelSize: 18
     }
     MouseArea {
       id: roundMouse
@@ -308,8 +308,8 @@ ColumnLayout {
     readonly property real fillWidth: Math.max(s.height, s.width * s.fraction)
 
     Layout.fillWidth: true
-    Layout.preferredHeight: 46
-    radius: 23
+    Layout.preferredHeight: 40
+    radius: 20
     color: cc.well
     clip: true
 
@@ -329,9 +329,9 @@ ColumnLayout {
       anchors.verticalCenter: parent.verticalCenter
       text: s.icon
       // Over the accent fill or over the track, whichever is behind it.
-      color: s.fillWidth > 46 ? cc.accentInk : cc.text
+      color: s.fillWidth > 40 ? cc.accentInk : cc.text
       font.family: cc.iconFont
-      font.pixelSize: 18
+      font.pixelSize: 16
     }
     Text {
       visible: s.valueText !== ""
@@ -339,9 +339,9 @@ ColumnLayout {
       anchors.rightMargin: 16
       anchors.verticalCenter: parent.verticalCenter
       text: s.valueText
-      color: s.fillWidth > s.width - 54 ? cc.accentInk : cc.textMuted
+      color: s.fillWidth > s.width - 50 ? cc.accentInk : cc.textMuted
       font.family: "Adwaita Sans"
-      font.pixelSize: 12
+      font.pixelSize: 11
       font.weight: Font.DemiBold
       font.features: { "tnum": 1 }
     }
@@ -366,8 +366,8 @@ ColumnLayout {
     default property alias content: body.data
 
     Layout.fillWidth: true
-    Layout.preferredHeight: body.implicitHeight + 52
-    radius: 26
+    Layout.preferredHeight: body.implicitHeight + 44
+    radius: 22
     color: cc.card
     border.width: 1
     border.color: cc.border
@@ -376,11 +376,11 @@ ColumnLayout {
       anchors.left: parent.left
       anchors.leftMargin: 16
       anchors.top: parent.top
-      anchors.topMargin: 13
+      anchors.topMargin: 11
       text: sec.title
       color: cc.text
       font.family: "Adwaita Sans"
-      font.pixelSize: 14
+      font.pixelSize: 13
       font.weight: Font.DemiBold
       font.letterSpacing: -0.2
     }
@@ -389,8 +389,8 @@ ColumnLayout {
       anchors.right: parent.right
       anchors.rightMargin: 10
       anchors.top: parent.top
-      anchors.topMargin: 8
-      width: 26; height: 26; radius: 13
+      anchors.topMargin: 7
+      width: 24; height: 24; radius: 12
       color: cc.well
       Text {
         anchors.centerIn: parent
@@ -398,7 +398,7 @@ ColumnLayout {
         rotation: sec.chevronOpen ? 90 : 0
         color: cc.textMuted
         font.family: cc.iconFont
-        font.pixelSize: 15
+        font.pixelSize: 14
         Behavior on rotation { NumberAnimation { duration: cc.animDuration; easing.type: Easing.OutCubic } }
       }
       MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onClicked: sec.chevronClicked() }
@@ -408,7 +408,7 @@ ColumnLayout {
       anchors.left: parent.left
       anchors.right: parent.right
       anchors.top: parent.top
-      anchors.topMargin: 42
+      anchors.topMargin: 36
       anchors.leftMargin: 10
       anchors.rightMargin: 10
       spacing: 6
@@ -590,8 +590,8 @@ ColumnLayout {
           readonly property bool selected: modelData === cc.activeProfile
 
           Layout.fillWidth: true
-          Layout.preferredHeight: 44
-          radius: 15
+          Layout.preferredHeight: 38
+          radius: 13
           color: profile.selected ? cc.accent : cc.well
           scale: profileMouse.pressed ? 0.97 : 1
           Behavior on color { ColorAnimation { duration: cc.animDuration; easing.type: Easing.OutCubic } }
@@ -605,7 +605,7 @@ ColumnLayout {
               text: cc.profileIcons[profile.modelData] || ""
               color: profile.selected ? cc.accentInk : cc.text
               font.family: cc.iconFont
-              font.pixelSize: 15
+              font.pixelSize: 14
             }
             Text {
               anchors.verticalCenter: parent.verticalCenter
@@ -644,8 +644,8 @@ ColumnLayout {
 
   Rectangle {
     Layout.fillWidth: true
-    Layout.preferredHeight: notificationBody.implicitHeight + 20
-    radius: 26
+    Layout.preferredHeight: notificationBody.implicitHeight + 18
+    radius: 22
     color: cc.card
     border.width: 1
     border.color: cc.border
@@ -667,7 +667,7 @@ ColumnLayout {
           text: "Notifications"
           color: cc.text
           font.family: "Adwaita Sans"
-          font.pixelSize: 14
+          font.pixelSize: 13
           font.weight: Font.DemiBold
           font.letterSpacing: -0.2
         }
@@ -676,7 +676,7 @@ ColumnLayout {
         Rectangle {
           visible: cc.host.history.length > 0
           implicitWidth: clearLabel.implicitWidth + 20
-          implicitHeight: 24
+          implicitHeight: 22
           radius: 12
           color: clearMouse.containsMouse ? cc.host.withAlpha(cc.text, 0.16) : cc.well
           Behavior on color { ColorAnimation { duration: cc.animDuration } }
@@ -686,7 +686,7 @@ ColumnLayout {
             text: "Clear"
             color: cc.text
             font.family: "Adwaita Sans"
-            font.pixelSize: 12
+            font.pixelSize: 11
             font.weight: Font.Medium
           }
           MouseArea {
@@ -714,7 +714,7 @@ ColumnLayout {
       ListView {
         visible: cc.host.history.length > 0
         Layout.fillWidth: true
-        Layout.preferredHeight: Math.min(contentHeight, 240)
+        Layout.preferredHeight: Math.min(contentHeight, 190)
         clip: true
         spacing: 8
         boundsBehavior: Flickable.StopAtBounds
@@ -724,7 +724,7 @@ ColumnLayout {
           required property var modelData
           readonly property string appName: String(modelData.app || modelData.summary || "?")
           width: ListView.view.width
-          height: noteBody.implicitHeight + 24
+          height: noteBody.implicitHeight + 20
           radius: 20
           color: noteMouse.containsMouse ? cc.host.withAlpha(cc.text, 0.12) : cc.card
 
@@ -746,10 +746,10 @@ ColumnLayout {
             readonly property string source: cc.host.notificationIconSource(note.modelData, imageFailed)
             readonly property var brand: cc.host.notificationBrand(note.modelData)
             anchors.left: parent.left
-            anchors.leftMargin: 12
+            anchors.leftMargin: 10
             anchors.top: parent.top
-            anchors.topMargin: 12
-            width: 34; height: 34; radius: 9
+            anchors.topMargin: 10
+            width: 30; height: 30; radius: 8
             color: brand ? brand.tile
               : noteIcon.status === Image.Ready ? "transparent" : cc.host.withAlpha(cc.accent, 0.18)
             Image {
@@ -778,7 +778,7 @@ ColumnLayout {
           Column {
             id: noteBody
             anchors.left: avatar.right
-            anchors.leftMargin: 12
+            anchors.leftMargin: 10
             anchors.right: parent.right
             anchors.rightMargin: 32
             anchors.top: parent.top
@@ -799,7 +799,7 @@ ColumnLayout {
                 elide: Text.ElideRight
                 color: cc.text
                 font.family: "Adwaita Sans"
-                font.pixelSize: 14
+                font.pixelSize: 13
                 font.weight: Font.DemiBold
                 font.letterSpacing: -0.2
               }
@@ -811,7 +811,7 @@ ColumnLayout {
                 textFormat: Text.PlainText
                 color: cc.textMuted
                 font.family: "Adwaita Sans"
-                font.pixelSize: 12
+                font.pixelSize: 11
               }
             }
             Text {
@@ -829,7 +829,7 @@ ColumnLayout {
               elide: Text.ElideRight
               color: cc.host.withAlpha(cc.text, 0.72)
               font.family: "Adwaita Sans"
-              font.pixelSize: 13
+              font.pixelSize: 12
             }
           }
           Text {
