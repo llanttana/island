@@ -1,4 +1,5 @@
 import QtQuick
+import QtQuick.Effects
 import QtQuick.Layouts
 import Quickshell
 import Quickshell.Bluetooth
@@ -122,7 +123,6 @@ ColumnLayout {
 
   readonly property bool hasIndicators: cc.recording || cc.dnd || cc.nightOn || cc.stayAwake
     || cc.keyboardLayout !== ""
-  readonly property bool hasSystemRow: hasIndicators || trayItems.length > 0 || trayMenuItem !== null
 
   // The rest of what the old bar carried. Everything here is a plain local
   // command, refreshed when the panel opens (and, for the two that change
@@ -490,7 +490,11 @@ ColumnLayout {
     property bool checked: false
     property bool available: true
     property bool chevron: false
+    // When the tile is a radio (Wi-Fi, Bluetooth), the circle switches it and
+    // the rest of the pill opens the list.
+    property bool badgeClickable: false
     signal clicked()
+    signal badgeClicked()
 
     Layout.fillWidth: true
     Layout.preferredWidth: 1
@@ -563,6 +567,13 @@ ColumnLayout {
       enabled: t.available
       cursorShape: Qt.PointingHandCursor
       onClicked: t.clicked()
+    }
+
+    MouseArea {
+      anchors.fill: badge
+      enabled: t.available && t.badgeClickable
+      cursorShape: Qt.PointingHandCursor
+      onClicked: t.badgeClicked()
     }
   }
 
@@ -663,6 +674,35 @@ ColumnLayout {
   // Small capsule for the status row. It is a control, not just a readout:
   // toggles stay visible in both states so switching one off does not make it
   // disappear (and with it the only way to switch it back on).
+  // Tray artwork is whatever the app ships. Symbolic icons are meant to be
+  // recoloured to the host's foreground (otherwise they render in their own
+  // near-white or near-black fill), and the rest get a brightness lift so dark
+  // artwork still reads on the card instead of looking switched off.
+  component CcTrayIcon: Item {
+    id: trayIconRoot
+    required property var modelData
+    readonly property bool symbolic: String(modelData.icon || "").split("?")[0].slice(-9) === "-symbolic"
+
+    Image {
+      id: trayIconImage
+      anchors.fill: parent
+      fillMode: Image.PreserveAspectFit
+      sourceSize.width: Math.round(Math.min(width, height) * Screen.devicePixelRatio)
+      sourceSize.height: Math.round(Math.min(width, height) * Screen.devicePixelRatio)
+      source: String(trayIconRoot.modelData.icon || "")
+      visible: false
+      layer.enabled: true
+    }
+    MultiEffect {
+      anchors.fill: trayIconImage
+      source: trayIconImage
+      colorization: trayIconRoot.symbolic ? 1.0 : 0.0
+      colorizationColor: cc.text
+      brightness: trayIconRoot.symbolic ? 0.0 : 0.3
+      saturation: trayIconRoot.symbolic ? -1.0 : 0.1
+    }
+  }
+
   component CcChip: Rectangle {
     id: chip
     property string icon: ""
@@ -817,6 +857,8 @@ ColumnLayout {
           available: wifi
           chevron: wifi
           opacity: 1
+          badgeClickable: wifi
+          onBadgeClicked: Networking.wifiEnabled = !Networking.wifiEnabled
           onClicked: cc.host.view = "wifi"
         }
         CcTile {
@@ -847,6 +889,8 @@ ColumnLayout {
           checked: !!(cc.btAdapter && cc.btAdapter.enabled)
           available: !!cc.btAdapter
           chevron: !!cc.btAdapter
+          badgeClickable: !!cc.btAdapter
+          onBadgeClicked: if (cc.btAdapter) cc.btAdapter.enabled = !cc.btAdapter.enabled
           onClicked: cc.host.view = "bluetooth"
         }
         CcTile {
@@ -870,14 +914,16 @@ ColumnLayout {
 
       // ---------- Sound / Display ----------
 
+      // Sliders on the left, everything you reach for on the right: the device
+      // pickers and the tray. The separate System card is gone - it was a big
+      // rectangle that was mostly empty space, and its buttons fit here.
       CcSection {
-        title: "Levels"
-        visible: !!(cc.sink && cc.sink.audio) || cc.brightnessAvailable
+        title: "Controls"
 
         RowLayout {
           Layout.fillWidth: true
           Layout.topMargin: 2
-          spacing: 8
+          spacing: 10
 
           CcVertical {
             icon: cc.muted || cc.volume <= 0 ? "󰖁" : cc.volume < 0.34 ? "󰕿" : cc.volume < 0.67 ? "󰖀" : "󰕾"
@@ -890,8 +936,8 @@ ColumnLayout {
             }
           }
 
-          // The microphone gets its own slider rather than a wheel-only row: a
-          // touchpad has no wheel, so the level has to be draggable.
+          // The microphone has its own slider: it is the only way to set the
+          // level from a touchpad, which has no wheel to turn.
           CcVertical {
             visible: cc.sourcePresent
             icon: cc.sourceMuted ? "󰍭" : "󰍬"
@@ -920,247 +966,159 @@ ColumnLayout {
             Layout.alignment: Qt.AlignVCenter
             spacing: 8
 
-            // Microphone: click to mute, wheel for level, chevron for the device.
-        // The fill behind it is the live level, so it is obvious when
-        // something is actually listening.
-        Rectangle {
-          id: micRow
-          Layout.fillWidth: true
-          Layout.preferredHeight: 42
-          radius: 14
-          color: cc.sourceMuted ? cc.host.withAlpha(cc.host.colorUrgent, 0.18) : cc.well
-          border.width: 1
-          border.color: cc.border
-          opacity: cc.sourcePresent ? 1 : 0.5
-
-          // Inset by a pixel and rounded to match, so the level follows the
-          // capsule instead of poking out of its corners.
-          Rectangle {
-            anchors.left: parent.left
-            anchors.top: parent.top
-            anchors.bottom: parent.bottom
-            anchors.margins: 1
-            width: Math.max(0, (parent.width - 2) * cc.micLevel)
-            radius: 13
-            visible: !cc.sourceMuted && cc.micLevel > 0.01
-            color: cc.host.withAlpha(cc.accent, 0.3)
-            Behavior on width { NumberAnimation { duration: 90; easing.type: Easing.OutQuad } }
-          }
-
-          RowLayout {
-            anchors.fill: parent
-            anchors.leftMargin: 12
-            anchors.rightMargin: 10
-            spacing: 8
-            Text {
-              text: cc.sourceMuted ? "󰍭" : "󰍬"
-              color: cc.sourceMuted ? cc.host.colorUrgent : cc.text
-              font.family: cc.iconFont
-              font.pixelSize: 16
-            }
-            Text {
+            // Devices as compact pills. The long names live in the list where
+            // they are actually being compared, not on the card.
+            RowLayout {
               Layout.fillWidth: true
-              text: cc.sourcePresent
-                ? String(cc.source.description || cc.source.nickname || cc.source.name || "Microphone")
-                : "Microphone"
-              textFormat: Text.PlainText
-              elide: Text.ElideRight
-              color: cc.text
-              font.family: "Adwaita Sans"
-              font.pixelSize: 12
-            }
-            Text {
-              text: cc.sourceMuted ? "Muted" : Math.round(cc.sourceVolume * 100) + "%"
-              color: cc.sourceMuted ? cc.host.colorUrgent : cc.textMuted
-              font.family: "Adwaita Sans"
-              font.pixelSize: 11
-            }
-            Text {
-              visible: cc.sources.length > 1
-              text: "󰅂"
-              rotation: cc.inputsOpen ? 90 : 0
-              color: cc.textMuted
-              font.family: cc.iconFont
-              font.pixelSize: 13
-              Behavior on rotation { NumberAnimation { duration: cc.animDuration; easing.type: Easing.OutCubic } }
-            }
-          }
-          MouseArea {
-            anchors.fill: parent
-            anchors.rightMargin: 30
-            cursorShape: Qt.PointingHandCursor
-            enabled: cc.sourcePresent
-            onClicked: cc.source.audio.muted = !cc.source.audio.muted
-            onWheel: function(e) {
-              if (!cc.sourcePresent) return
-              var step = e.angleDelta.y > 0 ? 0.05 : -0.05
-              cc.source.audio.volume = Math.max(0, Math.min(1, cc.sourceVolume + step))
-            }
-          }
-          // Separate target for the picker, so muting and switching devices
-          // do not fight over the same click.
-          MouseArea {
-            anchors.right: parent.right
-            anchors.top: parent.top
-            anchors.bottom: parent.bottom
-            width: 30
-            visible: cc.sources.length > 1
-            enabled: cc.sources.length > 1
-            cursorShape: Qt.PointingHandCursor
-            onClicked: cc.inputsOpen = !cc.inputsOpen
-          }
-        }
+              spacing: 8
 
-        // Input picker, revealed by the chevron.
-        Repeater {
-          model: cc.inputsOpen ? cc.sources : []
-          delegate: Rectangle {
-            id: inputRow
-            required property var modelData
-            readonly property bool isDefault: modelData === cc.source
-            Layout.fillWidth: true
-            Layout.preferredHeight: 32
-            radius: 11
-            color: inputMouse.containsMouse ? cc.well : "transparent"
-            Text {
-              anchors.left: parent.left
-              anchors.leftMargin: 10
-              anchors.right: inputCheck.left
-              anchors.rightMargin: 8
-              anchors.verticalCenter: parent.verticalCenter
-              text: String(inputRow.modelData.description || inputRow.modelData.nickname || inputRow.modelData.name || "")
-              textFormat: Text.PlainText
-              elide: Text.ElideRight
-              color: inputRow.isDefault ? cc.text : cc.textMuted
-              font.family: "Adwaita Sans"
-              font.pixelSize: 11
-            }
-            Text {
-              id: inputCheck
-              anchors.right: parent.right
-              anchors.rightMargin: 10
-              anchors.verticalCenter: parent.verticalCenter
-              visible: inputRow.isDefault
-              text: "󰄬"
-              color: cc.accent
-              font.family: cc.iconFont
-              font.pixelSize: 14
-            }
-            MouseArea {
-              id: inputMouse
-              anchors.fill: parent
-              hoverEnabled: true
-              cursorShape: Qt.PointingHandCursor
-              onClicked: {
-                Pipewire.preferredDefaultAudioSource = inputRow.modelData
-                cc.inputsOpen = false
-              }
-            }
-          }
-        }
-
-        // Output device, and the picker when there is more than one.
-            Rectangle {
-              Layout.fillWidth: true
-              Layout.fillHeight: true
-              radius: 14
-              color: cc.outputsOpen ? cc.host.withAlpha(cc.text, 0.14) : cc.well
-              border.width: 1
-              border.color: cc.border
-
-              RowLayout {
-                anchors.fill: parent
-                anchors.leftMargin: 12
-                anchors.rightMargin: 12
-                spacing: 6
-                Text {
-                  Layout.fillWidth: true
-                  text: cc.sink ? String(cc.sink.description || cc.sink.nickname || cc.sink.name || "") : "No output"
-                  textFormat: Text.PlainText
-                  elide: Text.ElideRight
-                  color: cc.text
-                  font.family: "Adwaita Sans"
-                  font.pixelSize: 11
+              Rectangle {
+                Layout.fillWidth: true
+                Layout.preferredHeight: 30
+                radius: 11
+                color: cc.outputsOpen ? cc.host.withAlpha(cc.text, 0.16) : cc.well
+                border.width: 1
+                border.color: cc.border
+                RowLayout {
+                  anchors.fill: parent
+                  anchors.leftMargin: 9
+                  anchors.rightMargin: 8
+                  spacing: 6
+                  Text {
+                    text: cc.muted ? "󰖁" : "󰓃"
+                    color: cc.text
+                    font.family: cc.iconFont
+                    font.pixelSize: 13
+                  }
+                  Text {
+                    Layout.fillWidth: true
+                    text: "Output"
+                    textFormat: Text.PlainText
+                    elide: Text.ElideRight
+                    color: cc.text
+                    font.family: "Adwaita Sans"
+                    font.pixelSize: 11
+                  }
+                  Text {
+                    visible: cc.outputs.length > 1
+                    text: "󰅂"
+                    rotation: cc.outputsOpen ? 90 : 0
+                    color: cc.textMuted
+                    font.family: cc.iconFont
+                    font.pixelSize: 12
+                    Behavior on rotation { NumberAnimation { duration: cc.animDuration; easing.type: Easing.OutCubic } }
+                  }
                 }
-                Text {
-                  visible: cc.outputs.length > 1
-                  text: "󰅂"
-                  rotation: cc.outputsOpen ? 90 : 0
-                  color: cc.textMuted
-                  font.family: cc.iconFont
-                  font.pixelSize: 13
-                  Behavior on rotation { NumberAnimation { duration: cc.animDuration; easing.type: Easing.OutCubic } }
+                MouseArea {
+                  anchors.fill: parent
+                  enabled: cc.outputs.length > 1
+                  cursorShape: enabled ? Qt.PointingHandCursor : Qt.ArrowCursor
+                  onClicked: cc.outputsOpen = !cc.outputsOpen
                 }
               }
-              MouseArea {
-                anchors.fill: parent
-                enabled: cc.outputs.length > 1
-                cursorShape: enabled ? Qt.PointingHandCursor : Qt.ArrowCursor
-                onClicked: cc.outputsOpen = !cc.outputsOpen
+
+              Rectangle {
+                Layout.fillWidth: true
+                Layout.preferredHeight: 30
+                radius: 11
+                color: cc.inputsOpen ? cc.host.withAlpha(cc.text, 0.16) : cc.well
+                border.width: 1
+                border.color: cc.border
+                opacity: cc.sourcePresent ? 1 : 0.5
+                RowLayout {
+                  anchors.fill: parent
+                  anchors.leftMargin: 9
+                  anchors.rightMargin: 8
+                  spacing: 6
+                  Text {
+                    text: cc.sourceMuted ? "󰍭" : "󰍬"
+                    color: cc.sourceMuted ? cc.host.colorUrgent : cc.text
+                    font.family: cc.iconFont
+                    font.pixelSize: 13
+                  }
+                  Text {
+                    Layout.fillWidth: true
+                    text: "Input"
+                    textFormat: Text.PlainText
+                    elide: Text.ElideRight
+                    color: cc.sourceMuted ? cc.host.colorUrgent : cc.text
+                    font.family: "Adwaita Sans"
+                    font.pixelSize: 11
+                  }
+                  Text {
+                    visible: cc.sources.length > 1
+                    text: "󰅂"
+                    rotation: cc.inputsOpen ? 90 : 0
+                    color: cc.textMuted
+                    font.family: cc.iconFont
+                    font.pixelSize: 12
+                    Behavior on rotation { NumberAnimation { duration: cc.animDuration; easing.type: Easing.OutCubic } }
+                  }
+                }
+                MouseArea {
+                  anchors.fill: parent
+                  enabled: cc.sources.length > 1
+                  cursorShape: enabled ? Qt.PointingHandCursor : Qt.ArrowCursor
+                  onClicked: cc.inputsOpen = !cc.inputsOpen
+                }
+                // The glyph is the mute switch, so the pill does both jobs.
+                MouseArea {
+                  anchors.left: parent.left
+                  anchors.top: parent.top
+                  anchors.bottom: parent.bottom
+                  width: 26
+                  enabled: cc.sourcePresent
+                  cursorShape: Qt.PointingHandCursor
+                  onClicked: cc.source.audio.muted = !cc.source.audio.muted
+                }
+              }
+            }
+
+            RowLayout {
+              Layout.fillWidth: true
+              visible: cc.trayItems.length > 0
+              spacing: 6
+              Text {
+                text: "Tray"
+                color: cc.textMuted
+                font.family: "Adwaita Sans"
+                font.pixelSize: 11
+              }
+              Item { Layout.fillWidth: true }
+              Repeater {
+                model: cc.trayItems
+                delegate: Item {
+                  id: trayCell
+                  required property var modelData
+                  Layout.preferredWidth: 24
+                  Layout.preferredHeight: 24
+                  CcTrayIcon {
+                    anchors.fill: parent
+                    modelData: trayCell.modelData
+                  }
+                  MouseArea {
+                    anchors.fill: parent
+                    cursorShape: Qt.PointingHandCursor
+                    acceptedButtons: Qt.LeftButton | Qt.RightButton
+                    onClicked: function(mouse) {
+                      if (mouse.button === Qt.RightButton) cc.openTrayMenu(trayCell.modelData)
+                      else trayCell.modelData.activate()
+                    }
+                  }
+                }
               }
             }
           }
         }
 
-        // Output picker, revealed by the output row.
-        Repeater {
-          model: cc.outputsOpen ? cc.outputs : []
-          delegate: Rectangle {
-            id: outputRow
-            required property var modelData
-            readonly property bool isDefault: modelData === cc.sink
-            Layout.fillWidth: true
-            Layout.preferredHeight: 32
-            radius: 11
-            color: outputMouse.containsMouse ? cc.well : "transparent"
-            Text {
-              anchors.left: parent.left
-              anchors.leftMargin: 10
-              anchors.right: outputCheck.left
-              anchors.rightMargin: 8
-              anchors.verticalCenter: parent.verticalCenter
-              text: String(outputRow.modelData.description || outputRow.modelData.nickname || outputRow.modelData.name || "")
-              textFormat: Text.PlainText
-              elide: Text.ElideRight
-              color: outputRow.isDefault ? cc.text : cc.textMuted
-              font.family: "Adwaita Sans"
-              font.pixelSize: 11
-            }
-            Text {
-              id: outputCheck
-              anchors.right: parent.right
-              anchors.rightMargin: 10
-              anchors.verticalCenter: parent.verticalCenter
-              visible: outputRow.isDefault
-              text: "󰄬"
-              color: cc.accent
-              font.family: cc.iconFont
-              font.pixelSize: 14
-            }
-            MouseArea {
-              id: outputMouse
-              anchors.fill: parent
-              hoverEnabled: true
-              cursorShape: Qt.PointingHandCursor
-              onClicked: Pipewire.preferredDefaultAudioSink = outputRow.modelData
-            }
-          }
-        }
-      }
-
-      // The pieces of the old status bar that still earn their place: what the
-      // keyboard is set to, what is running, what is pending, and the tray (with
-      // its own menu on right click).
-      CcSection {
-        title: "System"
-        visible: cc.hasSystemRow
-
+        // What the old bar used to show at a glance.
         Flow {
           id: chipFlow
           Layout.fillWidth: true
-          Layout.topMargin: 2
+          Layout.topMargin: 10
           Layout.preferredHeight: chipFlow.implicitHeight
           spacing: 6
+          visible: chipFlow.implicitHeight > 0
 
           CcChip {
             visible: cc.keyboardLayout !== ""
@@ -1216,46 +1174,105 @@ ColumnLayout {
           }
         }
 
-        RowLayout {
-          Layout.fillWidth: true
-          Layout.topMargin: cc.trayItems.length > 0 ? 8 : 0
-          visible: cc.trayItems.length > 0
-          spacing: 6
-          Text {
-            text: "Tray"
-            color: cc.textMuted
-            font.family: "Adwaita Sans"
-            font.pixelSize: 11
-          }
-          Item { Layout.fillWidth: true }
-          Repeater {
-            model: cc.trayItems
-            delegate: Item {
-              required property var modelData
-              Layout.preferredWidth: 26
-              Layout.preferredHeight: 26
-              Image {
-                anchors.fill: parent
-                anchors.margins: 3
-                source: modelData.icon
-                sourceSize.width: 32
-                sourceSize.height: 32
-                fillMode: Image.PreserveAspectFit
-                asynchronous: true
-              }
-              MouseArea {
-                anchors.fill: parent
-                cursorShape: Qt.PointingHandCursor
-                acceptedButtons: Qt.LeftButton | Qt.RightButton
-                onClicked: function(mouse) {
-                  if (mouse.button === Qt.RightButton) cc.openTrayMenu(modelData)
-                  else modelData.activate()
-                }
+        // Output picker, revealed by the output pill.
+        Repeater {
+          model: cc.outputsOpen ? cc.outputs : []
+          delegate: Rectangle {
+            id: outputRow
+            required property var modelData
+            readonly property bool isDefault: modelData === cc.sink
+            Layout.fillWidth: true
+            Layout.preferredHeight: 32
+            radius: 11
+            color: outputMouse.containsMouse ? cc.well : "transparent"
+            Text {
+              anchors.left: parent.left
+              anchors.leftMargin: 10
+              anchors.right: outputCheck.left
+              anchors.rightMargin: 8
+              anchors.verticalCenter: parent.verticalCenter
+              text: String(outputRow.modelData.description || outputRow.modelData.nickname || outputRow.modelData.name || "")
+              textFormat: Text.PlainText
+              elide: Text.ElideRight
+              color: outputRow.isDefault ? cc.text : cc.textMuted
+              font.family: "Adwaita Sans"
+              font.pixelSize: 11
+            }
+            Text {
+              id: outputCheck
+              anchors.right: parent.right
+              anchors.rightMargin: 10
+              anchors.verticalCenter: parent.verticalCenter
+              visible: outputRow.isDefault
+              text: "󰄬"
+              color: cc.accent
+              font.family: cc.iconFont
+              font.pixelSize: 14
+            }
+            MouseArea {
+              id: outputMouse
+              anchors.fill: parent
+              hoverEnabled: true
+              cursorShape: Qt.PointingHandCursor
+              onClicked: {
+                Pipewire.preferredDefaultAudioSink = outputRow.modelData
+                cc.outputsOpen = false
               }
             }
           }
         }
 
+        // Input picker, revealed by the microphone pill.
+        Repeater {
+          model: cc.inputsOpen ? cc.sources : []
+          delegate: Rectangle {
+            id: inputRow
+            required property var modelData
+            readonly property bool isDefault: modelData === cc.source
+            Layout.fillWidth: true
+            Layout.preferredHeight: 32
+            radius: 11
+            color: inputMouse.containsMouse ? cc.well : "transparent"
+            Text {
+              anchors.left: parent.left
+              anchors.leftMargin: 10
+              anchors.right: inputCheck.left
+              anchors.rightMargin: 8
+              anchors.verticalCenter: parent.verticalCenter
+              text: String(inputRow.modelData.description || inputRow.modelData.nickname || inputRow.modelData.name || "")
+              textFormat: Text.PlainText
+              elide: Text.ElideRight
+              color: inputRow.isDefault ? cc.text : cc.textMuted
+              font.family: "Adwaita Sans"
+              font.pixelSize: 11
+            }
+            Text {
+              id: inputCheck
+              anchors.right: parent.right
+              anchors.rightMargin: 10
+              anchors.verticalCenter: parent.verticalCenter
+              visible: inputRow.isDefault
+              text: "󰄬"
+              color: cc.accent
+              font.family: cc.iconFont
+              font.pixelSize: 14
+            }
+            MouseArea {
+              id: inputMouse
+              anchors.fill: parent
+              hoverEnabled: true
+              cursorShape: Qt.PointingHandCursor
+              onClicked: {
+                Pipewire.preferredDefaultAudioSource = inputRow.modelData
+                cc.inputsOpen = false
+              }
+            }
+          }
+        }
+
+        // A tray item's own menu, in place. Right click opens it (and closes it
+        // again); entries with children drill in; there is an explicit close row
+        // because a menu you can only leave by accident is a trap.
         Flickable {
           id: trayMenuScroll
           Layout.fillWidth: true
@@ -1270,10 +1287,6 @@ ColumnLayout {
             width: trayMenuScroll.width
             spacing: 0
 
-            // A tray item's own menu, rendered in place. Right click opens it
-            // (and closes it again), entries with children drill in, and the
-            // first row walks back out. A menu you can only leave by accident
-            // is a trap, so there is an explicit close row too.
             Rectangle {
               visible: cc.trayMenuItem !== null
               Layout.fillWidth: true
@@ -1313,7 +1326,6 @@ ColumnLayout {
             Rectangle {
               visible: cc.trayMenuItem !== null && cc.trayStack.length > 0
               Layout.fillWidth: true
-              Layout.topMargin: 6
               Layout.preferredHeight: 30
               radius: 10
               color: backMouse.containsMouse ? cc.well : "transparent"
@@ -1411,7 +1423,6 @@ ColumnLayout {
             }
           }
         }
-
       }
 
       CcSection {
