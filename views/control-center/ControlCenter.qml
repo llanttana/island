@@ -64,6 +64,25 @@ ColumnLayout {
     return nodes.filter(function(n) { return n && n.isSink && !n.isStream && n.audio })
   }
   property bool outputsOpen: false
+  property bool inputsOpen: false
+  readonly property var sources: {
+    var nodes = Pipewire.nodes ? Pipewire.nodes.values : []
+    return nodes.filter(function(n) { return n && n.isSource && !n.isStream && n.audio })
+  }
+  readonly property real sourceVolume: sourcePresent ? Number(source.audio.volume || 0) : 0
+  // Peak arrives as a linear amplitude, but some builds report dBFS; treat a
+  // negative value as dB so the meter works either way.
+  readonly property real sourcePeak: {
+    if (!sourcePresent) return 0
+    var p = Number(source.audio.peak)
+    if (isNaN(p)) return 0
+    if (p < 0) p = Math.pow(10, p / 20)
+    return Math.max(0, Math.min(1, p))
+  }
+  // Meter ballistics: jump to the peak, fall back slowly, so it reads as a
+  // level rather than a flickering bar.
+  property real micLevel: 0
+  onSourcePeakChanged: micLevel = Math.max(sourcePeak, micLevel * 0.7)
 
   // --- System: keyboard layout, recording, stay awake, tray ---
   readonly property var idleService: host.shell ? host.shell.firstPartyServiceFor("omarchy.idle") : null
@@ -402,7 +421,7 @@ ColumnLayout {
   property bool brightnessAvailable: false
   property int brightness: 0
   onActiveChanged: {
-    if (!active) { outputsOpen = false; return }
+    if (!active) { outputsOpen = false; inputsOpen = false; return }
     Qt.callLater(function() { cc.forceActiveFocus() })
     if (!brightnessRead.running) brightnessRead.running = true
     if (!gameModeRead.running) gameModeRead.running = true
@@ -865,51 +884,146 @@ ColumnLayout {
             Layout.alignment: Qt.AlignVCenter
             spacing: 8
 
-            // Microphone: muting is the control that actually gets used.
-            Rectangle {
-              Layout.fillWidth: true
-              Layout.preferredHeight: 42
-              radius: 14
-              color: cc.sourceMuted ? cc.host.withAlpha(cc.host.colorUrgent, 0.18) : cc.well
-              border.width: 1
-              border.color: cc.border
-              opacity: cc.sourcePresent ? 1 : 0.5
+            // Microphone: click to mute, wheel for level, chevron for the device.
+        // The fill behind it is the live level, so it is obvious when
+        // something is actually listening.
+        Rectangle {
+          id: micRow
+          Layout.fillWidth: true
+          Layout.preferredHeight: 42
+          radius: 14
+          color: cc.sourceMuted ? cc.host.withAlpha(cc.host.colorUrgent, 0.18) : cc.well
+          border.width: 1
+          border.color: cc.border
+          opacity: cc.sourcePresent ? 1 : 0.5
 
-              RowLayout {
-                anchors.fill: parent
-                anchors.leftMargin: 12
-                anchors.rightMargin: 12
-                spacing: 8
-                Text {
-                  text: cc.sourceMuted ? "󰍭" : "󰍬"
-                  color: cc.sourceMuted ? cc.host.colorUrgent : cc.text
-                  font.family: cc.iconFont
-                  font.pixelSize: 16
-                }
-                Text {
-                  Layout.fillWidth: true
-                  text: "Microphone"
-                  elide: Text.ElideRight
-                  color: cc.text
-                  font.family: "Adwaita Sans"
-                  font.pixelSize: 12
-                }
-                Text {
-                  text: cc.sourceMuted ? "Muted" : "On"
-                  color: cc.sourceMuted ? cc.host.colorUrgent : cc.textMuted
-                  font.family: "Adwaita Sans"
-                  font.pixelSize: 11
-                }
-              }
-              MouseArea {
-                anchors.fill: parent
-                cursorShape: Qt.PointingHandCursor
-                enabled: cc.sourcePresent
-                onClicked: if (cc.source && cc.source.audio) cc.source.audio.muted = !cc.source.audio.muted
+          // Inset by a pixel and rounded to match, so the level follows the
+          // capsule instead of poking out of its corners.
+          Rectangle {
+            anchors.left: parent.left
+            anchors.top: parent.top
+            anchors.bottom: parent.bottom
+            anchors.margins: 1
+            width: Math.max(0, (parent.width - 2) * cc.micLevel)
+            radius: 13
+            visible: !cc.sourceMuted && cc.micLevel > 0.01
+            color: cc.host.withAlpha(cc.accent, 0.3)
+            Behavior on width { NumberAnimation { duration: 90; easing.type: Easing.OutQuad } }
+          }
+
+          RowLayout {
+            anchors.fill: parent
+            anchors.leftMargin: 12
+            anchors.rightMargin: 10
+            spacing: 8
+            Text {
+              text: cc.sourceMuted ? "󰍭" : "󰍬"
+              color: cc.sourceMuted ? cc.host.colorUrgent : cc.text
+              font.family: cc.iconFont
+              font.pixelSize: 16
+            }
+            Text {
+              Layout.fillWidth: true
+              text: cc.sourcePresent
+                ? String(cc.source.description || cc.source.nickname || cc.source.name || "Microphone")
+                : "Microphone"
+              textFormat: Text.PlainText
+              elide: Text.ElideRight
+              color: cc.text
+              font.family: "Adwaita Sans"
+              font.pixelSize: 12
+            }
+            Text {
+              text: cc.sourceMuted ? "Muted" : Math.round(cc.sourceVolume * 100) + "%"
+              color: cc.sourceMuted ? cc.host.colorUrgent : cc.textMuted
+              font.family: "Adwaita Sans"
+              font.pixelSize: 11
+            }
+            Text {
+              visible: cc.sources.length > 1
+              text: "󰅂"
+              rotation: cc.inputsOpen ? 90 : 0
+              color: cc.textMuted
+              font.family: cc.iconFont
+              font.pixelSize: 13
+              Behavior on rotation { NumberAnimation { duration: cc.animDuration; easing.type: Easing.OutCubic } }
+            }
+          }
+          MouseArea {
+            anchors.fill: parent
+            anchors.rightMargin: 30
+            cursorShape: Qt.PointingHandCursor
+            enabled: cc.sourcePresent
+            onClicked: cc.source.audio.muted = !cc.source.audio.muted
+            onWheel: function(e) {
+              if (!cc.sourcePresent) return
+              var step = e.angleDelta.y > 0 ? 0.05 : -0.05
+              cc.source.audio.volume = Math.max(0, Math.min(1, cc.sourceVolume + step))
+            }
+          }
+          // Separate target for the picker, so muting and switching devices
+          // do not fight over the same click.
+          MouseArea {
+            anchors.right: parent.right
+            anchors.top: parent.top
+            anchors.bottom: parent.bottom
+            width: 30
+            visible: cc.sources.length > 1
+            enabled: cc.sources.length > 1
+            cursorShape: Qt.PointingHandCursor
+            onClicked: cc.inputsOpen = !cc.inputsOpen
+          }
+        }
+
+        // Input picker, revealed by the chevron.
+        Repeater {
+          model: cc.inputsOpen ? cc.sources : []
+          delegate: Rectangle {
+            id: inputRow
+            required property var modelData
+            readonly property bool isDefault: modelData === cc.source
+            Layout.fillWidth: true
+            Layout.preferredHeight: 32
+            radius: 11
+            color: inputMouse.containsMouse ? cc.well : "transparent"
+            Text {
+              anchors.left: parent.left
+              anchors.leftMargin: 10
+              anchors.right: inputCheck.left
+              anchors.rightMargin: 8
+              anchors.verticalCenter: parent.verticalCenter
+              text: String(inputRow.modelData.description || inputRow.modelData.nickname || inputRow.modelData.name || "")
+              textFormat: Text.PlainText
+              elide: Text.ElideRight
+              color: inputRow.isDefault ? cc.text : cc.textMuted
+              font.family: "Adwaita Sans"
+              font.pixelSize: 11
+            }
+            Text {
+              id: inputCheck
+              anchors.right: parent.right
+              anchors.rightMargin: 10
+              anchors.verticalCenter: parent.verticalCenter
+              visible: inputRow.isDefault
+              text: "󰄬"
+              color: cc.accent
+              font.family: cc.iconFont
+              font.pixelSize: 14
+            }
+            MouseArea {
+              id: inputMouse
+              anchors.fill: parent
+              hoverEnabled: true
+              cursorShape: Qt.PointingHandCursor
+              onClicked: {
+                Pipewire.preferredDefaultAudioSource = inputRow.modelData
+                cc.inputsOpen = false
               }
             }
+          }
+        }
 
-            // Output device, and the picker when there is more than one.
+        // Output device, and the picker when there is more than one.
             Rectangle {
               Layout.fillWidth: true
               Layout.fillHeight: true
@@ -1023,18 +1137,6 @@ ColumnLayout {
             label: cc.recording ? "REC" : "Record"
             alert: cc.recording
             onClicked: cc.recording ? cc.stopRecording() : cc.startRecording()
-          }
-          CcChip {
-            icon: "󰍶"
-            label: "Focus"
-            on: cc.dnd
-            onClicked: cc.toggleDnd()
-          }
-          CcChip {
-            icon: "󰖔"
-            label: "Night"
-            on: cc.nightOn
-            onClicked: cc.toggleNightlight()
           }
           CcChip {
             icon: "󰅶"

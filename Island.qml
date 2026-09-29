@@ -380,7 +380,8 @@ Item {
   }
 
   SystemClock { id: clock; precision: SystemClock.Minutes }
-  PwObjectTracker { objects: [Pipewire.defaultAudioSink] }
+  // The source is tracked too so its level meter has something to report.
+  PwObjectTracker { objects: [Pipewire.defaultAudioSink, Pipewire.defaultAudioSource] }
 
   function showFeedback(message, duration, kind) {
     if (surfaceOpen) return
@@ -738,6 +739,12 @@ Item {
     function showHistory(): string {
       root.view = "controls"
       return root.view
+    }
+    // Called by the touchpad keys (see the user's bindings.lua), which pass
+    // the state they left the device in.
+    function inputDevice(message: string): string {
+      root.showFeedback(message, 1500, "system")
+      return "ok"
     }
     // Called by the brightness keys (see the user's bindings.lua) after
     // omarchy-brightness-display has moved the backlight.
