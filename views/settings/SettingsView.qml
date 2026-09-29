@@ -172,6 +172,8 @@ ColumnLayout {
       Layout.preferredHeight: groupBody.implicitHeight
       radius: 18
       color: settingsView.card
+      border.width: 1
+      border.color: settingsView.host.colorBorder
       ColumnLayout {
         id: groupBody
         anchors.left: parent.left

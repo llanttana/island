@@ -200,22 +200,56 @@ Item {
   readonly property int barSize: 0
   readonly property string position: "top"
   readonly property string fontFamily: "monospace"
-  readonly property color colorBackground: "#000000"
-  readonly property bool themeTextIsLight: luminance(Color.foreground) > 0.5
-  readonly property color colorText: themeTextIsLight ? Color.foreground : Color.background
-  readonly property color colorMuted: themeTextIsLight ? Color.muted : withAlpha(colorText, 0.6)
-  readonly property color colorAccent: Color.accent
-  readonly property color colorAccentText: contrastOn(Color.accent)
+  // ---------- Palette ----------
+  //
+  // The pill carries the theme's own background, frosted (see the window's
+  // BackgroundEffect), so its text colours are simply the theme's. The one
+  // thing the shell's Color singleton can't give us is a usable accent: in
+  // several themes `accent` is literally the same colour as `foreground`
+  // (kanagawa: both #dcd7ba), which flattens every "on" state into the text
+  // colour. So the theme's palette is read directly and its blue is used.
+
+  property var themePalette: ({})
+  FileView {
+    path: root.home + "/.local/state/omarchy/current/theme/colors.toml"
+    watchChanges: true
+    printErrors: false
+    onLoaded: root.themePalette = root.parsePalette(text())
+    onFileChanged: reload()
+  }
+  function parsePalette(raw) {
+    var out = {}
+    var lines = String(raw || "").split("\n")
+    for (var i = 0; i < lines.length; i++) {
+      var m = lines[i].match(/^\s*([A-Za-z0-9_-]+)\s*=\s*["']?(#[0-9A-Fa-f]{6})/)
+      if (m) out[m[1]] = m[2]
+    }
+    return out
+  }
+
+  // Frosted glass: the theme background at partial alpha, over the compositor
+  // blur requested below.
+  readonly property color colorBackground: withAlpha(Color.background, 0.72)
+  readonly property color colorText: Color.foreground
+  // A dimmed foreground rather than the theme's `muted`: the pill now sits on
+  // the theme's own background at partial alpha, and themes whose muted is a
+  // near-background colour (kanagawa: #54546D) become unreadable there.
+  readonly property color colorMuted: withAlpha(colorText, 0.62)
+  readonly property color colorAccent: themePalette["blue"] || themePalette["bright_blue"] || Color.accent
+  readonly property color colorAccentText: contrastOn(colorAccent)
   readonly property color colorUrgent: Color.urgent
-  readonly property color colorSurface: Qt.tint(colorBackground, withAlpha(colorText, 0.07))
-  // The pill is always black, so its own text is a fixed soft off-white.
-  readonly property color ink: "#e2e6de"
+  readonly property color colorSurface: withAlpha(colorText, 0.07)
+  // Hairlines that give the glass cards an edge without a heavy outline.
+  readonly property color colorBorder: withAlpha(colorText, 0.12)
+  // The pill's own text now follows the theme, so the ink is just the text.
+  readonly property color ink: colorText
 
   function withAlpha(c, a) { return Qt.rgba(c.r, c.g, c.b, a) }
   function luminance(x) { return 0.2126 * x.r + 0.7152 * x.g + 0.0722 * x.b }
   function contrastOn(c) {
     var l = luminance(c)
-    return Math.abs(l - luminance(colorBackground)) > Math.abs(l - luminance(colorText)) ? colorBackground : colorText
+    var onDark = Math.abs(l - luminance(Color.background)) > Math.abs(l - luminance(Color.foreground))
+    return onDark ? Color.background : Color.foreground
   }
 
   readonly property real motionScale: settings.motionScale > 0 ? settings.motionScale : 1.5
@@ -581,6 +615,9 @@ Item {
         WlrLayershell.keyboardFocus: island.activeSurface && island.activeSurface.wantsKeyboard
           ? WlrKeyboardFocus.Exclusive : WlrKeyboardFocus.None
         mask: Region { item: island }
+        // Frosted glass behind the pill (ext-background-effect-v1; Hyprland
+        // implements it). The island's own colour carries the alpha.
+        BackgroundEffect.blurRegion: Region { item: island }
 
         HyprlandFocusGrab {
           id: focusGrab
@@ -674,6 +711,10 @@ Item {
           Behavior on scale { NumberAnimation { duration: 240 * root.motionScale; easing.type: Easing.OutBack; easing.overshoot: 1.8 } }
           HoverHandler { id: clockHover; enabled: root.view === "rest" }
           color: root.colorBackground
+          // A hairline sells the glass edge; skip it on the flat-topped notch
+          // style, where the pill is meant to look like part of the bezel.
+          border.width: root.settings.notch ? 0 : 1
+          border.color: root.colorBorder
           clip: true
           // A plain eased resize rather than a spring: the spring overshoots and
           // keeps settling for hundreds of milliseconds after the motion has

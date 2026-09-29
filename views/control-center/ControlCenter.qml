@@ -25,6 +25,8 @@ ColumnLayout {
   readonly property color tile: host.withAlpha(host.colorText, 0.1)
   readonly property color card: host.withAlpha(host.colorText, 0.07)
   readonly property color well: host.withAlpha(host.colorText, 0.08)
+  // Hairline that defines a card against the frosted glass behind it.
+  readonly property color border: host.colorBorder
   readonly property string iconFont: host.fontFamily
   readonly property int animDuration: 180 * host.motionScale
 
@@ -192,6 +194,8 @@ ColumnLayout {
     Layout.preferredHeight: 62
     radius: 31
     color: cc.tile
+    border.width: 1
+    border.color: cc.border
     opacity: available ? 1 : 0.5
     scale: tileMouse.pressed ? 0.97 : 1
     Behavior on scale { NumberAnimation { duration: 120 * cc.host.motionScale; easing.type: Easing.OutCubic } }
@@ -270,6 +274,9 @@ ColumnLayout {
     Layout.preferredHeight: 62
     radius: 31
     color: checked ? cc.accent : cc.tile
+    border.width: checked ? 0 : 1
+    border.color: cc.border
+    Behavior on border.width { NumberAnimation { duration: cc.animDuration } }
     scale: roundMouse.pressed ? 0.94 : 1
     Behavior on color { ColorAnimation { duration: cc.animDuration; easing.type: Easing.OutCubic } }
     Behavior on scale { NumberAnimation { duration: 120 * cc.host.motionScale; easing.type: Easing.OutCubic } }
@@ -361,6 +368,8 @@ ColumnLayout {
     Layout.preferredHeight: body.implicitHeight + 52
     radius: 26
     color: cc.card
+    border.width: 1
+    border.color: cc.border
 
     Text {
       anchors.left: parent.left
@@ -629,6 +638,8 @@ ColumnLayout {
     Layout.preferredHeight: notificationBody.implicitHeight + 20
     radius: 26
     color: cc.card
+    border.width: 1
+    border.color: cc.border
 
     ColumnLayout {
       id: notificationBody
@@ -793,9 +804,14 @@ ColumnLayout {
             }
             Text {
               width: parent.width
-              text: String(note.modelData.body || "")
+              // Apps often send markup in the body rather than setting the
+              // markup hint (Telegram sends "<b>Name</b>\nMessage"), so render
+              // anything that looks like markup as styled text and everything
+              // else literally.
+              readonly property string rawBody: String(note.modelData.body || "")
+              text: rawBody
               visible: text !== ""
-              textFormat: Text.PlainText
+              textFormat: /<[a-z][^>]*>/i.test(rawBody) ? Text.StyledText : Text.PlainText
               wrapMode: Text.Wrap
               maximumLineCount: 3
               elide: Text.ElideRight

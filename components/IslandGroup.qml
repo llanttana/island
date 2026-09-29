@@ -27,6 +27,8 @@ ColumnLayout {
     Layout.preferredHeight: body.implicitHeight
     radius: 18
     color: group.host.withAlpha(group.host.colorText, 0.07)
+    border.width: 1
+    border.color: group.host.colorBorder
 
     ColumnLayout {
       id: body
