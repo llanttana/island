@@ -36,7 +36,9 @@ ColumnLayout {
       width: 24; height: 24; radius: 12
       y: 2
       x: sw.checked ? sw.width - width - 2 : 2
-      color: "#ffffff"
+      // The track's ink, so a white accent does not hide a white knob.
+      color: sw.checked ? settingsView.host.colorAccentText : "#ffffff"
+      Behavior on color { ColorAnimation { duration: settingsView.animDuration } }
       Behavior on x { NumberAnimation { duration: settingsView.animDuration; easing.type: Easing.OutCubic } }
     }
     MouseArea {

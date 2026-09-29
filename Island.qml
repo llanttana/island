@@ -202,40 +202,24 @@ Item {
   readonly property string fontFamily: "monospace"
   // ---------- Palette ----------
   //
-  // The pill carries the theme's own background, frosted (see the window's
-  // BackgroundEffect), so its text colours are simply the theme's. The one
-  // thing the shell's Color singleton can't give us is a usable accent: in
-  // several themes `accent` is literally the same colour as `foreground`
-  // (kanagawa: both #dcd7ba), which flattens every "on" state into the text
-  // colour. So the theme's palette is read directly and its blue is used.
+  // The pill carries the theme's own background, frosted by the compositor (see
+  // the layer rule in ~/.config/hypr/looknfeel.lua), so its text colours are
+  // simply the theme's.
+  //
+  // The accent is deliberately neutral white instead of a palette hue: the
+  // shell's Color.accent is often the same colour as the foreground (kanagawa:
+  // both #dcd7ba), which flattens every "on" state into the text colour, and
+  // borrowing a hue from the palette reads as decoration rather than state. On
+  // a light theme white would disappear, so it flips to near-black.
 
-  property var themePalette: ({})
-  FileView {
-    path: root.home + "/.local/state/omarchy/current/theme/colors.toml"
-    watchChanges: true
-    printErrors: false
-    onLoaded: root.themePalette = root.parsePalette(text())
-    onFileChanged: reload()
-  }
-  function parsePalette(raw) {
-    var out = {}
-    var lines = String(raw || "").split("\n")
-    for (var i = 0; i < lines.length; i++) {
-      var m = lines[i].match(/^\s*([A-Za-z0-9_-]+)\s*=\s*["']?(#[0-9A-Fa-f]{6})/)
-      if (m) out[m[1]] = m[2]
-    }
-    return out
-  }
-
-  // Frosted glass: the theme background at partial alpha, over the compositor
-  // blur requested below.
+  // Frosted glass: the theme background at partial alpha.
   readonly property color colorBackground: withAlpha(Color.background, 0.72)
   readonly property color colorText: Color.foreground
   // A dimmed foreground rather than the theme's `muted`: the pill now sits on
   // the theme's own background at partial alpha, and themes whose muted is a
   // near-background colour (kanagawa: #54546D) become unreadable there.
   readonly property color colorMuted: withAlpha(colorText, 0.62)
-  readonly property color colorAccent: themePalette["blue"] || themePalette["bright_blue"] || Color.accent
+  readonly property color colorAccent: luminance(Color.background) < 0.5 ? "#ffffff" : "#14141a"
   readonly property color colorAccentText: contrastOn(colorAccent)
   readonly property color colorUrgent: Color.urgent
   readonly property color colorSurface: withAlpha(colorText, 0.07)
@@ -615,9 +599,11 @@ Item {
         WlrLayershell.keyboardFocus: island.activeSurface && island.activeSurface.wantsKeyboard
           ? WlrKeyboardFocus.Exclusive : WlrKeyboardFocus.None
         mask: Region { item: island }
-        // Frosted glass behind the pill (ext-background-effect-v1; Hyprland
-        // implements it). The island's own colour carries the alpha.
-        BackgroundEffect.blurRegion: Region { item: island }
+        // The frost comes from a Hyprland layer rule on this namespace (see
+        // ~/.config/hypr/looknfeel.lua), not from BackgroundEffect: a protocol
+        // blur region is a plain rectangle, which left a frosted border around
+        // the rounded pill and covered the whole window while the pill was
+        // slid off-screen.
 
         HyprlandFocusGrab {
           id: focusGrab
@@ -711,10 +697,6 @@ Item {
           Behavior on scale { NumberAnimation { duration: 240 * root.motionScale; easing.type: Easing.OutBack; easing.overshoot: 1.8 } }
           HoverHandler { id: clockHover; enabled: root.view === "rest" }
           color: root.colorBackground
-          // A hairline sells the glass edge; skip it on the flat-topped notch
-          // style, where the pill is meant to look like part of the bezel.
-          border.width: root.settings.notch ? 0 : 1
-          border.color: root.colorBorder
           clip: true
           // A plain eased resize rather than a spring: the spring overshoots and
           // keeps settling for hundreds of milliseconds after the motion has

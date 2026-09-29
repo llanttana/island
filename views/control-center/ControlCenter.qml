@@ -757,7 +757,9 @@ ColumnLayout {
               anchors.centerIn: parent
               visible: noteIcon.status !== Image.Ready
               text: avatar.brand ? avatar.brand.glyph : note.appName.charAt(0).toUpperCase()
-              color: avatar.brand ? avatar.brand.ink : cc.accent
+              // Not the accent: with a white accent the letter would disappear
+              // into its own tint. The theme foreground reads on that tint.
+              color: avatar.brand ? avatar.brand.ink : cc.text
               font.family: avatar.brand ? "JetBrainsMono Nerd Font" : "Adwaita Sans"
               font.pixelSize: avatar.brand ? 20 : 14
               font.weight: Font.DemiBold

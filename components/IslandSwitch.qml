@@ -1,7 +1,8 @@
 import QtQuick
 
-// iOS-style switch: accent track when on, white knob sliding across. Shared by
-// the island's settings and its Wi-Fi/Bluetooth pages.
+// iOS-style switch: a filled track when on, with the knob sliding across. The
+// knob is the track's ink, so the pair stays visible whatever the accent is
+// (the accent is white on dark themes, where a white knob would vanish).
 Rectangle {
   id: sw
   required property var host
@@ -21,7 +22,8 @@ Rectangle {
     radius: 12
     y: 2
     x: sw.checked ? sw.width - width - 2 : 2
-    color: "#ffffff"
+    color: sw.checked ? sw.host.colorAccentText : "#ffffff"
+    Behavior on color { ColorAnimation { duration: 180 * sw.host.motionScale; easing.type: Easing.OutCubic } }
     Behavior on x { NumberAnimation { duration: 180 * sw.host.motionScale; easing.type: Easing.OutCubic } }
   }
 
