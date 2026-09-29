@@ -1,8 +1,10 @@
 import QtQuick
 import Qt.labs.folderlistmodel
 import Quickshell
+import Quickshell.Bluetooth
 import Quickshell.Hyprland
 import Quickshell.Io
+import Quickshell.Networking
 import Quickshell.Services.Pipewire
 import Quickshell.Services.UPower
 import Quickshell.Wayland
@@ -10,6 +12,7 @@ import qs.Commons
 import "components"
 import "views"
 import "file:///usr/share/omarchy/shell/plugins/clipboard/ClipboardHistory.js" as ClipboardHistory
+import "companion/guilhermerisu.notifications/NotificationLogic.js" as NotificationLogic
 
 Item {
   id: root
@@ -359,7 +362,12 @@ Item {
     path: root.home + "/.local/state/omarchy/current/theme.name"
     watchChanges: true
     printErrors: false
-    onLoaded: root.themeName = text().trim()
+    onLoaded: {
+      var name = text().trim()
+      var previous = root.themeName
+      root.themeName = name
+      if (previous !== "" && name !== "" && name !== previous) root.announce("Theme · " + name)
+    }
     onFileChanged: reload()
   }
 
@@ -381,6 +389,142 @@ Item {
     view = "feedback"
     feedbackTimer.interval = duration || 2800
     feedbackTimer.restart()
+  }
+
+  // ---------- Live activities ----------
+  //
+  // Short, pretty notes for things that just happened (in the same spirit as
+  // "copied to clipboard"): connect, unplug, screenshot, theme. They all share
+  // the feedback pill, and stay quiet for the first couple of seconds so a
+  // status that is merely the startup state is not announced.
+  property bool activityReady: false
+  Timer { interval: 2500; running: true; onTriggered: root.activityReady = true }
+
+  function announce(message) {
+    if (!initialized || !activityReady || !message) return
+    // A fullscreen window asked the pill to stay away; a status note is not
+    // worth popping back in for.
+    if (pillHidden) return
+    showFeedback(message, 2200, "system")
+  }
+
+  // Wi-Fi: announce the network we landed on, and what we left.
+  readonly property string connectedWifi: {
+    var devices = Networking.devices ? Networking.devices.values : []
+    for (var i = 0; i < devices.length; i++) {
+      var d = devices[i]
+      if (!d || d.type !== DeviceType.Wifi || !d.connected) continue
+      var nets = d.networks ? d.networks.values : []
+      for (var j = 0; j < nets.length; j++)
+        if (nets[j] && nets[j].connected) return String(nets[j].name || "")
+    }
+    return ""
+  }
+  property string lastWifi: ""
+  onConnectedWifiChanged: {
+    var name = connectedWifi
+    if (name === lastWifi) return
+    var previous = lastWifi
+    lastWifi = name
+    if (name !== "") announce("Connected to " + name)
+    else if (previous !== "") announce("Wi-Fi disconnected")
+  }
+
+  // Bluetooth: the device that just came or went.
+  readonly property string connectedBluetooth: {
+    var devices = Bluetooth.devices ? Bluetooth.devices.values : []
+    for (var i = 0; i < devices.length; i++) {
+      var d = devices[i]
+      if (d && d.connected) return String(d.name || d.deviceName || "")
+    }
+    return ""
+  }
+  property string lastBluetooth: ""
+  onConnectedBluetoothChanged: {
+    var name = connectedBluetooth
+    if (name === lastBluetooth) return
+    lastBluetooth = name
+    if (name !== "") announce(name + " connected")
+  }
+
+  // Power source: plugged in, unplugged, or full.
+  Connections {
+    target: UPower
+    function onOnBatteryChanged() {
+      if (UPower.onBattery) root.announce("On battery power")
+      else root.announce(root.batteryFull ? "Battery full" : "Charging")
+    }
+  }
+
+  // Screenshots: Omarchy drops them straight into the pictures folder.
+  property string picturesDir: Quickshell.env("HOME") + "/Pictures"
+  Process {
+    running: true
+    command: ["xdg-user-dir", "PICTURES"]
+    stdout: StdioCollector {
+      waitForEnd: true
+      onStreamFinished: {
+        var dir = String(text || "").trim()
+        if (dir) root.picturesDir = dir
+      }
+    }
+  }
+  FolderListModel {
+    id: screenshotWatch
+    folder: "file://" + root.picturesDir
+    nameFilters: ["screenshot-*.png"]
+    showDirs: false
+    onCountChanged: root.checkScreenshot()
+  }
+  // The model is not reliably sorted, so remember which files we have already
+  // accounted for instead of trusting an index.
+  property var knownScreenshots: ({})
+  function checkScreenshot() {
+    if (screenshotWatch.count === 0) return
+    var fresh = ""
+    for (var i = 0; i < screenshotWatch.count; i++) {
+      var name = String(screenshotWatch.get(i, "fileName") || "")
+      if (name === "" || knownScreenshots[name] === true) continue
+      knownScreenshots[name] = true
+      // Only genuinely fresh files: deleting one promotes an old file into the
+      // model again, and that is not a new screenshot.
+      var modified = screenshotWatch.get(i, "fileModified")
+      var age = modified ? Date.now() - new Date(modified).getTime() : 0
+      if (age >= 0 && age < 15000) fresh = name
+    }
+    if (fresh !== "") announce("Screenshot saved")
+  }
+
+  // ---------- Notification click ----------
+  //
+  // Clicking a notification opens whatever sent it: a notification carrying its
+  // own action (Omarchy's installer toasts) runs that, otherwise the app's
+  // window is focused, and failing that its desktop entry is launched.
+  readonly property string openSourceScript:
+    'app="$1"; [ -n "$app" ] || exit 1; ' +
+    'pat=$(printf "%s" "$app" | sed "s/ /[ -]/g"); ' +
+    'if [ "$pat" != "$app" ]; then omarchy-hyprland-focus-app "$pat" >/dev/null 2>&1 && exit 0; fi; ' +
+    'omarchy-hyprland-focus-app "$app" >/dev/null 2>&1 && exit 0; ' +
+    'for dir in "$HOME/.local/share/applications" /usr/share/applications; do ' +
+      'for f in "$dir"/*.desktop; do ' +
+        '[ -e "$f" ] || continue; ' +
+        'name=$(grep -im1 "^Name=" "$f" | cut -d= -f2-); ' +
+        '[ -n "$name" ] || continue; ' +
+        'case "$app" in *"$name"*) exec gtk-launch "$(basename "$f" .desktop)";; esac; ' +
+      'done; ' +
+    'done; ' +
+    'exit 1'
+  Process { id: openSource }
+  function activateNotification(row) {
+    if (!row) return
+    var argv = NotificationLogic.parseExecArgv(row.execArgv)
+    if (argv) {
+      Quickshell.execDetached(argv)
+    } else {
+      openSource.command = ["bash", "-c", openSourceScript, "--", String(row.app || row.summary || "")]
+      openSource.running = true
+    }
+    if (row.isActive) notificationCommand("dismissKey", row)
   }
 
   onVolumeChanged: {
@@ -673,7 +817,7 @@ Item {
             : root.notificationPill ? 440
             : root.volumePill ? 240
             : root.clipboardPill ? 320
-            : root.view === "feedback" ? 280
+            : root.view === "feedback" ? 330
             : root.companionNeedsSetup ? 250
             : root.downloadDone ? 360
             : root.downloadActive ? (root.downloadTracker.active ? 240 : 280)
@@ -703,8 +847,16 @@ Item {
           // visually finished, re-laying out the island on every one of those
           // frames. This reaches the target exactly, and stops.
           readonly property int morphDuration: Math.round(300 * root.motionScale)
-          property real morphWidth: targetWidth
-          property real morphHeight: targetHeight
+          // The morph starts one frame after a view change: the incoming view
+          // builds its scene graph and paints on the frame of the change, and
+          // that frame is over budget on its own. Giving it its own frame keeps
+          // the motion itself clean.
+          property real morphTargetWidth: targetWidth
+          property real morphTargetHeight: targetHeight
+          onTargetWidthChanged: Qt.callLater(function() { island.morphTargetWidth = island.targetWidth })
+          onTargetHeightChanged: Qt.callLater(function() { island.morphTargetHeight = island.targetHeight })
+          property real morphWidth: morphTargetWidth
+          property real morphHeight: morphTargetHeight
           Behavior on morphWidth {
             NumberAnimation { duration: island.morphDuration; easing.type: Easing.OutQuint }
           }
@@ -720,7 +872,7 @@ Item {
             enabled: root.view === "rest" || root.view === "feedback"
             onClicked: function(mouse) {
               feedbackTimer.stop()
-              if (root.notificationPill) root.dismissPillNotification()
+              if (root.notificationPill) root.activateNotification(root.lastNotification)
               else if (root.clipboardPill) root.view = "clipboard"
               else if (root.view === "rest" && root.companionNeedsSetup) root.installCompanion()
               else if (root.downloadDone || (root.downloadActive && (mouse.x < 56 || mouse.x > width - 90))) root.openDownloads()

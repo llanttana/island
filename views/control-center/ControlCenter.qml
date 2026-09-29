@@ -134,6 +134,7 @@ ColumnLayout {
     cc.activeProfile = name   // optimistic; profilesRead confirms
     profileWrite.command = ["omarchy-powerprofiles-set", "autodetect", name]
     profileWrite.running = true
+    cc.host.announce(cc.profileLabels[name] || name)
   }
 
   // --- Brightness (the Display card hides when the output has no control) ---
@@ -438,7 +439,11 @@ ColumnLayout {
       subtitle: cc.dnd ? "On" : "Off"
       checked: cc.dnd
       available: !!cc.notifications
-      onClicked: cc.notifications.setDoNotDisturb(!cc.dnd)
+      onClicked: {
+        var next = !cc.dnd
+        cc.notifications.setDoNotDisturb(next)
+        cc.host.announce(next ? "Focus on" : "Focus off")
+      }
     }
     CcRound {
       icon: "󰒓"
@@ -469,7 +474,11 @@ ColumnLayout {
       icon: "󰖔"
       checked: cc.nightOn
       visible: !!cc.nightlight
-      onClicked: cc.nightlight.setNightlight(!cc.nightOn)
+      onClicked: {
+        var next = !cc.nightOn
+        cc.nightlight.setNightlight(next)
+        cc.host.announce(next ? "Night light on" : "Night light off")
+      }
     }
   }
 
@@ -717,14 +726,15 @@ ColumnLayout {
           width: ListView.view.width
           height: noteBody.implicitHeight + 24
           radius: 20
-          color: noteMouse.containsMouse && modelData.isActive ? cc.host.withAlpha(cc.text, 0.12) : cc.card
+          color: noteMouse.containsMouse ? cc.host.withAlpha(cc.text, 0.12) : cc.card
 
           MouseArea {
             id: noteMouse
             anchors.fill: parent
             hoverEnabled: true
-            enabled: !!note.modelData.isActive
-            onClicked: cc.host.notificationCommand("invokeKey", note.modelData)
+            cursorShape: Qt.PointingHandCursor
+            // Opens the app the notification came from (see the host).
+            onClicked: cc.host.activateNotification(note.modelData)
           }
           // The notification's image or app icon; a letter avatar when
           // there's none (or it fails to load).
