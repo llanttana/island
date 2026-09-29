@@ -69,6 +69,7 @@ ColumnLayout {
   readonly property var idleService: host.shell ? host.shell.firstPartyServiceFor("omarchy.idle") : null
   readonly property bool stayAwake: idleService ? !!idleService.stayAwake : false
   property string keyboardLayout: ""
+  property string keyboardDevice: ""
   Process {
     id: layoutRead
     command: ["hyprctl", "devices", "-j"]
@@ -78,7 +79,11 @@ ColumnLayout {
         try {
           var boards = JSON.parse(String(text || "{}")).keyboards || []
           for (var i = 0; i < boards.length; i++) {
-            if (boards[i] && boards[i].main) { cc.keyboardLayout = String(boards[i].active_keymap || ""); return }
+            if (boards[i] && boards[i].main) {
+              cc.keyboardDevice = String(boards[i].name || "")
+              cc.keyboardLayout = String(boards[i].active_keymap || "")
+              return
+            }
           }
           cc.keyboardLayout = boards.length ? String(boards[0].active_keymap || "") : ""
         } catch (e) {
@@ -98,7 +103,169 @@ ColumnLayout {
 
   readonly property bool hasIndicators: cc.recording || cc.dnd || cc.nightOn || cc.stayAwake
     || cc.keyboardLayout !== ""
-  readonly property bool hasSystemRow: hasIndicators || trayItems.length > 0
+  readonly property bool hasSystemRow: hasIndicators || trayItems.length > 0 || trayMenuItem !== null
+
+  // The rest of what the old bar carried. Everything here is a plain local
+  // command, refreshed when the panel opens (and, for the two that change
+  // while it is open, on a slow timer).
+  property bool dictating: false
+  Process {
+    id: voxtypeRead
+    command: ["omarchy-voxtype-status"]
+    stdout: StdioCollector {
+      waitForEnd: true
+      onStreamFinished: {
+        try { cc.dictating = String(JSON.parse(String(text || "{}")).class || "idle") !== "idle" }
+        catch (e) { cc.dictating = false }
+      }
+    }
+  }
+
+  property int reminderCount: 0
+  property string reminderTooltip: ""
+  Process {
+    id: reminderRead
+    command: ["omarchy-reminder", "show", "--json"]
+    stdout: StdioCollector {
+      waitForEnd: true
+      onStreamFinished: {
+        try {
+          var data = JSON.parse(String(text || "{}"))
+          cc.reminderCount = Number(data.count || 0)
+          cc.reminderTooltip = String(data.tooltip || "")
+        } catch (e) {
+          cc.reminderCount = 0
+        }
+      }
+    }
+  }
+
+  property bool updatesAvailable: false
+  property string updatesText: ""
+  Process {
+    id: updateRead
+    command: ["omarchy-update-available"]
+    stdout: StdioCollector {
+      waitForEnd: true
+      onStreamFinished: cc.updatesText = String(text || "").trim()
+    }
+    // The script exits 1 when there is nothing to do, 0 when updates wait.
+    onExited: function(code) { cc.updatesAvailable = code === 0 }
+  }
+
+  readonly property string agentsDir: (Quickshell.env("XDG_STATE_HOME") || Quickshell.env("HOME") + "/.local/state") + "/omarchy/agents/usage"
+  property int agentsActive: 0
+  Process {
+    id: agentsRead
+    command: ["sh", "-c",
+      'today=$(date +%F); n=0; for f in "$1"/*.json; do [ -e "$f" ] || continue; ' +
+      'if jq -e --arg t "$today" \'((.todayPrompts // 0) > 0) or ((.todaySessions // 0) > 0) or (((.activeDates // []) | index($t)) != null)\' "$f" >/dev/null 2>&1; then n=$((n+1)); fi; ' +
+      'done; echo $n',
+      "--", agentsDir]
+    stdout: StdioCollector {
+      waitForEnd: true
+      onStreamFinished: {
+        var n = parseInt(String(text || "").trim(), 10)
+        cc.agentsActive = isNaN(n) ? 0 : n
+      }
+    }
+  }
+
+  // Weather: the location Omarchy stores, then wttr.in for just the current
+  // temperature (a few bytes, so it is cheap to refresh).
+  property string weatherQuery: ""
+  property string weatherText: ""
+  property double weatherAt: 0
+  FileView {
+    id: weatherLocation
+    path: Quickshell.env("HOME") + "/.local/state/omarchy/settings/weather.json"
+    watchChanges: true
+    printErrors: false
+    onLoaded: {
+      try {
+        var d = JSON.parse(text())
+        cc.weatherQuery = (d.latitude !== undefined && d.longitude !== undefined)
+          ? String(d.latitude) + "," + String(d.longitude)
+          : String(d.name || "")
+      } catch (e) {
+        cc.weatherQuery = ""
+      }
+    }
+    onFileChanged: reload()
+  }
+  Process {
+    id: weatherRead
+    command: ["curl", "-fsS", "--max-time", "8", "https://wttr.in/" + cc.weatherQuery + "?format=%t"]
+    stdout: StdioCollector {
+      waitForEnd: true
+      onStreamFinished: {
+        var t = String(text || "").trim()
+        if (t === "") return
+        cc.weatherText = t
+        cc.weatherAt = Date.now()
+      }
+    }
+  }
+  function refreshWeather() {
+    if (cc.weatherQuery === "" || weatherRead.running) return
+    if (cc.weatherAt > 0 && Date.now() - cc.weatherAt < 900000) return   // 15 minutes
+    weatherRead.running = true
+  }
+
+  // --- Tray menu ---
+  // One opener, re-pointed as the menu is drilled into, so submenus work
+  // without a stack of live objects to tear down.
+  property var trayMenuItem: null
+  property var trayStack: []
+  QsMenuOpener { id: trayMenu }
+  readonly property var trayEntries: {
+    if (!cc.trayMenuItem || !trayMenu.children) return []
+    return trayMenu.children.values
+  }
+  function openTrayMenu(item) {
+    if (!item) return
+    if (!item.menu) { item.activate(); return }
+    cc.trayStack = []
+    cc.trayMenuItem = item
+    trayMenu.menu = item.menu
+  }
+  function enterTrayEntry(entry) {
+    if (!entry) return
+    if (!entry.hasChildren) { entry.triggered(); cc.closeTrayMenu(); return }
+    var stack = cc.trayStack.slice()
+    stack.push(entry)
+    cc.trayStack = stack
+    trayMenu.menu = entry
+  }
+  function leaveTrayEntry() {
+    var stack = cc.trayStack.slice()
+    if (stack.length === 0) return
+    stack.pop()
+    cc.trayStack = stack
+    trayMenu.menu = stack.length > 0 ? stack[stack.length - 1] : cc.trayMenuItem.menu
+  }
+  function closeTrayMenu() {
+    cc.trayStack = []
+    cc.trayMenuItem = null
+  }
+
+  // Keyboard layout: the chip cycles layouts through Hyprland.
+  Process { id: layoutSwitch; onExited: if (!layoutRead.running) layoutRead.running = true }
+  function cycleLayout() {
+    if (cc.keyboardDevice === "") return
+    layoutSwitch.command = ["hyprctl", "switchxkblayout", cc.keyboardDevice, "next"]
+    layoutSwitch.running = true
+  }
+
+  Timer {
+    interval: 4000
+    repeat: true
+    running: cc.active
+    onTriggered: {
+      if (!voxtypeRead.running) voxtypeRead.running = true
+      if (!reminderRead.running) reminderRead.running = true
+    }
+  }
 
   // --- Bluetooth ---
   readonly property var btAdapter: Bluetooth.defaultAdapter
@@ -169,7 +336,35 @@ ColumnLayout {
     }
   }
   Process { id: profileWrite; onExited: profilesRead.running = true }
+  Process { id: systemAction }
   Process { id: recordingStop }
+  function startRecording() {
+    // Same door the stock indicator uses: the record menu, which offers the
+    // choices (audio, webcam, region) before anything starts.
+    systemAction.command = ["omarchy-menu", "toggle", "trigger.capture.screenrecord"]
+    systemAction.running = true
+  }
+  function toggleDictation() {
+    systemAction.command = ["voxtype", "record", "toggle"]
+    systemAction.running = true
+    dictationRefresh.restart()
+  }
+  Timer { id: dictationRefresh; interval: 700; onTriggered: if (!voxtypeRead.running) voxtypeRead.running = true }
+  function showReminders() {
+    cc.host.announce(cc.reminderTooltip !== "" ? cc.reminderTooltip : "Reminders")
+  }
+  function runUpdate() {
+    systemAction.command = ["omarchy-launch-floating-terminal-with-presentation", "omarchy-update"]
+    systemAction.running = true
+  }
+  function openAgents() {
+    systemAction.command = ["omarchy-shell", "shell", "toggle", "omarchy.agents"]
+    systemAction.running = true
+  }
+  function openWeather() {
+    systemAction.command = ["omarchy-shell", "shell", "toggle", "omarchy.weather"]
+    systemAction.running = true
+  }
   function stopRecording() {
     recordingStop.command = ["omarchy-capture-screenrecording", "--stop-recording"]
     recordingStop.running = true
@@ -214,6 +409,11 @@ ColumnLayout {
     if (!profilesRead.running) profilesRead.running = true
     if (!layoutRead.running) layoutRead.running = true
     if (!recordingRead.running) recordingRead.running = true
+    if (!voxtypeRead.running) voxtypeRead.running = true
+    if (!reminderRead.running) reminderRead.running = true
+    if (!updateRead.running) updateRead.running = true
+    if (!agentsRead.running) agentsRead.running = true
+    cc.refreshWeather()
   }
   Process {
     id: brightnessRead
@@ -243,6 +443,8 @@ ColumnLayout {
 
   // Esc closes the control center.
   Keys.onEscapePressed: cc.host.view = "rest"
+
+
 
   // ---------- Reusable pieces ----------
 
@@ -364,71 +566,10 @@ ColumnLayout {
     }
   }
 
-  component CcSlider: Rectangle {
-    id: s
-    property string icon: ""
-    // Shown at the right end; kept clear of the fill by its own colour swap.
-    property string valueText: ""
-    property real value: 0
-    signal moved(real value)
-
-    readonly property real fraction: Math.max(0, Math.min(1, s.value))
-    readonly property real fillWidth: Math.max(s.height, s.width * s.fraction)
-
-    Layout.fillWidth: true
-    Layout.preferredHeight: 40
-    radius: 20
-    color: cc.well
-    clip: true
-
-    Rectangle {
-      height: parent.height
-      radius: parent.radius
-      width: s.fillWidth
-      color: cc.accent
-      Behavior on width {
-        enabled: !sliderMouse.pressed
-        NumberAnimation { duration: 140 * cc.host.motionScale; easing.type: Easing.OutCubic }
-      }
-    }
-    Text {
-      anchors.left: parent.left
-      anchors.leftMargin: 16
-      anchors.verticalCenter: parent.verticalCenter
-      text: s.icon
-      // Over the accent fill or over the track, whichever is behind it.
-      color: s.fillWidth > 40 ? cc.accentInk : cc.text
-      font.family: cc.iconFont
-      font.pixelSize: 16
-    }
-    Text {
-      visible: s.valueText !== ""
-      anchors.right: parent.right
-      anchors.rightMargin: 16
-      anchors.verticalCenter: parent.verticalCenter
-      text: s.valueText
-      color: s.fillWidth > s.width - 50 ? cc.accentInk : cc.textMuted
-      font.family: "Adwaita Sans"
-      font.pixelSize: 11
-      font.weight: Font.DemiBold
-      font.features: { "tnum": 1 }
-    }
-    MouseArea {
-      id: sliderMouse
-      anchors.fill: parent
-      cursorShape: Qt.PointingHandCursor
-      function apply(x) { s.moved(Math.max(0, Math.min(1, x / width))) }
-      onPressed: function(e) { apply(e.x) }
-      onPositionChanged: function(e) { if (pressed) apply(e.x) }
-      onWheel: function(e) { s.moved(Math.max(0, Math.min(1, s.value + (e.angleDelta.y > 0 ? 0.05 : -0.05)))) }
-    }
-  }
-
-  // Section card with a title row (and an optional › button) over content.
   // Vertical level slider: fills from the foot, glyph at the bottom, value at
   // the top. Volume and brightness sit side by side this way instead of
   // stacking two full-width cards.
-  component CcVertical: Rectangle {
+  component CcVertical: ClippingRectangle {
     id: v
     property string icon: ""
     property real value: 0
@@ -444,7 +585,6 @@ ColumnLayout {
     color: cc.well
     border.width: 1
     border.color: cc.border
-    clip: true
 
     Rectangle {
       anchors.left: parent.left
@@ -488,20 +628,32 @@ ColumnLayout {
     }
   }
 
-  // Small capsule for the status row.
+  // Small capsule for the status row. It is a control, not just a readout:
+  // toggles stay visible in both states so switching one off does not make it
+  // disappear (and with it the only way to switch it back on).
   component CcChip: Rectangle {
     id: chip
     property string icon: ""
     property string label: ""
-    property bool urgent: false
+    property bool on: false        // toggled on: accent filled
+    property bool alert: false     // recording and friends: urgent
+    property bool interactive: true
     signal clicked()
+
+    readonly property color ink: chip.alert ? cc.host.colorUrgent
+      : chip.on ? cc.accentInk
+      : chip.interactive ? cc.text
+      : cc.textMuted
 
     implicitWidth: chipRow.implicitWidth + 22
     implicitHeight: 26
     radius: 13
-    color: chip.urgent ? cc.host.withAlpha(cc.host.colorUrgent, 0.2) : cc.well
+    color: chip.alert ? cc.host.withAlpha(cc.host.colorUrgent, 0.22)
+      : chip.on ? cc.accent
+      : cc.well
     border.width: 1
-    border.color: cc.border
+    border.color: chip.on || chip.alert ? "transparent" : cc.border
+    Behavior on color { ColorAnimation { duration: cc.animDuration; easing.type: Easing.OutCubic } }
 
     Row {
       id: chipRow
@@ -510,21 +662,25 @@ ColumnLayout {
       Text {
         anchors.verticalCenter: parent.verticalCenter
         text: chip.icon
-        color: chip.urgent ? cc.host.colorUrgent : cc.text
+        color: chip.ink
         font.family: cc.iconFont
         font.pixelSize: 13
+        Behavior on color { ColorAnimation { duration: cc.animDuration } }
       }
       Text {
         anchors.verticalCenter: parent.verticalCenter
         visible: chip.label !== ""
         text: chip.label
-        color: chip.urgent ? cc.host.colorUrgent : cc.text
+        color: chip.ink
         font.family: "Adwaita Sans"
         font.pixelSize: 11
+        font.weight: chip.on ? Font.DemiBold : Font.Normal
+        Behavior on color { ColorAnimation { duration: cc.animDuration } }
       }
     }
     MouseArea {
       anchors.fill: parent
+      enabled: chip.interactive
       cursorShape: Qt.PointingHandCursor
       onClicked: chip.clicked()
     }
@@ -588,584 +744,774 @@ ColumnLayout {
     }
   }
 
-  // ---------- Toggles ----------
-
-  RowLayout {
+  // The panel can outgrow the island (a long tray menu, a stack of
+  // notifications), so the sections scroll instead of being clipped.
+  Flickable {
+    id: scroller
     Layout.fillWidth: true
-    spacing: 8
-    CcTile {
-      readonly property bool wifi: !!cc.wifiDevice
-      icon: wifi ? (Networking.wifiEnabled ? "󰖩" : "󰖪") : "󰈀"
-      title: wifi ? "Wi-Fi" : "Ethernet"
-      subtitle: wifi
-        ? (!Networking.wifiEnabled ? "Off" : cc.wifiNetwork ? cc.wifiNetwork.name : "Not connected")
-        : (cc.wiredDevice && cc.wiredDevice.connected ? "Connected" : "Disconnected")
-      checked: wifi ? Networking.wifiEnabled : !!(cc.wiredDevice && cc.wiredDevice.connected)
-      available: wifi
-      chevron: wifi
-      opacity: 1
-      onClicked: cc.host.view = "wifi"
-    }
-    CcTile {
-      icon: "󰍶"
-      title: "Focus"
-      subtitle: cc.dnd ? "On" : "Off"
-      checked: cc.dnd
-      available: !!cc.notifications
-      onClicked: {
-        var next = !cc.dnd
-        cc.notifications.setDoNotDisturb(next)
-        cc.host.announce(next ? "Focus on" : "Focus off")
-      }
-    }
-    CcRound {
-      icon: "󰒓"
-      onClicked: cc.host.view = "settings"
-    }
-  }
-
-  RowLayout {
-    Layout.fillWidth: true
-    spacing: 8
-    CcTile {
-      icon: cc.btAdapter && cc.btAdapter.enabled ? "󰂯" : "󰂲"
-      title: "Bluetooth"
-      subtitle: !cc.btAdapter ? "Unavailable" : !cc.btAdapter.enabled ? "Off" : cc.btConnected ? String(cc.btConnected.name || "Connected") : "On"
-      checked: !!(cc.btAdapter && cc.btAdapter.enabled)
-      available: !!cc.btAdapter
-      chevron: !!cc.btAdapter
-      onClicked: cc.host.view = "bluetooth"
-    }
-    CcTile {
-      icon: "󰊗"
-      title: "Game Mode"
-      subtitle: cc.gameMode ? "On" : "Off"
-      checked: cc.gameMode
-      onClicked: cc.setGameMode(!cc.gameMode)
-    }
-    CcRound {
-      icon: "󰖔"
-      checked: cc.nightOn
-      visible: !!cc.nightlight
-      onClicked: {
-        var next = !cc.nightOn
-        cc.nightlight.setNightlight(next)
-        cc.host.announce(next ? "Night light on" : "Night light off")
-      }
-    }
-  }
-
-  // ---------- Sound / Display ----------
-
-  CcSection {
-    title: "Levels"
-    visible: !!(cc.sink && cc.sink.audio) || cc.brightnessAvailable
-
-    RowLayout {
-      Layout.fillWidth: true
-      Layout.topMargin: 2
-      spacing: 10
-
-      CcVertical {
-        icon: cc.muted || cc.volume <= 0 ? "󰖁" : cc.volume < 0.34 ? "󰕿" : cc.volume < 0.67 ? "󰖀" : "󰕾"
-        valueText: Math.round((cc.muted ? 0 : cc.volume) * 100) + "%"
-        value: cc.muted ? 0 : cc.volume
-        onMoved: function(v) {
-          if (!cc.sink || !cc.sink.audio) return
-          cc.sink.audio.volume = v
-          if (cc.sink.audio.muted && v > 0) cc.sink.audio.muted = false
-        }
-      }
-
-      CcVertical {
-        visible: cc.brightnessAvailable
-        icon: cc.brightness <= 25 ? "󰃞" : cc.brightness <= 60 ? "󰃟" : "󰃠"
-        valueText: cc.brightness + "%"
-        value: cc.brightness / 100
-        onMoved: function(v) {
-          cc.brightness = Math.round(v * 100)
-          brightnessDebounce.restart()
-        }
-      }
-
-      ColumnLayout {
-        Layout.fillWidth: true
-        Layout.alignment: Qt.AlignVCenter
-        spacing: 8
-
-        // Microphone: muting is the control that actually gets used.
-        Rectangle {
-          Layout.fillWidth: true
-          Layout.preferredHeight: 42
-          radius: 14
-          color: cc.sourceMuted ? cc.host.withAlpha(cc.host.colorUrgent, 0.18) : cc.well
-          border.width: 1
-          border.color: cc.border
-          opacity: cc.sourcePresent ? 1 : 0.5
-
-          RowLayout {
-            anchors.fill: parent
-            anchors.leftMargin: 12
-            anchors.rightMargin: 12
-            spacing: 8
-            Text {
-              text: cc.sourceMuted ? "󰍭" : "󰍬"
-              color: cc.sourceMuted ? cc.host.colorUrgent : cc.text
-              font.family: cc.iconFont
-              font.pixelSize: 16
-            }
-            Text {
-              Layout.fillWidth: true
-              text: "Microphone"
-              elide: Text.ElideRight
-              color: cc.text
-              font.family: "Adwaita Sans"
-              font.pixelSize: 12
-            }
-            Text {
-              text: cc.sourceMuted ? "Muted" : "On"
-              color: cc.sourceMuted ? cc.host.colorUrgent : cc.textMuted
-              font.family: "Adwaita Sans"
-              font.pixelSize: 11
-            }
-          }
-          MouseArea {
-            anchors.fill: parent
-            cursorShape: Qt.PointingHandCursor
-            enabled: cc.sourcePresent
-            onClicked: if (cc.source && cc.source.audio) cc.source.audio.muted = !cc.source.audio.muted
-          }
-        }
-
-        // Output device, and the picker when there is more than one.
-        Rectangle {
-          Layout.fillWidth: true
-          Layout.fillHeight: true
-          radius: 14
-          color: cc.outputsOpen ? cc.host.withAlpha(cc.text, 0.14) : cc.well
-          border.width: 1
-          border.color: cc.border
-
-          RowLayout {
-            anchors.fill: parent
-            anchors.leftMargin: 12
-            anchors.rightMargin: 12
-            spacing: 6
-            Text {
-              Layout.fillWidth: true
-              text: cc.sink ? String(cc.sink.description || cc.sink.nickname || cc.sink.name || "") : "No output"
-              textFormat: Text.PlainText
-              elide: Text.ElideRight
-              color: cc.text
-              font.family: "Adwaita Sans"
-              font.pixelSize: 11
-            }
-            Text {
-              visible: cc.outputs.length > 1
-              text: "󰅂"
-              rotation: cc.outputsOpen ? 90 : 0
-              color: cc.textMuted
-              font.family: cc.iconFont
-              font.pixelSize: 13
-              Behavior on rotation { NumberAnimation { duration: cc.animDuration; easing.type: Easing.OutCubic } }
-            }
-          }
-          MouseArea {
-            anchors.fill: parent
-            enabled: cc.outputs.length > 1
-            cursorShape: enabled ? Qt.PointingHandCursor : Qt.ArrowCursor
-            onClicked: cc.outputsOpen = !cc.outputsOpen
-          }
-        }
-      }
-    }
-
-    // Output picker, revealed by the output row.
-    Repeater {
-      model: cc.outputsOpen ? cc.outputs : []
-      delegate: Rectangle {
-        id: outputRow
-        required property var modelData
-        readonly property bool isDefault: modelData === cc.sink
-        Layout.fillWidth: true
-        Layout.preferredHeight: 32
-        radius: 11
-        color: outputMouse.containsMouse ? cc.well : "transparent"
-        Text {
-          anchors.left: parent.left
-          anchors.leftMargin: 10
-          anchors.right: outputCheck.left
-          anchors.rightMargin: 8
-          anchors.verticalCenter: parent.verticalCenter
-          text: String(outputRow.modelData.description || outputRow.modelData.nickname || outputRow.modelData.name || "")
-          textFormat: Text.PlainText
-          elide: Text.ElideRight
-          color: outputRow.isDefault ? cc.text : cc.textMuted
-          font.family: "Adwaita Sans"
-          font.pixelSize: 11
-        }
-        Text {
-          id: outputCheck
-          anchors.right: parent.right
-          anchors.rightMargin: 10
-          anchors.verticalCenter: parent.verticalCenter
-          visible: outputRow.isDefault
-          text: "󰄬"
-          color: cc.accent
-          font.family: cc.iconFont
-          font.pixelSize: 14
-        }
-        MouseArea {
-          id: outputMouse
-          anchors.fill: parent
-          hoverEnabled: true
-          cursorShape: Qt.PointingHandCursor
-          onClicked: Pipewire.preferredDefaultAudioSink = outputRow.modelData
-        }
-      }
-    }
-  }
-
-  // The pieces of the old status bar that still earn their place: what the
-  // keyboard is set to, what is currently running, and the tray.
-  CcSection {
-    title: "System"
-    visible: cc.hasSystemRow
-
-    RowLayout {
-      Layout.fillWidth: true
-      Layout.topMargin: 2
-      spacing: 6
-
-      CcChip {
-        visible: cc.keyboardLayout !== ""
-        icon: "󰌌"
-        label: cc.keyboardLayout
-      }
-      CcChip {
-        visible: cc.recording
-        icon: "󰻂"
-        label: "REC"
-        urgent: true
-        onClicked: cc.stopRecording()
-      }
-      CcChip {
-        visible: cc.dnd
-        icon: "󰍶"
-        label: "Focus"
-        onClicked: cc.toggleDnd()
-      }
-      CcChip {
-        visible: cc.nightOn
-        icon: "󰖔"
-        label: "Night"
-        onClicked: cc.toggleNightlight()
-      }
-      CcChip {
-        visible: cc.stayAwake
-        icon: "󰅶"
-        label: "Awake"
-        onClicked: cc.toggleStayAwake()
-      }
-
-      Item { Layout.fillWidth: true }
-
-      Repeater {
-        model: cc.trayItems
-        delegate: Item {
-          required property var modelData
-          Layout.preferredWidth: 24
-          Layout.preferredHeight: 24
-          Image {
-            anchors.fill: parent
-            anchors.margins: 3
-            source: modelData.icon
-            sourceSize.width: 32
-            sourceSize.height: 32
-            fillMode: Image.PreserveAspectFit
-            asynchronous: true
-          }
-          MouseArea {
-            anchors.fill: parent
-            cursorShape: Qt.PointingHandCursor
-            onClicked: modelData.activate()
-          }
-        }
-      }
-    }
-  }
-
-  CcSection {
-    title: "Power"
-    visible: cc.powerProfiles.length > 0
-
-    RowLayout {
-      Layout.fillWidth: true
-      spacing: 6
-
-      Repeater {
-        model: cc.powerProfiles
-        delegate: Rectangle {
-          id: profile
-          required property var modelData
-          readonly property bool selected: modelData === cc.activeProfile
-
-          Layout.fillWidth: true
-          Layout.preferredHeight: 38
-          radius: 13
-          color: profile.selected ? cc.accent : cc.well
-          scale: profileMouse.pressed ? 0.97 : 1
-          Behavior on color { ColorAnimation { duration: cc.animDuration; easing.type: Easing.OutCubic } }
-          Behavior on scale { NumberAnimation { duration: 120 * cc.host.motionScale; easing.type: Easing.OutCubic } }
-
-          Row {
-            anchors.centerIn: parent
-            spacing: 6
-            Text {
-              anchors.verticalCenter: parent.verticalCenter
-              text: cc.profileIcons[profile.modelData] || ""
-              color: profile.selected ? cc.accentInk : cc.text
-              font.family: cc.iconFont
-              font.pixelSize: 14
-            }
-            Text {
-              anchors.verticalCenter: parent.verticalCenter
-              text: cc.profileLabels[profile.modelData] || profile.modelData
-              color: profile.selected ? cc.accentInk : cc.text
-              font.family: "Adwaita Sans"
-              font.pixelSize: 12
-              font.weight: profile.selected ? Font.DemiBold : Font.Normal
-            }
-          }
-
-          MouseArea {
-            id: profileMouse
-            anchors.fill: parent
-            cursorShape: Qt.PointingHandCursor
-            onClicked: cc.setProfile(profile.modelData)
-          }
-        }
-      }
-    }
-
-    // Omarchy keeps a separate choice per power source; say which one this is.
-    Text {
-      Layout.fillWidth: true
-      Layout.leftMargin: 8
-      Layout.rightMargin: 8
-      Layout.topMargin: 2
-      text: UPower.onBattery ? "Saved for battery" : "Saved while plugged in"
-      color: cc.textMuted
-      font.family: "Adwaita Sans"
-      font.pixelSize: 11
-    }
-  }
-
-  // ---------- Notifications ----------
-
-  Rectangle {
-    Layout.fillWidth: true
-    Layout.preferredHeight: notificationBody.implicitHeight + 18
-    radius: 22
-    color: cc.card
-    border.width: 1
-    border.color: cc.border
+    Layout.preferredHeight: Math.min(sections.implicitHeight, 660)
+    contentHeight: sections.implicitHeight
+    clip: true
+    boundsBehavior: Flickable.StopAtBounds
 
     ColumnLayout {
-      id: notificationBody
-      anchors.left: parent.left
-      anchors.right: parent.right
-      anchors.top: parent.top
-      anchors.margins: 10
+      id: sections
+      width: scroller.width
       spacing: 8
+
+
+      // ---------- Toggles ----------
 
       RowLayout {
         Layout.fillWidth: true
-        Layout.leftMargin: 4
-        Layout.rightMargin: 4
-        Layout.topMargin: 2
-        Text {
-          text: "Notifications"
-          color: cc.text
-          font.family: "Adwaita Sans"
-          font.pixelSize: 13
-          font.weight: Font.DemiBold
-          font.letterSpacing: -0.2
+        spacing: 8
+        CcTile {
+          readonly property bool wifi: !!cc.wifiDevice
+          icon: wifi ? (Networking.wifiEnabled ? "󰖩" : "󰖪") : "󰈀"
+          title: wifi ? "Wi-Fi" : "Ethernet"
+          subtitle: wifi
+            ? (!Networking.wifiEnabled ? "Off" : cc.wifiNetwork ? cc.wifiNetwork.name : "Not connected")
+            : (cc.wiredDevice && cc.wiredDevice.connected ? "Connected" : "Disconnected")
+          checked: wifi ? Networking.wifiEnabled : !!(cc.wiredDevice && cc.wiredDevice.connected)
+          available: wifi
+          chevron: wifi
+          opacity: 1
+          onClicked: cc.host.view = "wifi"
         }
-        Item { Layout.fillWidth: true }
-        // iOS's grey capsule button.
-        Rectangle {
-          visible: cc.host.history.length > 0
-          implicitWidth: clearLabel.implicitWidth + 20
-          implicitHeight: 22
-          radius: 12
-          color: clearMouse.containsMouse ? cc.host.withAlpha(cc.text, 0.16) : cc.well
-          Behavior on color { ColorAnimation { duration: cc.animDuration } }
+        CcTile {
+          icon: "󰍶"
+          title: "Focus"
+          subtitle: cc.dnd ? "On" : "Off"
+          checked: cc.dnd
+          available: !!cc.notifications
+          onClicked: {
+            var next = !cc.dnd
+            cc.notifications.setDoNotDisturb(next)
+            cc.host.announce(next ? "Focus on" : "Focus off")
+          }
+        }
+        CcRound {
+          icon: "󰒓"
+          onClicked: cc.host.view = "settings"
+        }
+      }
+
+      RowLayout {
+        Layout.fillWidth: true
+        spacing: 8
+        CcTile {
+          icon: cc.btAdapter && cc.btAdapter.enabled ? "󰂯" : "󰂲"
+          title: "Bluetooth"
+          subtitle: !cc.btAdapter ? "Unavailable" : !cc.btAdapter.enabled ? "Off" : cc.btConnected ? String(cc.btConnected.name || "Connected") : "On"
+          checked: !!(cc.btAdapter && cc.btAdapter.enabled)
+          available: !!cc.btAdapter
+          chevron: !!cc.btAdapter
+          onClicked: cc.host.view = "bluetooth"
+        }
+        CcTile {
+          icon: "󰊗"
+          title: "Game Mode"
+          subtitle: cc.gameMode ? "On" : "Off"
+          checked: cc.gameMode
+          onClicked: cc.setGameMode(!cc.gameMode)
+        }
+        CcRound {
+          icon: "󰖔"
+          checked: cc.nightOn
+          visible: !!cc.nightlight
+          onClicked: {
+            var next = !cc.nightOn
+            cc.nightlight.setNightlight(next)
+            cc.host.announce(next ? "Night light on" : "Night light off")
+          }
+        }
+      }
+
+      // ---------- Sound / Display ----------
+
+      CcSection {
+        title: "Levels"
+        visible: !!(cc.sink && cc.sink.audio) || cc.brightnessAvailable
+
+        RowLayout {
+          Layout.fillWidth: true
+          Layout.topMargin: 2
+          spacing: 10
+
+          CcVertical {
+            icon: cc.muted || cc.volume <= 0 ? "󰖁" : cc.volume < 0.34 ? "󰕿" : cc.volume < 0.67 ? "󰖀" : "󰕾"
+            valueText: Math.round((cc.muted ? 0 : cc.volume) * 100) + "%"
+            value: cc.muted ? 0 : cc.volume
+            onMoved: function(v) {
+              if (!cc.sink || !cc.sink.audio) return
+              cc.sink.audio.volume = v
+              if (cc.sink.audio.muted && v > 0) cc.sink.audio.muted = false
+            }
+          }
+
+          CcVertical {
+            visible: cc.brightnessAvailable
+            icon: cc.brightness <= 25 ? "󰃞" : cc.brightness <= 60 ? "󰃟" : "󰃠"
+            valueText: cc.brightness + "%"
+            value: cc.brightness / 100
+            onMoved: function(v) {
+              cc.brightness = Math.round(v * 100)
+              brightnessDebounce.restart()
+            }
+          }
+
+          ColumnLayout {
+            Layout.fillWidth: true
+            Layout.alignment: Qt.AlignVCenter
+            spacing: 8
+
+            // Microphone: muting is the control that actually gets used.
+            Rectangle {
+              Layout.fillWidth: true
+              Layout.preferredHeight: 42
+              radius: 14
+              color: cc.sourceMuted ? cc.host.withAlpha(cc.host.colorUrgent, 0.18) : cc.well
+              border.width: 1
+              border.color: cc.border
+              opacity: cc.sourcePresent ? 1 : 0.5
+
+              RowLayout {
+                anchors.fill: parent
+                anchors.leftMargin: 12
+                anchors.rightMargin: 12
+                spacing: 8
+                Text {
+                  text: cc.sourceMuted ? "󰍭" : "󰍬"
+                  color: cc.sourceMuted ? cc.host.colorUrgent : cc.text
+                  font.family: cc.iconFont
+                  font.pixelSize: 16
+                }
+                Text {
+                  Layout.fillWidth: true
+                  text: "Microphone"
+                  elide: Text.ElideRight
+                  color: cc.text
+                  font.family: "Adwaita Sans"
+                  font.pixelSize: 12
+                }
+                Text {
+                  text: cc.sourceMuted ? "Muted" : "On"
+                  color: cc.sourceMuted ? cc.host.colorUrgent : cc.textMuted
+                  font.family: "Adwaita Sans"
+                  font.pixelSize: 11
+                }
+              }
+              MouseArea {
+                anchors.fill: parent
+                cursorShape: Qt.PointingHandCursor
+                enabled: cc.sourcePresent
+                onClicked: if (cc.source && cc.source.audio) cc.source.audio.muted = !cc.source.audio.muted
+              }
+            }
+
+            // Output device, and the picker when there is more than one.
+            Rectangle {
+              Layout.fillWidth: true
+              Layout.fillHeight: true
+              radius: 14
+              color: cc.outputsOpen ? cc.host.withAlpha(cc.text, 0.14) : cc.well
+              border.width: 1
+              border.color: cc.border
+
+              RowLayout {
+                anchors.fill: parent
+                anchors.leftMargin: 12
+                anchors.rightMargin: 12
+                spacing: 6
+                Text {
+                  Layout.fillWidth: true
+                  text: cc.sink ? String(cc.sink.description || cc.sink.nickname || cc.sink.name || "") : "No output"
+                  textFormat: Text.PlainText
+                  elide: Text.ElideRight
+                  color: cc.text
+                  font.family: "Adwaita Sans"
+                  font.pixelSize: 11
+                }
+                Text {
+                  visible: cc.outputs.length > 1
+                  text: "󰅂"
+                  rotation: cc.outputsOpen ? 90 : 0
+                  color: cc.textMuted
+                  font.family: cc.iconFont
+                  font.pixelSize: 13
+                  Behavior on rotation { NumberAnimation { duration: cc.animDuration; easing.type: Easing.OutCubic } }
+                }
+              }
+              MouseArea {
+                anchors.fill: parent
+                enabled: cc.outputs.length > 1
+                cursorShape: enabled ? Qt.PointingHandCursor : Qt.ArrowCursor
+                onClicked: cc.outputsOpen = !cc.outputsOpen
+              }
+            }
+          }
+        }
+
+        // Output picker, revealed by the output row.
+        Repeater {
+          model: cc.outputsOpen ? cc.outputs : []
+          delegate: Rectangle {
+            id: outputRow
+            required property var modelData
+            readonly property bool isDefault: modelData === cc.sink
+            Layout.fillWidth: true
+            Layout.preferredHeight: 32
+            radius: 11
+            color: outputMouse.containsMouse ? cc.well : "transparent"
+            Text {
+              anchors.left: parent.left
+              anchors.leftMargin: 10
+              anchors.right: outputCheck.left
+              anchors.rightMargin: 8
+              anchors.verticalCenter: parent.verticalCenter
+              text: String(outputRow.modelData.description || outputRow.modelData.nickname || outputRow.modelData.name || "")
+              textFormat: Text.PlainText
+              elide: Text.ElideRight
+              color: outputRow.isDefault ? cc.text : cc.textMuted
+              font.family: "Adwaita Sans"
+              font.pixelSize: 11
+            }
+            Text {
+              id: outputCheck
+              anchors.right: parent.right
+              anchors.rightMargin: 10
+              anchors.verticalCenter: parent.verticalCenter
+              visible: outputRow.isDefault
+              text: "󰄬"
+              color: cc.accent
+              font.family: cc.iconFont
+              font.pixelSize: 14
+            }
+            MouseArea {
+              id: outputMouse
+              anchors.fill: parent
+              hoverEnabled: true
+              cursorShape: Qt.PointingHandCursor
+              onClicked: Pipewire.preferredDefaultAudioSink = outputRow.modelData
+            }
+          }
+        }
+      }
+
+      // The pieces of the old status bar that still earn their place: what the
+      // keyboard is set to, what is running, what is pending, and the tray (with
+      // its own menu on right click).
+      CcSection {
+        title: "System"
+        visible: cc.hasSystemRow
+
+        Flow {
+          id: chipFlow
+          Layout.fillWidth: true
+          Layout.topMargin: 2
+          Layout.preferredHeight: chipFlow.implicitHeight
+          spacing: 6
+
+          CcChip {
+            visible: cc.keyboardLayout !== ""
+            icon: "󰌌"
+            label: cc.keyboardLayout.replace(/\s*\(.*\)$/, "")
+            onClicked: cc.cycleLayout()
+          }
+          CcChip {
+            icon: "󰻂"
+            label: cc.recording ? "REC" : "Record"
+            alert: cc.recording
+            onClicked: cc.recording ? cc.stopRecording() : cc.startRecording()
+          }
+          CcChip {
+            icon: "󰍶"
+            label: "Focus"
+            on: cc.dnd
+            onClicked: cc.toggleDnd()
+          }
+          CcChip {
+            icon: "󰖔"
+            label: "Night"
+            on: cc.nightOn
+            onClicked: cc.toggleNightlight()
+          }
+          CcChip {
+            icon: "󰅶"
+            label: "Awake"
+            on: cc.stayAwake
+            onClicked: cc.toggleStayAwake()
+          }
+          CcChip {
+            visible: cc.dictating
+            icon: "󰍬"
+            label: "Dictating"
+            on: true
+            onClicked: cc.toggleDictation()
+          }
+          CcChip {
+            visible: cc.reminderCount > 0
+            icon: "󰃰"
+            label: cc.reminderCount > 1 ? cc.reminderCount + " reminders" : "1 reminder"
+            on: true
+            onClicked: cc.showReminders()
+          }
+          CcChip {
+            visible: cc.updatesAvailable
+            icon: "󰚰"
+            label: "Update"
+            on: true
+            onClicked: cc.runUpdate()
+          }
+          CcChip {
+            visible: cc.agentsActive > 0
+            icon: "󰚩"
+            label: cc.agentsActive > 1 ? cc.agentsActive + " agents" : "1 agent"
+            on: true
+            onClicked: cc.openAgents()
+          }
+          CcChip {
+            visible: cc.weatherText !== ""
+            icon: "󰖐"
+            label: cc.weatherText
+            onClicked: cc.openWeather()
+          }
+        }
+
+        RowLayout {
+          Layout.fillWidth: true
+          Layout.topMargin: cc.trayItems.length > 0 ? 8 : 0
+          visible: cc.trayItems.length > 0
+          spacing: 6
           Text {
-            id: clearLabel
-            anchors.centerIn: parent
-            text: "Clear"
-            color: cc.text
+            text: "Tray"
+            color: cc.textMuted
             font.family: "Adwaita Sans"
             font.pixelSize: 11
-            font.weight: Font.Medium
           }
-          MouseArea {
-            id: clearMouse
-            anchors.fill: parent
-            hoverEnabled: true
-            cursorShape: Qt.PointingHandCursor
-            onClicked: cc.host.clearAllNotifications()
+          Item { Layout.fillWidth: true }
+          Repeater {
+            model: cc.trayItems
+            delegate: Item {
+              required property var modelData
+              Layout.preferredWidth: 26
+              Layout.preferredHeight: 26
+              Image {
+                anchors.fill: parent
+                anchors.margins: 3
+                source: modelData.icon
+                sourceSize.width: 32
+                sourceSize.height: 32
+                fillMode: Image.PreserveAspectFit
+                asynchronous: true
+              }
+              MouseArea {
+                anchors.fill: parent
+                cursorShape: Qt.PointingHandCursor
+                acceptedButtons: Qt.LeftButton | Qt.RightButton
+                onClicked: function(mouse) {
+                  if (mouse.button === Qt.RightButton) cc.openTrayMenu(modelData)
+                  else modelData.activate()
+                }
+              }
+            }
           }
+        }
+
+        Flickable {
+          id: trayMenuScroll
+          Layout.fillWidth: true
+          Layout.preferredHeight: cc.trayMenuItem ? Math.min(trayMenuColumn.implicitHeight, 300) : 0
+          contentHeight: trayMenuColumn.implicitHeight
+          clip: true
+          visible: cc.trayMenuItem !== null
+          boundsBehavior: Flickable.StopAtBounds
+
+          ColumnLayout {
+            id: trayMenuColumn
+            width: trayMenuScroll.width
+            spacing: 0
+
+            // A tray item's own menu, rendered in place. Right click opens it; entries
+            // with children drill in and the first row walks back out.
+            Rectangle {
+              visible: cc.trayMenuItem !== null && cc.trayStack.length > 0
+              Layout.fillWidth: true
+              Layout.topMargin: 6
+              Layout.preferredHeight: 30
+              radius: 10
+              color: backMouse.containsMouse ? cc.well : "transparent"
+              Row {
+                anchors.left: parent.left
+                anchors.leftMargin: 10
+                anchors.verticalCenter: parent.verticalCenter
+                spacing: 6
+                Text {
+                  anchors.verticalCenter: parent.verticalCenter
+                  text: "󰅁"
+                  color: cc.textMuted
+                  font.family: cc.iconFont
+                  font.pixelSize: 13
+                }
+                Text {
+                  anchors.verticalCenter: parent.verticalCenter
+                  text: cc.trayStack.length > 0 ? String(cc.trayStack[cc.trayStack.length - 1].text || "") : ""
+                  color: cc.text
+                  font.family: "Adwaita Sans"
+                  font.pixelSize: 12
+                }
+              }
+              MouseArea {
+                id: backMouse
+                anchors.fill: parent
+                hoverEnabled: true
+                cursorShape: Qt.PointingHandCursor
+                onClicked: cc.leaveTrayEntry()
+              }
+            }
+
+            Repeater {
+              model: cc.trayMenuItem ? cc.trayEntries : []
+              delegate: Rectangle {
+                id: trayRow
+                required property var modelData
+                readonly property bool separator: modelData.isSeparator === true
+                Layout.fillWidth: true
+                Layout.preferredHeight: separator ? 9 : 30
+                radius: 10
+                color: !separator && trayMouse.containsMouse ? cc.well : "transparent"
+
+                Rectangle {
+                  visible: trayRow.separator
+                  anchors.verticalCenter: parent.verticalCenter
+                  anchors.left: parent.left
+                  anchors.right: parent.right
+                  anchors.leftMargin: 10
+                  anchors.rightMargin: 10
+                  height: 1
+                  color: cc.border
+                }
+                RowLayout {
+                  visible: !trayRow.separator
+                  anchors.fill: parent
+                  anchors.leftMargin: 10
+                  anchors.rightMargin: 10
+                  spacing: 8
+                  Image {
+                    visible: String(trayRow.modelData.icon || "") !== ""
+                    Layout.preferredWidth: 16
+                    Layout.preferredHeight: 16
+                    source: trayRow.modelData.icon
+                    sourceSize.width: 32
+                    sourceSize.height: 32
+                    fillMode: Image.PreserveAspectFit
+                  }
+                  Text {
+                    Layout.fillWidth: true
+                    text: String(trayRow.modelData.text || "")
+                    textFormat: Text.PlainText
+                    elide: Text.ElideRight
+                    color: trayRow.modelData.enabled ? cc.text : cc.textMuted
+                    font.family: "Adwaita Sans"
+                    font.pixelSize: 12
+                  }
+                  Text {
+                    visible: trayRow.modelData.hasChildren === true
+                    text: "󰅂"
+                    color: cc.textMuted
+                    font.family: cc.iconFont
+                    font.pixelSize: 13
+                  }
+                }
+                MouseArea {
+                  id: trayMouse
+                  anchors.fill: parent
+                  hoverEnabled: true
+                  enabled: !trayRow.separator && trayRow.modelData.enabled
+                  cursorShape: Qt.PointingHandCursor
+                  onClicked: cc.enterTrayEntry(trayRow.modelData)
+                }
+              }
+            }
+          }
+        }
+
+      }
+
+      CcSection {
+        title: "Power"
+        visible: cc.powerProfiles.length > 0
+
+        RowLayout {
+          Layout.fillWidth: true
+          spacing: 6
+
+          Repeater {
+            model: cc.powerProfiles
+            delegate: Rectangle {
+              id: profile
+              required property var modelData
+              readonly property bool selected: modelData === cc.activeProfile
+
+              Layout.fillWidth: true
+              Layout.preferredHeight: 38
+              radius: 13
+              color: profile.selected ? cc.accent : cc.well
+              scale: profileMouse.pressed ? 0.97 : 1
+              Behavior on color { ColorAnimation { duration: cc.animDuration; easing.type: Easing.OutCubic } }
+              Behavior on scale { NumberAnimation { duration: 120 * cc.host.motionScale; easing.type: Easing.OutCubic } }
+
+              Row {
+                anchors.centerIn: parent
+                spacing: 6
+                Text {
+                  anchors.verticalCenter: parent.verticalCenter
+                  text: cc.profileIcons[profile.modelData] || ""
+                  color: profile.selected ? cc.accentInk : cc.text
+                  font.family: cc.iconFont
+                  font.pixelSize: 14
+                }
+                Text {
+                  anchors.verticalCenter: parent.verticalCenter
+                  text: cc.profileLabels[profile.modelData] || profile.modelData
+                  color: profile.selected ? cc.accentInk : cc.text
+                  font.family: "Adwaita Sans"
+                  font.pixelSize: 12
+                  font.weight: profile.selected ? Font.DemiBold : Font.Normal
+                }
+              }
+
+              MouseArea {
+                id: profileMouse
+                anchors.fill: parent
+                cursorShape: Qt.PointingHandCursor
+                onClicked: cc.setProfile(profile.modelData)
+              }
+            }
+          }
+        }
+
+        // Omarchy keeps a separate choice per power source; say which one this is.
+        Text {
+          Layout.fillWidth: true
+          Layout.leftMargin: 8
+          Layout.rightMargin: 8
+          Layout.topMargin: 2
+          text: UPower.onBattery ? "Saved for battery" : "Saved while plugged in"
+          color: cc.textMuted
+          font.family: "Adwaita Sans"
+          font.pixelSize: 11
         }
       }
 
-      Text {
-        visible: cc.host.history.length === 0
-        Layout.fillWidth: true
-        Layout.topMargin: 4
-        Layout.bottomMargin: 8
-        horizontalAlignment: Text.AlignHCenter
-        text: "No notifications"
-        color: cc.textMuted
-        font.family: "Adwaita Sans"
-        font.pixelSize: 12
-      }
+      // ---------- Notifications ----------
 
-      ListView {
-        visible: cc.host.history.length > 0
+      Rectangle {
         Layout.fillWidth: true
-        Layout.preferredHeight: Math.min(contentHeight, 190)
-        clip: true
-        spacing: 8
-        boundsBehavior: Flickable.StopAtBounds
-        model: cc.host.history
-        delegate: Rectangle {
-          id: note
-          required property var modelData
-          readonly property string appName: String(modelData.app || modelData.summary || "?")
-          width: ListView.view.width
-          height: noteBody.implicitHeight + 20
-          radius: 20
-          color: noteMouse.containsMouse ? cc.host.withAlpha(cc.text, 0.12) : cc.card
+        Layout.preferredHeight: notificationBody.implicitHeight + 18
+        radius: 22
+        color: cc.card
+        border.width: 1
+        border.color: cc.border
 
-          MouseArea {
-            id: noteMouse
-            anchors.fill: parent
-            hoverEnabled: true
-            cursorShape: Qt.PointingHandCursor
-            // Opens the app the notification came from (see the host).
-            onClicked: cc.host.activateNotification(note.modelData)
-          }
-          // The notification's image or app icon; a letter avatar when
-          // there's none (or it fails to load).
-          ClippingRectangle {
-            id: avatar
-            // A live image handle dies with the shell; fall back to the app
-            // icon (then the letter) when it no longer loads.
-            property bool imageFailed: false
-            readonly property string source: cc.host.notificationIconSource(note.modelData, imageFailed)
-            readonly property var brand: cc.host.notificationBrand(note.modelData)
-            anchors.left: parent.left
-            anchors.leftMargin: 10
-            anchors.top: parent.top
-            anchors.topMargin: 10
-            width: 30; height: 30; radius: 8
-            color: brand ? brand.tile
-              : noteIcon.status === Image.Ready ? "transparent" : cc.host.withAlpha(cc.accent, 0.18)
-            Image {
-              id: noteIcon
-              anchors.fill: parent
-              source: avatar.source
-              sourceSize.width: 60
-              sourceSize.height: 60
-              fillMode: Image.PreserveAspectCrop
-              asynchronous: true
-              visible: status === Image.Ready
-              onStatusChanged: if (status === Image.Error) avatar.imageFailed = true
-            }
+        ColumnLayout {
+          id: notificationBody
+          anchors.left: parent.left
+          anchors.right: parent.right
+          anchors.top: parent.top
+          anchors.margins: 10
+          spacing: 8
+
+          RowLayout {
+            Layout.fillWidth: true
+            Layout.leftMargin: 4
+            Layout.rightMargin: 4
+            Layout.topMargin: 2
             Text {
-              anchors.centerIn: parent
-              visible: noteIcon.status !== Image.Ready
-              text: avatar.brand ? avatar.brand.glyph : note.appName.charAt(0).toUpperCase()
-              // Not the accent: with a white accent the letter would disappear
-              // into its own tint. The theme foreground reads on that tint.
-              color: avatar.brand ? avatar.brand.ink : cc.text
-              font.family: avatar.brand ? "JetBrainsMono Nerd Font" : "Adwaita Sans"
-              font.pixelSize: avatar.brand ? 20 : 14
+              text: "Notifications"
+              color: cc.text
+              font.family: "Adwaita Sans"
+              font.pixelSize: 13
               font.weight: Font.DemiBold
+              font.letterSpacing: -0.2
             }
-          }
-          Column {
-            id: noteBody
-            anchors.left: avatar.right
-            anchors.leftMargin: 10
-            anchors.right: parent.right
-            anchors.rightMargin: 32
-            anchors.top: parent.top
-            anchors.topMargin: 12
-            spacing: 2
-            // Like iOS's Notification Center: the title with the time on the
-            // same line (the icon already says which app).
-            Item {
-              width: parent.width
-              height: noteTitle.height
+            Item { Layout.fillWidth: true }
+            // iOS's grey capsule button.
+            Rectangle {
+              visible: cc.host.history.length > 0
+              implicitWidth: clearLabel.implicitWidth + 20
+              implicitHeight: 22
+              radius: 12
+              color: clearMouse.containsMouse ? cc.host.withAlpha(cc.text, 0.16) : cc.well
+              Behavior on color { ColorAnimation { duration: cc.animDuration } }
               Text {
-                id: noteTitle
-                anchors.left: parent.left
-                anchors.right: noteAge.left
-                anchors.rightMargin: 8
-                text: cc.host.notificationTitle(note.modelData)
-                textFormat: Text.PlainText
-                elide: Text.ElideRight
+                id: clearLabel
+                anchors.centerIn: parent
+                text: "Clear"
                 color: cc.text
                 font.family: "Adwaita Sans"
-                font.pixelSize: 13
-                font.weight: Font.DemiBold
-                font.letterSpacing: -0.2
-              }
-              Text {
-                id: noteAge
-                anchors.right: parent.right
-                anchors.baseline: noteTitle.baseline
-                text: cc.host.notificationAge(note.modelData.timestamp)
-                textFormat: Text.PlainText
-                color: cc.textMuted
-                font.family: "Adwaita Sans"
                 font.pixelSize: 11
+                font.weight: Font.Medium
               }
-            }
-            Text {
-              width: parent.width
-              // Apps often send markup in the body rather than setting the
-              // markup hint (Telegram sends "<b>Name</b>\nMessage"), so render
-              // anything that looks like markup as styled text and everything
-              // else literally.
-              readonly property string rawBody: String(note.modelData.body || "")
-              text: rawBody
-              visible: text !== ""
-              textFormat: /<[a-z][^>]*>/i.test(rawBody) ? Text.StyledText : Text.PlainText
-              wrapMode: Text.Wrap
-              maximumLineCount: 3
-              elide: Text.ElideRight
-              color: cc.host.withAlpha(cc.text, 0.72)
-              font.family: "Adwaita Sans"
-              font.pixelSize: 12
+              MouseArea {
+                id: clearMouse
+                anchors.fill: parent
+                hoverEnabled: true
+                cursorShape: Qt.PointingHandCursor
+                onClicked: cc.host.clearAllNotifications()
+              }
             }
           }
+
           Text {
-            anchors.right: parent.right
-            anchors.rightMargin: 13
-            anchors.top: parent.top
-            anchors.topMargin: 12
-            text: "󰅖"
-            color: closeMouse.containsMouse ? cc.text : cc.textMuted
-            font.family: cc.iconFont
-            font.pixelSize: 13
-            MouseArea { id: closeMouse; anchors.fill: parent; anchors.margins: -6; hoverEnabled: true; onClicked: cc.host.dismissNotification(note.modelData) }
+            visible: cc.host.history.length === 0
+            Layout.fillWidth: true
+            Layout.topMargin: 4
+            Layout.bottomMargin: 8
+            horizontalAlignment: Text.AlignHCenter
+            text: "No notifications"
+            color: cc.textMuted
+            font.family: "Adwaita Sans"
+            font.pixelSize: 12
+          }
+
+          ListView {
+            visible: cc.host.history.length > 0
+            Layout.fillWidth: true
+            Layout.preferredHeight: Math.min(contentHeight, 190)
+            clip: true
+            spacing: 8
+            boundsBehavior: Flickable.StopAtBounds
+            model: cc.host.history
+            delegate: Rectangle {
+              id: note
+              required property var modelData
+              readonly property string appName: String(modelData.app || modelData.summary || "?")
+              width: ListView.view.width
+              height: noteBody.implicitHeight + 20
+              radius: 20
+              color: noteMouse.containsMouse ? cc.host.withAlpha(cc.text, 0.12) : cc.card
+
+              MouseArea {
+                id: noteMouse
+                anchors.fill: parent
+                hoverEnabled: true
+                cursorShape: Qt.PointingHandCursor
+                // Opens the app the notification came from (see the host).
+                onClicked: cc.host.activateNotification(note.modelData)
+              }
+              // The notification's image or app icon; a letter avatar when
+              // there's none (or it fails to load).
+              ClippingRectangle {
+                id: avatar
+                // A live image handle dies with the shell; fall back to the app
+                // icon (then the letter) when it no longer loads.
+                property bool imageFailed: false
+                readonly property string source: cc.host.notificationIconSource(note.modelData, imageFailed)
+                readonly property var brand: cc.host.notificationBrand(note.modelData)
+                anchors.left: parent.left
+                anchors.leftMargin: 10
+                anchors.top: parent.top
+                anchors.topMargin: 10
+                width: 30; height: 30; radius: 8
+                color: brand ? brand.tile
+                  : noteIcon.status === Image.Ready ? "transparent" : cc.host.withAlpha(cc.accent, 0.18)
+                Image {
+                  id: noteIcon
+                  anchors.fill: parent
+                  source: avatar.source
+                  sourceSize.width: 60
+                  sourceSize.height: 60
+                  fillMode: Image.PreserveAspectCrop
+                  asynchronous: true
+                  visible: status === Image.Ready
+                  onStatusChanged: if (status === Image.Error) avatar.imageFailed = true
+                }
+                Text {
+                  anchors.centerIn: parent
+                  visible: noteIcon.status !== Image.Ready
+                  text: avatar.brand ? avatar.brand.glyph : note.appName.charAt(0).toUpperCase()
+                  // Not the accent: with a white accent the letter would disappear
+                  // into its own tint. The theme foreground reads on that tint.
+                  color: avatar.brand ? avatar.brand.ink : cc.text
+                  font.family: avatar.brand ? "JetBrainsMono Nerd Font" : "Adwaita Sans"
+                  font.pixelSize: avatar.brand ? 20 : 14
+                  font.weight: Font.DemiBold
+                }
+              }
+              Column {
+                id: noteBody
+                anchors.left: avatar.right
+                anchors.leftMargin: 10
+                anchors.right: parent.right
+                anchors.rightMargin: 32
+                anchors.top: parent.top
+                anchors.topMargin: 12
+                spacing: 2
+                // Like iOS's Notification Center: the title with the time on the
+                // same line (the icon already says which app).
+                Item {
+                  width: parent.width
+                  height: noteTitle.height
+                  Text {
+                    id: noteTitle
+                    anchors.left: parent.left
+                    anchors.right: noteAge.left
+                    anchors.rightMargin: 8
+                    text: cc.host.notificationTitle(note.modelData)
+                    textFormat: Text.PlainText
+                    elide: Text.ElideRight
+                    color: cc.text
+                    font.family: "Adwaita Sans"
+                    font.pixelSize: 13
+                    font.weight: Font.DemiBold
+                    font.letterSpacing: -0.2
+                  }
+                  Text {
+                    id: noteAge
+                    anchors.right: parent.right
+                    anchors.baseline: noteTitle.baseline
+                    text: cc.host.notificationAge(note.modelData.timestamp)
+                    textFormat: Text.PlainText
+                    color: cc.textMuted
+                    font.family: "Adwaita Sans"
+                    font.pixelSize: 11
+                  }
+                }
+                Text {
+                  width: parent.width
+                  // Apps often send markup in the body rather than setting the
+                  // markup hint (Telegram sends "<b>Name</b>\nMessage"), so render
+                  // anything that looks like markup as styled text and everything
+                  // else literally.
+                  readonly property string rawBody: String(note.modelData.body || "")
+                  text: rawBody
+                  visible: text !== ""
+                  textFormat: /<[a-z][^>]*>/i.test(rawBody) ? Text.StyledText : Text.PlainText
+                  wrapMode: Text.Wrap
+                  maximumLineCount: 3
+                  elide: Text.ElideRight
+                  color: cc.host.withAlpha(cc.text, 0.72)
+                  font.family: "Adwaita Sans"
+                  font.pixelSize: 12
+                }
+              }
+              Text {
+                anchors.right: parent.right
+                anchors.rightMargin: 13
+                anchors.top: parent.top
+                anchors.topMargin: 12
+                text: "󰅖"
+                color: closeMouse.containsMouse ? cc.text : cc.textMuted
+                font.family: cc.iconFont
+                font.pixelSize: 13
+                MouseArea { id: closeMouse; anchors.fill: parent; anchors.margins: -6; hoverEnabled: true; onClicked: cc.host.dismissNotification(note.modelData) }
+              }
+            }
           }
         }
       }
     }
   }
+
 }
