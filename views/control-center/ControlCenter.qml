@@ -9,6 +9,7 @@ import Quickshell.Services.Pipewire
 import Quickshell.Services.SystemTray
 import Quickshell.Services.UPower
 import Quickshell.Widgets
+import "../../components"
 
 // The expanded "controls" surface: two rows of toggle pills with a round
 // button at the end of each, a Levels card with vertical volume and brightness
@@ -295,6 +296,41 @@ ColumnLayout {
   readonly property bool dnd: notifications ? !!notifications.doNotDisturb : false
   readonly property bool nightOn: nightlight ? !!nightlight.enabled : false
 
+  // --- Night light warmth ---
+  readonly property int nightMin: 2500
+  readonly property int nightMax: 6500
+  property int nightTemp: 4000
+  property int nightAttempts: 0
+  Process {
+    id: nightWrite
+    onExited: function(code) {
+      // hyprsunset may still be starting up after the toggle; retry until it
+      // accepts the temperature.
+      if (code !== 0 && cc.nightOn && cc.nightAttempts < 8) {
+        cc.nightAttempts++
+        nightApply.restart()
+      }
+    }
+  }
+  Timer { id: nightApply; interval: 220; onTriggered: cc.applyNightTemp() }
+  function applyNightTemp() {
+    if (!cc.nightlight) return
+    if (!cc.nightOn) {
+      cc.nightlight.setNightlight(true)
+      cc.nightAttempts = 0
+      nightApply.restart()
+      return
+    }
+    cc.host.settings.nightTemp = cc.nightTemp
+    nightWrite.command = ["hyprctl", "hyprsunset", "temperature", String(cc.nightTemp)]
+    nightWrite.running = true
+  }
+  function setNightTemp(k) {
+    cc.nightTemp = Math.max(cc.nightMin, Math.min(cc.nightMax, Math.round(k)))
+    cc.nightAttempts = 0
+    nightApply.restart()
+  }
+
   // --- Game Mode: Hyprland animations off (restored by a config reload) ---
   property bool gameMode: false
   Process {
@@ -422,6 +458,9 @@ ColumnLayout {
       return
     }
     Qt.callLater(function() { cc.forceActiveFocus() })
+    var storedTemp = Number(cc.host.settings.nightTemp)
+    if (!isNaN(storedTemp) && storedTemp >= cc.nightMin && storedTemp <= cc.nightMax)
+      cc.nightTemp = Math.round(storedTemp)
     if (!brightnessRead.running) brightnessRead.running = true
     if (!gameModeRead.running) gameModeRead.running = true
     if (!profilesRead.running) profilesRead.running = true
@@ -898,6 +937,8 @@ ColumnLayout {
           onClicked: {
             var next = !cc.nightOn
             cc.nightlight.setNightlight(next)
+            // Bring the saved warmth back when the filter comes on.
+            if (next) { cc.nightAttempts = 0; nightApply.restart() }
             cc.host.announce(next ? "Night light on" : "Night light off")
           }
         }
@@ -1111,6 +1152,23 @@ ColumnLayout {
                     }
                     onWheel: function(wheel) { trayCell.modelData.scroll(wheel.angleDelta.y, false) }
                   }
+                }
+              }
+            }
+
+            // Night-light warmth, revealed while the filter is on.
+            RowLayout {
+              Layout.fillWidth: true
+              visible: cc.nightOn
+              spacing: 8
+              IslandSlider {
+                host: cc.host
+                Layout.fillWidth: true
+                icon: "󰟸"
+                value: (cc.nightTemp - cc.nightMin) / (cc.nightMax - cc.nightMin)
+                valueText: cc.nightTemp + " K"
+                onMoved: function(v) {
+                  cc.setNightTemp(cc.nightMin + v * (cc.nightMax - cc.nightMin))
                 }
               }
             }

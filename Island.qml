@@ -133,6 +133,7 @@ Item {
       property bool mediaPill: true
       property bool volumeHud: true
       property int bannerSeconds: 5
+      property int nightTemp: 4000
       property bool notch: false
       property bool downloads: true
       property bool clipboard: true
