@@ -12,7 +12,6 @@ ColumnLayout {
   property bool active: false
   readonly property var settings: host.settings
   readonly property string version: host.manifest && host.manifest.version ? String(host.manifest.version) : "—"
-  readonly property string pluginId: host.manifest && host.manifest.id ? String(host.manifest.id) : "guilhermerisu.island"
 
   // Everything back to the shipped value. nightTemp is included even though it
   // has no row here, so a reset is genuinely a reset.
@@ -470,10 +469,6 @@ ColumnLayout {
         SettingsRow {
           label: "Version"
           SettingsValue { text: settingsView.version }
-        }
-        SettingsRow {
-          label: "Plugin"
-          SettingsValue { text: settingsView.pluginId }
         }
         SettingsRow {
           label: "Settings File"

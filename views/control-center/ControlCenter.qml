@@ -89,6 +89,22 @@ ColumnLayout {
   readonly property bool stayAwake: idleService ? !!idleService.stayAwake : false
   property string keyboardLayout: ""
   property string keyboardDevice: ""
+  // Hyprland reports more than keyboards as keyboards, and `main` is no help:
+  // fcitx5's virtual keyboard takes it, and when that unbinds it lands on a
+  // power button. Keep the real keyboards and read the furthest-advanced one,
+  // which is the one being typed on (the same rule the stock widget uses).
+  readonly property var untypedKeyboard: /^(hl-virtual-keyboard|power-button|sleep-button|lid-switch|video-bus)/
+  function isTypedKeyboard(name) { return !untypedKeyboard.test(String(name || "")) }
+  function pickKeyboard(boards) {
+    var typed = []
+    for (var i = 0; i < boards.length; i++)
+      if (boards[i] && isTypedKeyboard(boards[i].name)) typed.push(boards[i])
+    if (typed.length === 0) return null
+    var best = typed[0]
+    for (var j = 1; j < typed.length; j++)
+      if (Number(typed[j].active_layout_index || 0) > Number(best.active_layout_index || 0)) best = typed[j]
+    return best
+  }
   Process {
     id: layoutRead
     command: ["hyprctl", "devices", "-j"]
@@ -97,15 +113,11 @@ ColumnLayout {
       onStreamFinished: {
         try {
           var boards = JSON.parse(String(text || "{}")).keyboards || []
-          for (var i = 0; i < boards.length; i++) {
-            if (boards[i] && boards[i].main) {
-              cc.keyboardDevice = String(boards[i].name || "")
-              cc.keyboardLayout = String(boards[i].active_keymap || "")
-              return
-            }
-          }
-          cc.keyboardLayout = boards.length ? String(boards[0].active_keymap || "") : ""
+          var chosen = cc.pickKeyboard(boards)
+          cc.keyboardDevice = chosen ? String(chosen.name || "") : ""
+          cc.keyboardLayout = chosen ? String(chosen.active_keymap || "") : ""
         } catch (e) {
+          cc.keyboardDevice = ""
           cc.keyboardLayout = ""
         }
       }
@@ -393,11 +405,19 @@ ColumnLayout {
   Process { id: profileWrite; onExited: profilesRead.running = true }
   Process { id: systemAction }
   Process { id: recordingStop }
+  // Anything that opens another panel or a floating terminal needs the island
+  // out of the way first. While a view is open the island holds an exclusive
+  // keyboard grab, and launching a second surface underneath it is what made
+  // Record look frozen: the menu came up but could not take the keyboard.
+  function runExternal(command) {
+    cc.host.view = "rest"
+    systemAction.command = command
+    Qt.callLater(function() { systemAction.running = true })
+  }
   function startRecording() {
     // Same door the stock indicator uses: the record menu, which offers the
     // choices (audio, webcam, region) before anything starts.
-    systemAction.command = ["omarchy-menu", "toggle", "trigger.capture.screenrecord"]
-    systemAction.running = true
+    cc.runExternal(["omarchy-menu", "toggle", "trigger.capture.screenrecord"])
   }
   function toggleDictation() {
     systemAction.command = ["voxtype", "record", "toggle"]
@@ -409,12 +429,10 @@ ColumnLayout {
     cc.host.announce(cc.reminderTooltip !== "" ? cc.reminderTooltip : "Reminders")
   }
   function runUpdate() {
-    systemAction.command = ["omarchy-launch-floating-terminal-with-presentation", "omarchy-update"]
-    systemAction.running = true
+    cc.runExternal(["omarchy-launch-floating-terminal-with-presentation", "omarchy-update"])
   }
   function openAgents() {
-    systemAction.command = ["omarchy-shell", "shell", "toggle", "omarchy.agents"]
-    systemAction.running = true
+    cc.runExternal(["omarchy-shell", "shell", "toggle", "omarchy.agents"])
   }
   function openWeather() {
     cc.host.view = "weather"
