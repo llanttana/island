@@ -81,6 +81,8 @@ ColumnLayout {
 
   // --- System monitor (shared with the live activity) ---
   readonly property var systemStats: host.systemStats
+  // --- Countdown timer (shared with its live activity) ---
+  readonly property var timer: host.timer
 
   // --- System: keyboard layout, recording, stay awake, tray ---
   readonly property var idleService: host.shell ? host.shell.firstPartyServiceFor("omarchy.idle") : null
@@ -1244,6 +1246,12 @@ ColumnLayout {
             label: Math.round(cc.systemStats.cpu) + "%"
               + (cc.systemStats.temp > 0 ? " · " + cc.systemStats.temp + "°" : "")
             onClicked: cc.host.view = "system"
+          }
+          CcChip {
+            icon: "󰔛"
+            label: cc.timer.running ? cc.timer.formatted() : "Timer"
+            on: cc.timer.running
+            onClicked: cc.host.view = "timer"
           }
         }
 

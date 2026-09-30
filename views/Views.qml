@@ -18,6 +18,7 @@ import "audio"
 import "system"
 import "calendar"
 import "weather"
+import "timer"
 
 // Every view the island can open. Each is a Surface: its name (also its IPC
 // route: `omarchy-shell guilhermerisu.island show <name>`), how wide the
@@ -27,7 +28,7 @@ Item {
   id: views
   required property var host
 
-  readonly property var surfaces: [controlsSurface, audioSurface, systemSurface, themesSurface, wallpapersSurface, appsSurface, powerSurface, emojiSurface, keybindsSurface, clipboardSurface, menuSurface, playerSurface, settingsSurface, answerSurface, wifiSurface, bluetoothSurface, calendarSurface, weatherSurface]
+  readonly property var surfaces: [controlsSurface, audioSurface, systemSurface, themesSurface, wallpapersSurface, appsSurface, powerSurface, emojiSurface, keybindsSurface, clipboardSurface, menuSurface, playerSurface, settingsSurface, answerSurface, wifiSurface, bluetoothSurface, calendarSurface, weatherSurface, timerSurface]
   function surfaceFor(name) {
     for (var i = 0; i < surfaces.length; i++) if (surfaces[i].viewName === name) return surfaces[i]
     return null
@@ -77,6 +78,15 @@ Item {
     fixedWidth: 480
     maxHeight: 640
     WeatherView { host: views.host; active: weatherSurface.active; anchors.fill: parent }
+  }
+
+  Surface {
+    id: timerSurface
+    host: views.host
+    viewName: "timer"
+    fixedWidth: 480
+    maxHeight: 560
+    TimerView { host: views.host; active: timerSurface.active; anchors.fill: parent }
   }
 
   Surface {

@@ -33,7 +33,7 @@ Item {
   onReportedArtChanged: if (reportedArt) { keptArt = reportedArt; keptArtTitle = mediaTitle }
   onMediaTitleChanged: if (mediaTitle !== keptArtTitle) { keptArt = reportedArt; keptArtTitle = mediaTitle }
   readonly property string mediaArt: reportedArt || (mediaTitle === keptArtTitle ? keptArt : "")
-  readonly property bool mediaPill: view === "rest" && mediaPlaying && !companionNeedsSetup && settings.mediaPill && !downloadPill && !systemPill
+  readonly property bool mediaPill: view === "rest" && mediaPlaying && !companionNeedsSetup && settings.mediaPill && !downloadPill && !systemPill && !timerPill
 
   property string askQuestion: ""
   readonly property var askProviders: ({
@@ -59,8 +59,14 @@ Item {
   readonly property var systemStats: systemSampler
   readonly property bool systemPinned: !!settings.systemMonitor
   readonly property bool systemHot: systemSampler.ready && (systemSampler.temp >= 85 || systemSampler.cpu >= 95)
-  readonly property bool systemPill: view === "rest" && !companionNeedsSetup && systemSampler.ready
+  readonly property bool systemPill: view === "rest" && !companionNeedsSetup && systemSampler.ready && !timerPill
     && (systemPinned || systemHot)
+  // Countdown timer, shared by the control-center chip, the Timer page, and
+  // the live activity on the resting pill.
+  TimerService { id: timerService }
+  readonly property var timer: timerService
+  readonly property bool timerRunning: timerService.running
+  readonly property bool timerPill: view === "rest" && !companionNeedsSetup && timerService.running
   readonly property bool downloadDone: view === "rest" && !companionNeedsSetup
     && (downloadTracker.finishedName !== "" || packageTracker.finishedTitle !== "")
   readonly property bool downloadActive: view === "rest" && !companionNeedsSetup
@@ -148,6 +154,7 @@ Item {
       property bool clipboard: true
       property bool systemUpdates: true
       property bool systemMonitor: false
+      property bool pomodoro: false
       property bool hideFullscreen: true
       property string askAi: "chatgpt"
     }
@@ -255,7 +262,7 @@ Item {
 
   // Small status accessories (workspace dots, battery) sit beside the clock
   // only in the plain resting state, so they never crowd a live activity.
-  readonly property bool accessoriesShown: view === "rest" && !mediaPill && !downloadPill && !systemPill && !companionNeedsSetup
+  readonly property bool accessoriesShown: view === "rest" && !mediaPill && !downloadPill && !systemPill && !timerPill && !companionNeedsSetup
   // Room reserved for the clock text so the accessories never crowd it.
   readonly property real clockSlot: 56
   // The pill slides off-screen while a window is fullscreen (the widget can be
@@ -466,6 +473,23 @@ Item {
     function onOnBatteryChanged() {
       if (UPower.onBattery) root.announce("On battery power")
       else root.announce(root.batteryFull ? "Battery full" : "Charging")
+    }
+  }
+
+  // A finished timer says so, chimes, and (in Pomodoro mode) starts the other
+  // half of the cycle.
+  Process { id: timerChime }
+  Process { id: timerNotify }
+  Connections {
+    target: timerService
+    function onDone(label) {
+      root.announce(label + " finished")
+      timerChime.command = ["pw-play", root.pluginDir + "/assets/chime.wav"]
+      timerChime.running = true
+      timerNotify.command = ["omarchy-notification-send", "Timer", label + " finished"]
+      timerNotify.running = true
+      if (root.settings.pomodoro)
+        timerService.start(label === "Focus" ? 5 * 60 : 25 * 60, label === "Focus" ? "Break" : "Focus")
     }
   }
 
@@ -763,6 +787,16 @@ Item {
       if (!brightnessProbe.running) brightnessProbe.running = true
       return "ok"
     }
+    // Start a countdown from a keybind or a script: `omarchy-shell
+    // guilhermerisu.island timer 1500 Focus`.
+    function timer(seconds: int, label: string): string {
+      root.timer.start(seconds, label)
+      return "ok"
+    }
+    function timerStop(): string {
+      root.timer.stop()
+      return "ok"
+    }
     function close(): string {
       root.view = "rest"
       return "rest"
@@ -881,6 +915,7 @@ Item {
             : root.companionNeedsSetup ? 250
             : root.downloadDone ? 360
             : root.downloadActive ? (root.downloadTracker.active ? 240 : 280)
+            : root.timerPill ? 240
             : root.systemPill ? 240
             : root.mediaPill ? 240
             : root.restWidth
@@ -888,7 +923,7 @@ Item {
             : root.notificationPill ? 84
             : root.clipboardPill ? (root.settings.notch ? 40 : 44)
             : root.downloadDone ? 64
-            : root.mediaPill || root.downloadPill || root.systemPill ? (root.settings.notch ? 40 : 44)
+            : root.mediaPill || root.downloadPill || root.systemPill || root.timerPill ? (root.settings.notch ? 40 : 44)
             : root.volumePill ? 56
             : root.brightnessPill ? 56
             : root.view === "rest" ? (root.settings.notch ? 36 : 40) : 52
@@ -1013,6 +1048,7 @@ Item {
               else if (root.clipboardPill) root.view = "clipboard"
               else if (root.view === "rest" && root.companionNeedsSetup) root.installCompanion()
               else if (root.downloadDone || (root.downloadActive && (mouse.x < 56 || mouse.x > width - 90))) root.openDownloads()
+              else if (root.timerPill) root.view = "timer"
               else if (root.systemPill) root.view = "system"
               else if (root.mediaPill && (mouse.x < 56 || mouse.x > width - 72)) root.view = "player"
               else if (root.view === "rest" && Math.abs(mouse.x - width / 2) <= root.clockSlot / 2 + 6) root.view = "calendar"
@@ -1031,6 +1067,8 @@ Item {
           MediaPill { host: root; anchors.fill: parent }
 
           SystemPill { host: root; anchors.fill: parent }
+
+          TimerPill { host: root; anchors.fill: parent }
 
           DownloadPill { host: root; anchors.fill: parent }
 
