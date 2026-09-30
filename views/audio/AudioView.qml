@@ -419,6 +419,16 @@ ColumnLayout {
                   font.pixelSize: 11
                 }
               }
+              MouseArea {
+                anchors.fill: parent
+                cursorShape: Qt.PointingHandCursor
+                onClicked: {
+                  if (!sourceRow.isDefault) Pipewire.preferredDefaultAudioSource = sourceRow.modelData
+                  audio.expandedName = sourceRow.open ? "" : String(sourceRow.modelData.name || "")
+                }
+              }
+              // Declared after the row's own handler, so the switch keeps its
+              // clicks instead of being swallowed by the row.
               IslandSwitch {
                 id: sourceToggle
                 anchors.right: parent.right
@@ -427,14 +437,6 @@ ColumnLayout {
                 host: audio.host
                 checked: sourceRow.isDefault
                 onToggled: Pipewire.preferredDefaultAudioSource = sourceRow.modelData
-              }
-              MouseArea {
-                anchors.fill: parent
-                cursorShape: Qt.PointingHandCursor
-                onClicked: {
-                  if (!sourceRow.isDefault) Pipewire.preferredDefaultAudioSource = sourceRow.modelData
-                  audio.expandedName = sourceRow.open ? "" : String(sourceRow.modelData.name || "")
-                }
               }
             }
 

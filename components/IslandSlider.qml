@@ -34,7 +34,6 @@ Item {
     id: valueLabel
     anchors.right: parent.right
     anchors.verticalCenter: parent.verticalCenter
-    width: visible ? implicitWidth : 0
     visible: slider.valueText !== ""
     text: slider.valueText
     color: slider.host.colorText

@@ -38,7 +38,7 @@ Item {
     anchors.right: parent.right
     anchors.rightMargin: 14
     anchors.verticalCenter: parent.verticalCenter
-    width: Math.min(implicitWidth, parent.width / 2 - 40)
+    width: Math.min(120, parent.width / 2 - 40)
     horizontalAlignment: Text.AlignRight
     text: pill.timer.label
     textFormat: Text.PlainText

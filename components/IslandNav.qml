@@ -7,6 +7,9 @@ Item {
   required property var host
   property string title: ""
   default property alias trailing: slot.data
+  // Optional controls on the leading side, next to the back button (the
+  // calendar's "previous month", for instance).
+  property alias leading: leadingSlot.data
   signal back()
 
   implicitHeight: 36
@@ -44,6 +47,14 @@ Item {
     font.pixelSize: 16
     font.weight: Font.DemiBold
     font.letterSpacing: -0.3
+  }
+
+  Row {
+    id: leadingSlot
+    anchors.left: parent.left
+    anchors.leftMargin: 40
+    anchors.verticalCenter: parent.verticalCenter
+    spacing: 8
   }
 
   Row {

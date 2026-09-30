@@ -54,7 +54,7 @@ ColumnLayout {
     title: Qt.formatDateTime(new Date(calendar.shownYear, calendar.shownMonth, 1), "MMMM yyyy")
     onBack: calendar.host.view = "rest"
 
-    Rectangle {
+    leading: Rectangle {
       width: 32
       height: 32
       radius: 16
