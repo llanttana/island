@@ -33,7 +33,7 @@ Item {
   onReportedArtChanged: if (reportedArt) { keptArt = reportedArt; keptArtTitle = mediaTitle }
   onMediaTitleChanged: if (mediaTitle !== keptArtTitle) { keptArt = reportedArt; keptArtTitle = mediaTitle }
   readonly property string mediaArt: reportedArt || (mediaTitle === keptArtTitle ? keptArt : "")
-  readonly property bool mediaPill: view === "rest" && mediaPlaying && !companionNeedsSetup && settings.mediaPill && !downloadPill
+  readonly property bool mediaPill: view === "rest" && mediaPlaying && !companionNeedsSetup && settings.mediaPill && !downloadPill && !systemPill
 
   property string askQuestion: ""
   readonly property var askProviders: ({
@@ -52,6 +52,15 @@ Item {
   Downloads { id: downloadWatcher; enabled: root.settings.downloads }
   readonly property Item packageTracker: packageWatcher
   PackageUpdates { id: packageWatcher; enabled: root.settings.systemUpdates }
+  // Live CPU/memory/temperature, shared by the monitor live activity and its
+  // page. It only takes the pill when pinned, or on its own when the machine
+  // is running hot.
+  SystemStats { id: systemSampler }
+  readonly property var systemStats: systemSampler
+  readonly property bool systemPinned: !!settings.systemMonitor
+  readonly property bool systemHot: systemSampler.ready && (systemSampler.temp >= 85 || systemSampler.cpu >= 95)
+  readonly property bool systemPill: view === "rest" && !companionNeedsSetup && systemSampler.ready
+    && (systemPinned || systemHot)
   readonly property bool downloadDone: view === "rest" && !companionNeedsSetup
     && (downloadTracker.finishedName !== "" || packageTracker.finishedTitle !== "")
   readonly property bool downloadActive: view === "rest" && !companionNeedsSetup
@@ -138,6 +147,7 @@ Item {
       property bool downloads: true
       property bool clipboard: true
       property bool systemUpdates: true
+      property bool systemMonitor: false
       property bool hideFullscreen: true
       property string askAi: "chatgpt"
     }
@@ -245,7 +255,7 @@ Item {
 
   // Small status accessories (workspace dots, battery) sit beside the clock
   // only in the plain resting state, so they never crowd a live activity.
-  readonly property bool accessoriesShown: view === "rest" && !mediaPill && !downloadPill && !companionNeedsSetup
+  readonly property bool accessoriesShown: view === "rest" && !mediaPill && !downloadPill && !systemPill && !companionNeedsSetup
   // Room reserved for the clock text so the accessories never crowd it.
   readonly property real clockSlot: 56
   // The pill slides off-screen while a window is fullscreen (the widget can be
@@ -871,13 +881,14 @@ Item {
             : root.companionNeedsSetup ? 250
             : root.downloadDone ? 360
             : root.downloadActive ? (root.downloadTracker.active ? 240 : 280)
+            : root.systemPill ? 240
             : root.mediaPill ? 240
             : root.restWidth
           readonly property real targetHeight: activeSurface ? activeSurface.islandHeight
             : root.notificationPill ? 84
             : root.clipboardPill ? (root.settings.notch ? 40 : 44)
             : root.downloadDone ? 64
-            : root.mediaPill || root.downloadPill ? (root.settings.notch ? 40 : 44)
+            : root.mediaPill || root.downloadPill || root.systemPill ? (root.settings.notch ? 40 : 44)
             : root.volumePill ? 56
             : root.brightnessPill ? 56
             : root.view === "rest" ? (root.settings.notch ? 36 : 40) : 52
@@ -1002,6 +1013,7 @@ Item {
               else if (root.clipboardPill) root.view = "clipboard"
               else if (root.view === "rest" && root.companionNeedsSetup) root.installCompanion()
               else if (root.downloadDone || (root.downloadActive && (mouse.x < 56 || mouse.x > width - 90))) root.openDownloads()
+              else if (root.systemPill) root.view = "system"
               else if (root.mediaPill && (mouse.x < 56 || mouse.x > width - 72)) root.view = "player"
               else root.view = "controls"
             }
@@ -1016,6 +1028,8 @@ Item {
           ClipboardPill { host: root; anchors.fill: parent }
 
           MediaPill { host: root; anchors.fill: parent }
+
+          SystemPill { host: root; anchors.fill: parent }
 
           DownloadPill { host: root; anchors.fill: parent }
 

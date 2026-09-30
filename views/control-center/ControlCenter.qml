@@ -79,6 +79,9 @@ ColumnLayout {
   property real micLevel: 0
   onSourcePeakChanged: micLevel = Math.max(sourcePeak, micLevel * 0.7)
 
+  // --- System monitor (shared with the live activity) ---
+  readonly property var systemStats: host.systemStats
+
   // --- System: keyboard layout, recording, stay awake, tray ---
   readonly property var idleService: host.shell ? host.shell.firstPartyServiceFor("omarchy.idle") : null
   readonly property bool stayAwake: idleService ? !!idleService.stayAwake : false
@@ -1235,6 +1238,13 @@ ColumnLayout {
             icon: "󰖐"
             label: cc.weatherText
             onClicked: cc.openWeather()
+          }
+          CcChip {
+            visible: cc.systemStats.ready
+            icon: "󰍛"
+            label: Math.round(cc.systemStats.cpu) + "%"
+              + (cc.systemStats.temp > 0 ? " · " + cc.systemStats.temp + "°" : "")
+            onClicked: cc.host.view = "system"
           }
         }
 

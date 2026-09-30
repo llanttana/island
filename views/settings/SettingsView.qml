@@ -340,10 +340,18 @@ ColumnLayout {
         SettingsRow {
           label: "System Updates"
           detail: "Show pacman, yay, paru, and Omarchy updates on the pill"
-          last: true
           SettingsSwitch {
             checked: settingsView.settings.systemUpdates
             onToggled: function(on) { settingsView.settings.systemUpdates = on }
+          }
+        }
+        SettingsRow {
+          label: "System Monitor"
+          detail: "Keep CPU and temperature on the resting pill"
+          last: true
+          SettingsSwitch {
+            checked: settingsView.settings.systemMonitor
+            onToggled: function(on) { settingsView.settings.systemMonitor = on }
           }
         }
       }
