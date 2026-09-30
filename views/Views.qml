@@ -21,7 +21,7 @@ import "weather"
 import "timer"
 
 // Every view the island can open. Each is a Surface: its name (also its IPC
-// route: `omarchy-shell guilhermerisu.island show <name>`), how wide the
+// route: `omarchy-shell lanta.island show <name>`), how wide the
 // island gets, its padding, and the view itself. Adding a view means adding
 // its folder under views/ and one Surface here.
 Item {

@@ -12,8 +12,8 @@
 #   bash uninstall.sh --dry-run  shows what it would do and changes nothing
 set -euo pipefail
 
-island_id="guilhermerisu.island"
-companion_id="guilhermerisu.notifications"
+island_id="lanta.island"
+companion_id="lanta.notifications"
 plugins_dir="$HOME/.config/omarchy/plugins"
 config="$HOME/.config/omarchy/shell.json"
 menu="$HOME/.config/omarchy/extensions/omarchy-menu.jsonc"

@@ -1,5 +1,5 @@
 #!/bin/bash
-# Installs (or updates) the guilhermerisu.notifications companion from this repo,
+# Installs (or updates) the lanta.notifications companion from this repo,
 # enables it in shell.json in place of the stock notification service, points
 # the Omarchy menu's Theme, Background, System, and Apps entries at the island,
 # and restarts
@@ -7,9 +7,9 @@
 set -euo pipefail
 
 here=$(cd "$(dirname "$0")" && pwd)
-source_dir="$here/guilhermerisu.notifications"
+source_dir="$here/lanta.notifications"
 plugins_dir="$HOME/.config/omarchy/plugins"
-target_dir="$plugins_dir/guilhermerisu.notifications"
+target_dir="$plugins_dir/lanta.notifications"
 config="$HOME/.config/omarchy/shell.json"
 menu="$HOME/.config/omarchy/extensions/omarchy-menu.jsonc"
 
@@ -24,14 +24,14 @@ if [[ -e $target_dir/.git || -L $target_dir/.git ]]; then
 fi
 
 if [[ ! -d $target_dir ]] || ! diff -rq "$source_dir" "$target_dir" >/dev/null 2>&1; then
-  staging=$(mktemp -d "$plugins_dir/.guilhermerisu.notifications.XXXXXX")
+  staging=$(mktemp -d "$plugins_dir/.lanta.notifications.XXXXXX")
   trap '[[ ! -d ${staging:-} ]] || rm -rf -- "$staging"' EXIT
   cp -a "$source_dir/." "$staging/"
   omarchy-plugin-validate "$staging"
 
   backup=""
   if [[ -d $target_dir ]]; then
-    base="$plugins_dir/.guilhermerisu.notifications.bak.$(date -u +%Y%m%d%H%M%S)"
+    base="$plugins_dir/.lanta.notifications.bak.$(date -u +%Y%m%d%H%M%S)"
     backup="$base"
     n=1
     while [[ -e $backup || -L $backup ]]; do
@@ -57,7 +57,7 @@ disable='["omarchy.notifications"]'
 
 tmp=$(mktemp "$config.XXXXXX")
 jq --argjson disable "$disable" '
-  .plugins = ((.plugins // []) | if map(.id) | index("guilhermerisu.notifications") then . else . + [{ id: "guilhermerisu.notifications" }] end)
+  .plugins = ((.plugins // []) | if map(.id) | index("lanta.notifications") then . else . + [{ id: "lanta.notifications" }] end)
   | .disabledPlugins = (((.disabledPlugins // []) + $disable) | unique)
 ' "$config" >"$tmp"
 mv "$tmp" "$config"
@@ -72,12 +72,12 @@ mv "$tmp" "$config"
 # repeated from Omarchy's default entries. An existing override of any of
 # them is left alone.
 menu_entries=(
-  'style.theme|  "style.theme": {"icon":"󰸌","label":"Theme","aliases":["theme","themes"],"action":"omarchy-shell guilhermerisu.island themes"},'
-  'style.background|  "style.background": {"icon":"","label":"Background","aliases":["background","wallpaper"],"action":"omarchy-shell guilhermerisu.island wallpapers"},'
-  'apps|  "apps": {"icon":"󰀻","label":"Apps","aliases":["app","applications"],"action":"omarchy-shell guilhermerisu.island apps"},'
-  'system|  "system": {"icon":"","label":"System","aliases":["power-menu"],"action":"omarchy-shell guilhermerisu.island power"},'
-  'trigger.emoji|  "trigger.emoji": {"icon":"","label":"Emoji","aliases":["emoji","emojis"],"action":"omarchy-shell guilhermerisu.island show emoji"},'
-  'learn.keybindings|  "learn.keybindings": {"icon":"","label":"Keybindings","action":"omarchy-shell guilhermerisu.island show keybinds"},'
+  'style.theme|  "style.theme": {"icon":"󰸌","label":"Theme","aliases":["theme","themes"],"action":"omarchy-shell lanta.island themes"},'
+  'style.background|  "style.background": {"icon":"","label":"Background","aliases":["background","wallpaper"],"action":"omarchy-shell lanta.island wallpapers"},'
+  'apps|  "apps": {"icon":"󰀻","label":"Apps","aliases":["app","applications"],"action":"omarchy-shell lanta.island apps"},'
+  'system|  "system": {"icon":"","label":"System","aliases":["power-menu"],"action":"omarchy-shell lanta.island power"},'
+  'trigger.emoji|  "trigger.emoji": {"icon":"","label":"Emoji","aliases":["emoji","emojis"],"action":"omarchy-shell lanta.island show emoji"},'
+  'learn.keybindings|  "learn.keybindings": {"icon":"","label":"Keybindings","action":"omarchy-shell lanta.island show keybinds"},'
 )
 if [[ ! -f $menu ]]; then
   mkdir -p "$(dirname "$menu")"

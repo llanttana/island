@@ -1,5 +1,5 @@
 #!/bin/bash
-# Prints the state of the guilhermerisu.notifications companion as one word:
+# Prints the state of the lanta.notifications companion as one word:
 #   ok           installed, identical to this repo's copy, and enabled
 #   missing      not installed in ~/.config/omarchy/plugins
 #   outdated     installed but differs from this repo's copy
@@ -9,8 +9,8 @@
 #                (and the shortcuts that open them) doesn't open the island yet
 
 here=$(cd "$(dirname "$0")" && pwd)
-source_dir="$here/guilhermerisu.notifications"
-target_dir="$HOME/.config/omarchy/plugins/guilhermerisu.notifications"
+source_dir="$here/lanta.notifications"
+target_dir="$HOME/.config/omarchy/plugins/lanta.notifications"
 config="$HOME/.config/omarchy/shell.json"
 menu="$HOME/.config/omarchy/extensions/omarchy-menu.jsonc"
 
@@ -25,7 +25,7 @@ if ! diff -rq "$source_dir" "$target_dir" >/dev/null 2>&1; then
 fi
 
 if ! jq -e '
-  ((.plugins // []) | map(.id) | index("guilhermerisu.notifications")) != null
+  ((.plugins // []) | map(.id) | index("lanta.notifications")) != null
   and ((.disabledPlugins // []) | index("omarchy.notifications")) != null
 ' "$config" >/dev/null 2>&1; then
   echo not-enabled

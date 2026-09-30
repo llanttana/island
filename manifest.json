@@ -1,9 +1,9 @@
 {
   "schemaVersion": 1,
-  "id": "guilhermerisu.island",
+  "id": "lanta.island",
   "name": "Island",
   "version": "0.1.0",
-  "author": "guilhermerisu",
+  "author": "lanta",
   "description": "A floating, morphing Omarchy bar",
   "kinds": [
     "bar"

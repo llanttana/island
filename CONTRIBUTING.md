@@ -7,7 +7,7 @@ proposals are welcome.
 
 Island targets Omarchy 4 and runs inside its Quickshell shell. Use a current
 Omarchy installation for visual and runtime checks. The root `manifest.json`
-defines the bar plugin; `companion/guilhermerisu.notifications/` contains the
+defines the bar plugin; `companion/lanta.notifications/` contains the
 separate notification service. Keep their IDs and entry points consistent with
 the QML and shell commands that refer to them.
 
@@ -36,7 +36,7 @@ From the repository root, run:
 
 ```sh
 omarchy plugin validate .
-omarchy plugin validate companion/guilhermerisu.notifications
+omarchy plugin validate companion/lanta.notifications
 bash -n companion/check.sh companion/install.sh companion/uninstall.sh
 git diff --check
 ```

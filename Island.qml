@@ -12,7 +12,7 @@ import qs.Commons
 import "components"
 import "views"
 import "file:///usr/share/omarchy/shell/plugins/clipboard/ClipboardHistory.js" as ClipboardHistory
-import "companion/guilhermerisu.notifications/NotificationLogic.js" as NotificationLogic
+import "companion/lanta.notifications/NotificationLogic.js" as NotificationLogic
 
 Item {
   id: root
@@ -763,7 +763,7 @@ Item {
   }
 
   IpcHandler {
-    target: "guilhermerisu.island"
+    target: "lanta.island"
     function show(name: string): string {
       if (name === "menu") root.menuRoute = "root"
       return root.toggleView(name)
@@ -804,7 +804,7 @@ Item {
       return "ok"
     }
     // Start a countdown from a keybind or a script: `omarchy-shell
-    // guilhermerisu.island timer 1500 Focus`.
+    // lanta.island timer 1500 Focus`.
     function timer(seconds: int, label: string): string {
       root.timer.start(seconds, label)
       return "ok"

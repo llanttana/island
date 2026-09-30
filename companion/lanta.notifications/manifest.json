@@ -1,9 +1,9 @@
 {
   "schemaVersion": 1,
-  "id": "guilhermerisu.notifications",
+  "id": "lanta.notifications",
   "name": "Island Notifications",
   "version": "1.0.0",
-  "author": "guilhermerisu",
+  "author": "lanta",
   "description": "Notification daemon, island previews, DND, and history",
   "kinds": [
     "service"

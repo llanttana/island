@@ -104,8 +104,8 @@ Island runs inside Omarchy's Quickshell process and reserves no screen space.
 Requires Omarchy 4 and its Quickshell shell.
 
 ```sh
-omarchy plugin add https://github.com/Guilhermerisu/island.git
-omarchy bar use guilhermerisu.island
+omarchy plugin add https://github.com/lanta/island.git
+omarchy bar use lanta.island
 ```
 
 On first launch, click the amber **Set up notifications** pill. It installs
@@ -143,7 +143,7 @@ Choose **None** to turn asking and all AI features off.
 ## Uninstall
 
 ```sh
-bash ~/.config/omarchy/plugins/guilhermerisu.island/companion/uninstall.sh
+bash ~/.config/omarchy/plugins/lanta.island/companion/uninstall.sh
 ```
 
 It switches back to the stock bar, removes the notification companion (Omarchy's
@@ -153,6 +153,12 @@ files are kept next to them, and your settings stay in
 `~/.config/omarchy/island.json`. Add `--dry-run` to see what it would change
 first. Keybindings you pointed at Island yourself are listed, not changed.
 
+## Credits
+
+Island is a fork of [Guilherme Pimenta's Island](https://github.com/Guilhermerisu/island),
+heavily modified and used under the MIT license. The original copyright notice
+is kept in [LICENSE](LICENSE).
+
 ## License
 
-[MIT](LICENSE)
+[MIT](LICENSE) — original work © 2026 Guilherme Pimenta; modifications © 2026 lanta.
