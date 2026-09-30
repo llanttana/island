@@ -1017,7 +1017,7 @@ ColumnLayout {
 
           ColumnLayout {
             Layout.fillWidth: true
-            Layout.alignment: Qt.AlignVCenter
+            Layout.alignment: Qt.AlignTop
             spacing: 8
 
             // Devices as compact pills. The long names live in the list where
@@ -1136,6 +1136,83 @@ ColumnLayout {
               }
             }
 
+            // What the old bar used to show at a glance. It now sits under the
+            // device pills, inside the card, instead of hanging below it.
+            Flow {
+              id: chipFlow
+              Layout.fillWidth: true
+              Layout.topMargin: 2
+              Layout.preferredHeight: chipFlow.implicitHeight
+              spacing: 6
+              visible: chipFlow.implicitHeight > 0
+
+              CcChip {
+                visible: cc.keyboardLayout !== ""
+                icon: "󰌌"
+                label: cc.keyboardLayout.replace(/\s*\(.*\)$/, "")
+                onClicked: cc.cycleLayout()
+              }
+              CcChip {
+                icon: "󰻂"
+                label: cc.recording ? "REC" : "Record"
+                alert: cc.recording
+                onClicked: cc.recording ? cc.stopRecording() : cc.startRecording()
+              }
+              CcChip {
+                icon: "󰅶"
+                label: "Awake"
+                on: cc.stayAwake
+                onClicked: cc.toggleStayAwake()
+              }
+              CcChip {
+                visible: cc.dictating
+                icon: "󰍬"
+                label: "Dictating"
+                on: true
+                onClicked: cc.toggleDictation()
+              }
+              CcChip {
+                visible: cc.reminderCount > 0
+                icon: "󰃰"
+                label: cc.reminderCount > 1 ? cc.reminderCount + " reminders" : "1 reminder"
+                on: true
+                onClicked: cc.showReminders()
+              }
+              CcChip {
+                visible: cc.updatesAvailable
+                icon: "󰚰"
+                label: "Update"
+                on: true
+                onClicked: cc.runUpdate()
+              }
+              CcChip {
+                visible: cc.agentsActive > 0
+                icon: "󰚩"
+                label: cc.agentsActive > 1 ? cc.agentsActive + " agents" : "1 agent"
+                on: true
+                onClicked: cc.openAgents()
+              }
+              CcChip {
+                visible: cc.weatherText !== ""
+                icon: "󰖐"
+                label: cc.weatherText
+                onClicked: cc.openWeather()
+              }
+              CcChip {
+                visible: cc.systemStats.ready
+                icon: "󰍛"
+                label: Math.round(cc.systemStats.cpu) + "%"
+                  + (cc.systemStats.temp > 0 ? " · " + cc.systemStats.temp + "°" : "")
+                onClicked: cc.host.view = "system"
+              }
+              CcChip {
+                icon: "󰔛"
+                label: cc.timer.running ? cc.timer.formatted() : "Timer"
+                on: cc.timer.running
+                onClicked: cc.host.view = "timer"
+              }
+            }
+
             RowLayout {
               Layout.fillWidth: true
               visible: cc.trayItems.length > 0
@@ -1194,82 +1271,6 @@ ColumnLayout {
                 }
               }
             }
-          }
-        }
-
-        // What the old bar used to show at a glance.
-        Flow {
-          id: chipFlow
-          Layout.fillWidth: true
-          Layout.topMargin: 10
-          Layout.preferredHeight: chipFlow.implicitHeight
-          spacing: 6
-          visible: chipFlow.implicitHeight > 0
-
-          CcChip {
-            visible: cc.keyboardLayout !== ""
-            icon: "󰌌"
-            label: cc.keyboardLayout.replace(/\s*\(.*\)$/, "")
-            onClicked: cc.cycleLayout()
-          }
-          CcChip {
-            icon: "󰻂"
-            label: cc.recording ? "REC" : "Record"
-            alert: cc.recording
-            onClicked: cc.recording ? cc.stopRecording() : cc.startRecording()
-          }
-          CcChip {
-            icon: "󰅶"
-            label: "Awake"
-            on: cc.stayAwake
-            onClicked: cc.toggleStayAwake()
-          }
-          CcChip {
-            visible: cc.dictating
-            icon: "󰍬"
-            label: "Dictating"
-            on: true
-            onClicked: cc.toggleDictation()
-          }
-          CcChip {
-            visible: cc.reminderCount > 0
-            icon: "󰃰"
-            label: cc.reminderCount > 1 ? cc.reminderCount + " reminders" : "1 reminder"
-            on: true
-            onClicked: cc.showReminders()
-          }
-          CcChip {
-            visible: cc.updatesAvailable
-            icon: "󰚰"
-            label: "Update"
-            on: true
-            onClicked: cc.runUpdate()
-          }
-          CcChip {
-            visible: cc.agentsActive > 0
-            icon: "󰚩"
-            label: cc.agentsActive > 1 ? cc.agentsActive + " agents" : "1 agent"
-            on: true
-            onClicked: cc.openAgents()
-          }
-          CcChip {
-            visible: cc.weatherText !== ""
-            icon: "󰖐"
-            label: cc.weatherText
-            onClicked: cc.openWeather()
-          }
-          CcChip {
-            visible: cc.systemStats.ready
-            icon: "󰍛"
-            label: Math.round(cc.systemStats.cpu) + "%"
-              + (cc.systemStats.temp > 0 ? " · " + cc.systemStats.temp + "°" : "")
-            onClicked: cc.host.view = "system"
-          }
-          CcChip {
-            icon: "󰔛"
-            label: cc.timer.running ? cc.timer.formatted() : "Timer"
-            on: cc.timer.running
-            onClicked: cc.host.view = "timer"
           }
         }
 
