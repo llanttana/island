@@ -1015,6 +1015,7 @@ Item {
               else if (root.downloadDone || (root.downloadActive && (mouse.x < 56 || mouse.x > width - 90))) root.openDownloads()
               else if (root.systemPill) root.view = "system"
               else if (root.mediaPill && (mouse.x < 56 || mouse.x > width - 72)) root.view = "player"
+              else if (root.view === "rest" && Math.abs(mouse.x - width / 2) <= root.clockSlot / 2 + 6) root.view = "calendar"
               else root.view = "controls"
             }
           }
