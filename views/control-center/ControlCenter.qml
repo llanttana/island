@@ -60,16 +60,9 @@ ColumnLayout {
   readonly property var source: Pipewire.defaultAudioSource
   readonly property bool sourcePresent: !!(source && source.audio)
   readonly property bool sourceMuted: sourcePresent && source.audio.muted
-  readonly property var outputs: {
-    var nodes = Pipewire.nodes ? Pipewire.nodes.values : []
-    return nodes.filter(function(n) { return n && n.isSink && !n.isStream && n.audio })
-  }
-  property bool outputsOpen: false
-  property bool inputsOpen: false
-  readonly property var sources: {
-    var nodes = Pipewire.nodes ? Pipewire.nodes.values : []
-    return nodes.filter(function(n) { return n && n.isSource && !n.isStream && n.audio })
-  }
+  // The pill carries the device that is actually in use, not a generic label.
+  readonly property string sinkName: sink ? String(sink.description || sink.nickname || sink.name || "Output") : "Output"
+  readonly property string sourceName: source ? String(source.description || source.nickname || source.name || "Input") : "Input"
   readonly property real sourceVolume: sourcePresent ? Number(source.audio.volume || 0) : 0
   // Peak arrives as a linear amplitude, but some builds report dBFS; treat a
   // negative value as dB so the meter works either way.
@@ -424,8 +417,6 @@ ColumnLayout {
   property int brightness: 0
   onActiveChanged: {
     if (!active) {
-      outputsOpen = false
-      inputsOpen = false
       // Leaving the panel must not leave a tray menu behind for next time.
       cc.closeTrayMenu()
       return
@@ -976,23 +967,24 @@ ColumnLayout {
                 Layout.fillWidth: true
                 Layout.preferredHeight: 30
                 radius: 11
-                color: cc.outputsOpen ? cc.host.withAlpha(cc.text, 0.16) : cc.well
+                color: outputMouse.containsMouse ? cc.host.withAlpha(cc.text, 0.18) : cc.well
                 border.width: 1
                 border.color: cc.border
+                Behavior on color { ColorAnimation { duration: cc.animDuration } }
                 RowLayout {
                   anchors.fill: parent
                   anchors.leftMargin: 9
-                  anchors.rightMargin: 8
+                  anchors.rightMargin: 6
                   spacing: 6
                   Text {
                     text: cc.muted ? "󰖁" : "󰓃"
-                    color: cc.text
+                    color: cc.muted ? cc.host.colorUrgent : cc.text
                     font.family: cc.iconFont
                     font.pixelSize: 13
                   }
                   Text {
                     Layout.fillWidth: true
-                    text: "Output"
+                    text: cc.sinkName
                     textFormat: Text.PlainText
                     elide: Text.ElideRight
                     color: cc.text
@@ -1000,20 +992,28 @@ ColumnLayout {
                     font.pixelSize: 11
                   }
                   Text {
-                    visible: cc.outputs.length > 1
                     text: "󰅂"
-                    rotation: cc.outputsOpen ? 90 : 0
                     color: cc.textMuted
                     font.family: cc.iconFont
                     font.pixelSize: 12
-                    Behavior on rotation { NumberAnimation { duration: cc.animDuration; easing.type: Easing.OutCubic } }
                   }
                 }
+                // The body opens the Audio page; the glyph is the mute switch.
                 MouseArea {
+                  id: outputMouse
                   anchors.fill: parent
-                  enabled: cc.outputs.length > 1
-                  cursorShape: enabled ? Qt.PointingHandCursor : Qt.ArrowCursor
-                  onClicked: cc.outputsOpen = !cc.outputsOpen
+                  hoverEnabled: true
+                  cursorShape: Qt.PointingHandCursor
+                  onClicked: cc.host.view = "audio"
+                }
+                MouseArea {
+                  anchors.left: parent.left
+                  anchors.top: parent.top
+                  anchors.bottom: parent.bottom
+                  width: 26
+                  enabled: !!cc.sink
+                  cursorShape: Qt.PointingHandCursor
+                  onClicked: if (cc.sink) cc.sink.audio.muted = !cc.sink.audio.muted
                 }
               }
 
@@ -1021,14 +1021,15 @@ ColumnLayout {
                 Layout.fillWidth: true
                 Layout.preferredHeight: 30
                 radius: 11
-                color: cc.inputsOpen ? cc.host.withAlpha(cc.text, 0.16) : cc.well
+                color: inputMouse.containsMouse ? cc.host.withAlpha(cc.text, 0.18) : cc.well
                 border.width: 1
                 border.color: cc.border
                 opacity: cc.sourcePresent ? 1 : 0.5
+                Behavior on color { ColorAnimation { duration: cc.animDuration } }
                 RowLayout {
                   anchors.fill: parent
                   anchors.leftMargin: 9
-                  anchors.rightMargin: 8
+                  anchors.rightMargin: 6
                   spacing: 6
                   Text {
                     text: cc.sourceMuted ? "󰍭" : "󰍬"
@@ -1038,7 +1039,7 @@ ColumnLayout {
                   }
                   Text {
                     Layout.fillWidth: true
-                    text: "Input"
+                    text: cc.sourceName
                     textFormat: Text.PlainText
                     elide: Text.ElideRight
                     color: cc.sourceMuted ? cc.host.colorUrgent : cc.text
@@ -1046,20 +1047,18 @@ ColumnLayout {
                     font.pixelSize: 11
                   }
                   Text {
-                    visible: cc.sources.length > 1
                     text: "󰅂"
-                    rotation: cc.inputsOpen ? 90 : 0
                     color: cc.textMuted
                     font.family: cc.iconFont
                     font.pixelSize: 12
-                    Behavior on rotation { NumberAnimation { duration: cc.animDuration; easing.type: Easing.OutCubic } }
                   }
                 }
                 MouseArea {
+                  id: inputMouse
                   anchors.fill: parent
-                  enabled: cc.sources.length > 1
-                  cursorShape: enabled ? Qt.PointingHandCursor : Qt.ArrowCursor
-                  onClicked: cc.inputsOpen = !cc.inputsOpen
+                  hoverEnabled: true
+                  cursorShape: Qt.PointingHandCursor
+                  onClicked: cc.host.view = "audio"
                 }
                 // The glyph is the mute switch, so the pill does both jobs.
                 MouseArea {
@@ -1178,102 +1177,6 @@ ColumnLayout {
             icon: "󰖐"
             label: cc.weatherText
             onClicked: cc.openWeather()
-          }
-        }
-
-        // Output picker, revealed by the output pill.
-        Repeater {
-          model: cc.outputsOpen ? cc.outputs : []
-          delegate: Rectangle {
-            id: outputRow
-            required property var modelData
-            readonly property bool isDefault: modelData === cc.sink
-            Layout.fillWidth: true
-            Layout.preferredHeight: 32
-            radius: 11
-            color: outputMouse.containsMouse ? cc.well : "transparent"
-            Text {
-              anchors.left: parent.left
-              anchors.leftMargin: 10
-              anchors.right: outputCheck.left
-              anchors.rightMargin: 8
-              anchors.verticalCenter: parent.verticalCenter
-              text: String(outputRow.modelData.description || outputRow.modelData.nickname || outputRow.modelData.name || "")
-              textFormat: Text.PlainText
-              elide: Text.ElideRight
-              color: outputRow.isDefault ? cc.text : cc.textMuted
-              font.family: "Adwaita Sans"
-              font.pixelSize: 11
-            }
-            Text {
-              id: outputCheck
-              anchors.right: parent.right
-              anchors.rightMargin: 10
-              anchors.verticalCenter: parent.verticalCenter
-              visible: outputRow.isDefault
-              text: "󰄬"
-              color: cc.accent
-              font.family: cc.iconFont
-              font.pixelSize: 14
-            }
-            MouseArea {
-              id: outputMouse
-              anchors.fill: parent
-              hoverEnabled: true
-              cursorShape: Qt.PointingHandCursor
-              onClicked: {
-                Pipewire.preferredDefaultAudioSink = outputRow.modelData
-                cc.outputsOpen = false
-              }
-            }
-          }
-        }
-
-        // Input picker, revealed by the microphone pill.
-        Repeater {
-          model: cc.inputsOpen ? cc.sources : []
-          delegate: Rectangle {
-            id: inputRow
-            required property var modelData
-            readonly property bool isDefault: modelData === cc.source
-            Layout.fillWidth: true
-            Layout.preferredHeight: 32
-            radius: 11
-            color: inputMouse.containsMouse ? cc.well : "transparent"
-            Text {
-              anchors.left: parent.left
-              anchors.leftMargin: 10
-              anchors.right: inputCheck.left
-              anchors.rightMargin: 8
-              anchors.verticalCenter: parent.verticalCenter
-              text: String(inputRow.modelData.description || inputRow.modelData.nickname || inputRow.modelData.name || "")
-              textFormat: Text.PlainText
-              elide: Text.ElideRight
-              color: inputRow.isDefault ? cc.text : cc.textMuted
-              font.family: "Adwaita Sans"
-              font.pixelSize: 11
-            }
-            Text {
-              id: inputCheck
-              anchors.right: parent.right
-              anchors.rightMargin: 10
-              anchors.verticalCenter: parent.verticalCenter
-              visible: inputRow.isDefault
-              text: "󰄬"
-              color: cc.accent
-              font.family: cc.iconFont
-              font.pixelSize: 14
-            }
-            MouseArea {
-              id: inputMouse
-              anchors.fill: parent
-              hoverEnabled: true
-              cursorShape: Qt.PointingHandCursor
-              onClicked: {
-                Pipewire.preferredDefaultAudioSource = inputRow.modelData
-                cc.inputsOpen = false
-              }
-            }
           }
         }
 
@@ -1684,10 +1587,10 @@ ColumnLayout {
                 anchors.top: parent.top
                 anchors.topMargin: 12
                 text: "󰅖"
-                color: closeMouse.containsMouse ? cc.text : cc.textMuted
+                color: noteCloseMouse.containsMouse ? cc.text : cc.textMuted
                 font.family: cc.iconFont
                 font.pixelSize: 13
-                MouseArea { id: closeMouse; anchors.fill: parent; anchors.margins: -6; hoverEnabled: true; onClicked: cc.host.dismissNotification(note.modelData) }
+                MouseArea { id: noteCloseMouse; anchors.fill: parent; anchors.margins: -6; hoverEnabled: true; onClicked: cc.host.dismissNotification(note.modelData) }
               }
             }
           }

@@ -14,6 +14,7 @@ import "settings"
 import "answer"
 import "network"
 import "bluetooth"
+import "audio"
 
 // Every view the island can open. Each is a Surface: its name (also its IPC
 // route: `omarchy-shell guilhermerisu.island show <name>`), how wide the
@@ -23,7 +24,7 @@ Item {
   id: views
   required property var host
 
-  readonly property var surfaces: [controlsSurface, themesSurface, wallpapersSurface, appsSurface, powerSurface, emojiSurface, keybindsSurface, clipboardSurface, menuSurface, playerSurface, settingsSurface, answerSurface, wifiSurface, bluetoothSurface]
+  readonly property var surfaces: [controlsSurface, audioSurface, themesSurface, wallpapersSurface, appsSurface, powerSurface, emojiSurface, keybindsSurface, clipboardSurface, menuSurface, playerSurface, settingsSurface, answerSurface, wifiSurface, bluetoothSurface]
   function surfaceFor(name) {
     for (var i = 0; i < surfaces.length; i++) if (surfaces[i].viewName === name) return surfaces[i]
     return null
@@ -36,6 +37,17 @@ Item {
     fixedWidth: 480
     maxHeight: 780
     ControlCenter { host: views.host; active: controlsSurface.active; anchors.fill: parent }
+  }
+
+  Surface {
+    id: audioSurface
+    host: views.host
+    viewName: "audio"
+    // Same width as the control center so a view switch only moves the pill
+    // along one axis.
+    fixedWidth: 480
+    maxHeight: 720
+    AudioView { host: views.host; active: audioSurface.active; anchors.fill: parent }
   }
 
   Surface {
