@@ -58,7 +58,7 @@ Item {
   SystemStats { id: systemSampler }
   readonly property var systemStats: systemSampler
   readonly property bool systemPinned: !!settings.systemMonitor
-  readonly property bool systemHot: systemSampler.ready && (systemSampler.temp >= 85 || systemSampler.cpu >= 95)
+  readonly property bool systemHot: !!settings.autoMonitorHot && systemSampler.ready && (systemSampler.temp >= 85 || systemSampler.cpu >= 95)
   readonly property bool systemPill: view === "rest" && !companionNeedsSetup && systemSampler.ready && !timerPill
     && (systemPinned || systemHot)
   // Countdown timer, shared by the control-center chip, the Timer page, and
@@ -157,6 +157,12 @@ Item {
       property bool pomodoro: false
       property bool hideFullscreen: true
       property string askAi: "chatgpt"
+      property bool clockSeconds: false
+      property bool workspaceDots: true
+      property bool batteryBadge: true
+      property bool timerChime: true
+      property bool timerNotify: true
+      property bool autoMonitorHot: true
     }
   }
   readonly property string feedPath: home + "/.local/state/omarchy/island-feed.json"
@@ -264,7 +270,7 @@ Item {
   // only in the plain resting state, so they never crowd a live activity.
   readonly property bool accessoriesShown: view === "rest" && !mediaPill && !downloadPill && !systemPill && !timerPill && !companionNeedsSetup
   // Room reserved for the clock text so the accessories never crowd it.
-  readonly property real clockSlot: 56
+  readonly property real clockSlot: settings.clockSeconds ? 86 : 56
   // The pill slides off-screen while a window is fullscreen (the widget can be
   // turned off in Settings). The manual `Super + Shift + Space` toggle stays.
   readonly property bool pillHidden: (barHidden || (settings.hideFullscreen && outputFullscreen && !companionNeedsSetup)) && view === "rest"
@@ -329,11 +335,14 @@ Item {
     text: root.batteryPercent + "%"
   }
   readonly property real batteryBadgeWidth: batteryPresent ? 13 + 3 + batteryMetrics.width + 4 : 0
+  // Accessories can be switched off, so the resting pill shrinks to match.
+  readonly property bool workspaceDotsShown: !!settings.workspaceDots && workspaceIds.length > 0
+  readonly property bool batteryBadgeShown: !!settings.batteryBadge && batteryPresent
   readonly property real restWidth: {
     if (!accessoriesShown) return 100
     var width = 24 + clockSlot
-    if (workspaceDotsWidth > 0) width += workspaceDotsWidth + 10
-    if (batteryBadgeWidth > 0) width += batteryBadgeWidth + 10
+    if (workspaceDotsShown) width += workspaceDotsWidth + 10
+    if (batteryBadgeShown) width += batteryBadgeWidth + 10
     return Math.max(100, Math.round(width))
   }
 
@@ -397,7 +406,10 @@ Item {
     if (view === "controls") refreshHistory()
   }
 
-  SystemClock { id: clock; precision: SystemClock.Minutes }
+  SystemClock {
+    id: clock
+    precision: root.settings.clockSeconds ? SystemClock.Seconds : SystemClock.Minutes
+  }
   // The source is tracked too so its level meter has something to report.
   PwObjectTracker { objects: [Pipewire.defaultAudioSink, Pipewire.defaultAudioSource] }
 
@@ -484,10 +496,14 @@ Item {
     target: timerService
     function onDone(label) {
       root.announce(label + " finished")
-      timerChime.command = ["pw-play", root.pluginDir + "/assets/chime.wav"]
-      timerChime.running = true
-      timerNotify.command = ["omarchy-notification-send", "Timer", label + " finished"]
-      timerNotify.running = true
+      if (root.settings.timerChime) {
+        timerChime.command = ["pw-play", root.pluginDir + "/assets/chime.wav"]
+        timerChime.running = true
+      }
+      if (root.settings.timerNotify) {
+        timerNotify.command = ["omarchy-notification-send", "Timer", label + " finished"]
+        timerNotify.running = true
+      }
       if (root.settings.pomodoro)
         timerService.start(label === "Focus" ? 5 * 60 : 25 * 60, label === "Focus" ? "Break" : "Focus")
     }
@@ -1106,7 +1122,7 @@ Item {
             anchors.left: parent.left
             anchors.leftMargin: 12
             anchors.verticalCenter: parent.verticalCenter
-            opacity: island.accessoriesVisible ? 1 : 0
+            opacity: island.accessoriesVisible && root.workspaceDotsShown ? 1 : 0
             visible: opacity > 0.01
             Behavior on opacity { NumberAnimation { duration: 150 * root.motionScale; easing.type: Easing.InOutQuad } }
           }
@@ -1117,7 +1133,7 @@ Item {
             anchors.right: parent.right
             anchors.rightMargin: 12
             anchors.verticalCenter: parent.verticalCenter
-            opacity: island.accessoriesVisible && root.batteryPresent ? 1 : 0
+            opacity: island.accessoriesVisible && root.batteryBadgeShown ? 1 : 0
             visible: opacity > 0.01
             Behavior on opacity { NumberAnimation { duration: 150 * root.motionScale; easing.type: Easing.InOutQuad } }
           }

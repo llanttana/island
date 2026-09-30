@@ -1,5 +1,6 @@
 import QtQuick
 import QtQuick.Layouts
+import "../../components"
 
 // The island's own settings, laid out like iOS Settings: a navigation bar with
 // a back button, then inset grouped rows with switches and segmented pickers.
@@ -10,6 +11,36 @@ ColumnLayout {
   required property var host
   property bool active: false
   readonly property var settings: host.settings
+  readonly property string version: host.manifest && host.manifest.version ? String(host.manifest.version) : "—"
+  readonly property string pluginId: host.manifest && host.manifest.id ? String(host.manifest.id) : "guilhermerisu.island"
+
+  // Everything back to the shipped value. nightTemp is included even though it
+  // has no row here, so a reset is genuinely a reset.
+  function resetDefaults() {
+    var s = settingsView.settings
+    s.motionScale = 1.5
+    s.hoverLift = true
+    s.clock24h = true
+    s.clockSeconds = false
+    s.notch = false
+    s.workspaceDots = true
+    s.batteryBadge = true
+    s.mediaPill = true
+    s.volumeHud = true
+    s.clipboard = true
+    s.downloads = true
+    s.systemUpdates = true
+    s.systemMonitor = false
+    s.timerChime = true
+    s.timerNotify = true
+    s.hideFullscreen = true
+    s.autoMonitorHot = true
+    s.askAi = "chatgpt"
+    s.bannerSeconds = 5
+    s.pomodoro = false
+    s.nightTemp = 4000
+    settingsView.host.announce("Settings reset")
+  }
 
   readonly property color text: host.colorText
   readonly property color textMuted: host.colorMuted
@@ -21,6 +52,15 @@ ColumnLayout {
   spacing: 8
   onActiveChanged: if (active) Qt.callLater(function() { settingsView.forceActiveFocus() })
   Keys.onEscapePressed: host.view = "controls"
+  // The list is long now, so the keyboard moves it as well as the wheel.
+  Keys.onPressed: function(event) {
+    if (event.key === Qt.Key_Down) { scroller.flick(0, -600); event.accepted = true }
+    else if (event.key === Qt.Key_Up) { scroller.flick(0, 600); event.accepted = true }
+    else if (event.key === Qt.Key_PageDown) { scroller.contentY = Math.min(scroller.contentHeight - scroller.height, scroller.contentY + scroller.height); event.accepted = true }
+    else if (event.key === Qt.Key_PageUp) { scroller.contentY = Math.max(0, scroller.contentY - scroller.height); event.accepted = true }
+    else if (event.key === Qt.Key_Home) { scroller.contentY = 0; event.accepted = true }
+    else if (event.key === Qt.Key_End) { scroller.contentY = Math.max(0, scroller.contentHeight - scroller.height); event.accepted = true }
+  }
 
   // iOS switch: accent track when on, white knob sliding across.
   component SettingsSwitch: Rectangle {
@@ -154,6 +194,14 @@ ColumnLayout {
     }
   }
 
+  // A read-only value on the trailing side of a row.
+  component SettingsValue: Text {
+    color: settingsView.textMuted
+    font.family: "Adwaita Sans"
+    font.pixelSize: 13
+    font.weight: Font.DemiBold
+  }
+
   // A titled inset group of rows.
   component SettingsGroup: ColumnLayout {
     id: group
@@ -241,7 +289,7 @@ ColumnLayout {
       spacing: 8
 
       SettingsGroup {
-        title: "Motion"
+        title: "Appearance"
         SettingsRow {
           label: "Animation Speed"
           SettingsSegments {
@@ -253,16 +301,11 @@ ColumnLayout {
         SettingsRow {
           label: "Hover Lift"
           detail: "The clock pill lifts slightly under the pointer"
-          last: true
           SettingsSwitch {
             checked: settingsView.settings.hoverLift
             onToggled: function(on) { settingsView.settings.hoverLift = on }
           }
         }
-      }
-
-      SettingsGroup {
-        title: "Pill"
         SettingsRow {
           label: "Notch Style"
           detail: "Attach the island to the top edge, like a MacBook notch"
@@ -279,6 +322,35 @@ ColumnLayout {
           }
         }
         SettingsRow {
+          label: "Clock Seconds"
+          detail: "Count seconds in the resting clock"
+          SettingsSwitch {
+            checked: settingsView.settings.clockSeconds
+            onToggled: function(on) { settingsView.settings.clockSeconds = on }
+          }
+        }
+        SettingsRow {
+          label: "Workspace Dots"
+          detail: "Workspace indicators on the resting pill"
+          SettingsSwitch {
+            checked: settingsView.settings.workspaceDots
+            onToggled: function(on) { settingsView.settings.workspaceDots = on }
+          }
+        }
+        SettingsRow {
+          label: "Battery"
+          detail: "Charge glyph and percentage on the resting pill"
+          last: true
+          SettingsSwitch {
+            checked: settingsView.settings.batteryBadge
+            onToggled: function(on) { settingsView.settings.batteryBadge = on }
+          }
+        }
+      }
+
+      SettingsGroup {
+        title: "Live Activities"
+        SettingsRow {
           label: "Now Playing"
           detail: "Show the cover and sound wave while media plays"
           SettingsSwitch {
@@ -294,33 +366,6 @@ ColumnLayout {
             onToggled: function(on) { settingsView.settings.volumeHud = on }
           }
         }
-        SettingsRow {
-          label: "Hide in Fullscreen"
-          detail: "Slide the pill away while a window is fullscreen"
-          last: true
-          SettingsSwitch {
-            checked: settingsView.settings.hideFullscreen
-            onToggled: function(on) { settingsView.settings.hideFullscreen = on }
-          }
-        }
-      }
-
-      SettingsGroup {
-        title: "Search"
-        SettingsRow {
-          label: "Ask With"
-          detail: "Answers launcher questions in the island"
-          last: true
-          SettingsSegments {
-            options: [{ label: "Claude", value: "claude" }, { label: "Codex", value: "chatgpt" }, { label: "None", value: "none" }]
-            value: settingsView.settings.askAi
-            onPicked: function(v) { settingsView.settings.askAi = v }
-          }
-        }
-      }
-
-      SettingsGroup {
-        title: "Live Activities"
         SettingsRow {
           label: "Clipboard"
           detail: "Show what you copied for a moment"
@@ -348,10 +393,61 @@ ColumnLayout {
         SettingsRow {
           label: "System Monitor"
           detail: "Keep CPU and temperature on the resting pill"
-          last: true
           SettingsSwitch {
             checked: settingsView.settings.systemMonitor
             onToggled: function(on) { settingsView.settings.systemMonitor = on }
+          }
+        }
+        SettingsRow {
+          label: "Timer Chime"
+          detail: "Play a sound when a timer finishes"
+          SettingsSwitch {
+            checked: settingsView.settings.timerChime
+            onToggled: function(on) { settingsView.settings.timerChime = on }
+          }
+        }
+        SettingsRow {
+          label: "Timer Notification"
+          detail: "Post a desktop notification when a timer finishes"
+          last: true
+          SettingsSwitch {
+            checked: settingsView.settings.timerNotify
+            onToggled: function(on) { settingsView.settings.timerNotify = on }
+          }
+        }
+      }
+
+      SettingsGroup {
+        title: "Behavior"
+        SettingsRow {
+          label: "Hide in Fullscreen"
+          detail: "Slide the pill away while a window is fullscreen"
+          SettingsSwitch {
+            checked: settingsView.settings.hideFullscreen
+            onToggled: function(on) { settingsView.settings.hideFullscreen = on }
+          }
+        }
+        SettingsRow {
+          label: "Monitor When Hot"
+          detail: "Show CPU and temperature at 85 °C or 95 % load, unpinned"
+          last: true
+          SettingsSwitch {
+            checked: settingsView.settings.autoMonitorHot
+            onToggled: function(on) { settingsView.settings.autoMonitorHot = on }
+          }
+        }
+      }
+
+      SettingsGroup {
+        title: "Search"
+        SettingsRow {
+          label: "Ask With"
+          detail: "Answers launcher questions in the island"
+          last: true
+          SettingsSegments {
+            options: [{ label: "Claude", value: "claude" }, { label: "Codex", value: "chatgpt" }, { label: "None", value: "none" }]
+            value: settingsView.settings.askAi
+            onPicked: function(v) { settingsView.settings.askAi = v }
           }
         }
       }
@@ -365,6 +461,33 @@ ColumnLayout {
             options: [{ label: "3 s", value: 3 }, { label: "5 s", value: 5 }, { label: "8 s", value: 8 }]
             value: settingsView.settings.bannerSeconds
             onPicked: function(v) { settingsView.settings.bannerSeconds = v }
+          }
+        }
+      }
+
+      SettingsGroup {
+        title: "About"
+        SettingsRow {
+          label: "Version"
+          SettingsValue { text: settingsView.version }
+        }
+        SettingsRow {
+          label: "Plugin"
+          SettingsValue { text: settingsView.pluginId }
+        }
+        SettingsRow {
+          label: "Settings File"
+          detail: "~/.config/omarchy/island.json"
+        }
+        SettingsRow {
+          label: "Reset to Defaults"
+          detail: "Put every switch and value back the way it shipped"
+          last: true
+          IslandButton {
+            host: settingsView.host
+            label: "Reset"
+            danger: true
+            onClicked: settingsView.resetDefaults()
           }
         }
       }

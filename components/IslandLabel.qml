@@ -15,9 +15,10 @@ Text {
   // this label while it fades out.
   text: host.view === "feedback" && !host.notificationPill && !host.volumePill ? host.feedback
     : host.companionNeedsSetup ? "󰀦  " + host.companionWarning
-    : host.settings.clock24h ? Qt.formatDateTime(host.clockDate, "HH:mm")
+    : host.settings.clock24h
+      ? Qt.formatDateTime(host.clockDate, host.settings.clockSeconds ? "HH:mm:ss" : "HH:mm")
     // Qt only counts hours to 12 when there's an AM/PM marker; iOS drops it.
-    : Qt.formatDateTime(host.clockDate, "h:mm AP").replace(/\s*[AP]M$/i, "")
+    : Qt.formatDateTime(host.clockDate, host.settings.clockSeconds ? "h:mm:ss AP" : "h:mm AP").replace(/\s*[AP]M$/i, "")
   // A fixed soft off-white on the always-black island; the setup
   // warning keeps the theme's urgent color.
   color: host.view === "rest" && host.companionNeedsSetup ? host.colorUrgent : host.ink
