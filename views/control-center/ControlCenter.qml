@@ -415,8 +415,7 @@ ColumnLayout {
     systemAction.running = true
   }
   function openWeather() {
-    systemAction.command = ["omarchy-shell", "shell", "toggle", "omarchy.weather"]
-    systemAction.running = true
+    cc.host.view = "weather"
   }
   function stopRecording() {
     recordingStop.command = ["omarchy-capture-screenrecording", "--stop-recording"]
