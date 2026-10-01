@@ -132,6 +132,18 @@ Island runs inside Omarchy's Quickshell process and reserves no screen space.
   </tr>
 </table>
 
+## Requirements
+
+- Omarchy 4 (Quattro) with its Quickshell-based `omarchy-shell`.
+- The notification companion (`lanta.notifications`). It ships in `companion/`
+  and the setup pill installs it on first launch.
+- PipeWire, for the timer chime and the volume and microphone controls; Omarchy
+  ships it.
+- Optional, for Ask AI: [Claude Code](https://claude.com/claude-code) or
+  [Codex CLI](https://github.com/openai/codex), signed in.
+- Wi-Fi, Bluetooth, power profiles, brightness and the night light all use
+  Omarchy's own helpers and the running system services.
+
 ## Install
 
 Requires Omarchy 4 and its Quickshell shell.
