@@ -5,6 +5,7 @@
   "version": "0.1.0",
   "author": "lanta",
   "description": "A floating, morphing Omarchy bar",
+  "license": "MIT",
   "kinds": [
     "bar"
   ],
