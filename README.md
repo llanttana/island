@@ -2,11 +2,11 @@
 
 # Island
 
-<img src="assets/showcase-full.gif" alt="Island morphing between its views, live activities, and an AI answer" width="100%">
+<img src="assets/hero.jpg" alt="Island's control center, weather, system monitor, timer, Wi-Fi and audio pages" width="100%">
 
 ### A dynamic island for Omarchy
 
-All Omarchy's menus rewritten as one fluid island.
+Omarchy's menus and status, rewritten as one fluid island that morphs between views.
 
 [Features](#features) · [Screenshots](#screenshots) · [Install](#install) · [Usage](#usage) · [Uninstall](#uninstall)
 
@@ -14,19 +14,37 @@ All Omarchy's menus rewritten as one fluid island.
 
 ## Features
 
-- **At rest:** a clock, or album art and an animated sound wave while music plays.
-- **Live activities:** browser downloads, system updates (pacman, yay, paru, and
-  Omarchy updates), and anything you copy show up on the pill.
-- **Live feedback:** notification previews and animated volume and mute feedback,
-  with Claude Code and Codex notifications getting their own icons.
-- **Ask AI:** type a question in the launcher and Claude or Codex answers right in
-  the island, Siri-style, using the command-line tool you're already signed in to.
-- **Expanded views:** a control center, player, app launcher, clipboard history,
-  emoji and keybinding search, theme and wallpaper switchers, Omarchy menu, and
-  power menu.
-- **Theme aware:** text and accent colors follow your current Omarchy theme.
-- **Settings:** a pane in the control center for animation speed, a MacBook
-  notch style, the clock, live activities, and the AI.
+- **At rest:** a clock, or album art with an animated sound wave while music plays.
+- **Control center:** a compact panel with Wi-Fi, Bluetooth, Focus and Game Mode
+  tiles, output/input/volume sliders, the active output and input devices, the
+  keyboard layout, screen recording, an idle inhibitor, night light, the battery,
+  a weather chip, the timer and the power profile — all in one place.
+- **Connectivity:** real Wi-Fi and Bluetooth pages. Wi-Fi lists nearby networks
+  sorted connected/saved/by signal and joins them (with a password field when
+  needed); Bluetooth splits devices into Connected / My Devices / Available,
+  shows battery where the device reports it, and pairs, connects or forgets them.
+- **Audio:** an Audio page with the output and input devices, per-application
+  streams, and quick controls for the microphone.
+- **System monitor:** CPU, memory and temperature with a live two-minute graph,
+  plus a toggle that keeps the monitor on the resting pill.
+- **Weather:** current conditions and a three-day forecast.
+- **Calendar:** a month view behind the clock.
+- **Timer:** countdowns with presets, a custom duration, and a Pomodoro mode that
+  alternates focus and break; a live activity stays on the pill while it runs.
+- **Live activities:** browser downloads, system updates (pacman, yay, paru and
+  Omarchy updates), timers and anything you copy show up on the pill.
+- **Live feedback:** notification previews, and animated volume, mute and
+  brightness on-screen displays drawn by the island itself.
+- **Ask AI:** type a question in the launcher and Claude or Codex answers right
+  in the island, Siri-style, using the command-line tool you're already signed
+  in to.
+- **Expanded views:** the control center, player, app launcher, clipboard
+  history, emoji and keybinding search, theme and wallpaper switchers, the
+  Omarchy menu, and the power menu.
+- **Personalization:** text and accent colours follow your current Omarchy theme,
+  with a warmth slider for the night light and frosted-glass surfaces.
+- **Settings:** a pane in the control center for animation speed, a MacBook notch
+  style, the clock, live activities, the AI, and About/Reset.
 
 Island runs inside Omarchy's Quickshell process and reserves no screen space.
 
@@ -36,43 +54,56 @@ Island runs inside Omarchy's Quickshell process and reserves no screen space.
 
 <table>
   <tr>
-    <td width="50%" align="center"><strong>Island</strong><br><img src="assets/island.png" alt="The resting island with album art and a sound wave" width="100%"></td>
-    <td width="50%" align="center"><strong>Now playing</strong><br><img src="assets/media.png" alt="Now playing player with controls" width="100%"></td>
+    <td width="50%" align="center"><strong>Now playing</strong><br><img src="assets/island.jpg" alt="The resting island with album art and a sound wave" width="100%"></td>
+    <td width="50%" align="center"><strong>At rest</strong><br><img src="assets/clock.jpg" alt="The resting island showing the clock and battery" width="100%"></td>
   </tr>
 </table>
 
-### Notifications
+### Control center
 
 <table>
   <tr>
-    <td width="33%" align="center"><strong>Notification</strong><br><img src="assets/notification.png" alt="Notification preview" width="100%"></td>
-    <td width="33%" align="center"><strong>Claude Code</strong><br><img src="assets/notification-claude.png" alt="Claude Code notification" width="100%"></td>
-    <td width="33%" align="center"><strong>Codex</strong><br><img src="assets/notification-codex.png" alt="Codex notification" width="100%"></td>
+    <td align="center"><img src="assets/control-center.jpg" alt="The control center with tiles, sliders, power profiles and notifications" width="62%"></td>
   </tr>
 </table>
 
-### Personalization
+### Monitoring
 
 <table>
   <tr>
-    <td width="50%" align="center"><strong>Themes</strong><br><img src="assets/themes.png" alt="Theme switcher" width="100%"></td>
-    <td width="50%" align="center"><strong>Wallpapers</strong><br><img src="assets/wallpapers.png" alt="Wallpaper switcher" width="100%"></td>
-  </tr>
-  <tr>
-    <td colspan="2" align="center"><strong>Power menu</strong><br><img src="assets/power.png" alt="Power menu" width="50%"></td>
+    <td width="50%" align="center"><strong>System monitor</strong><br><img src="assets/system.jpg" alt="CPU, memory and temperature with a live graph" width="100%"></td>
+    <td width="50%" align="center"><strong>Timer</strong><br><img src="assets/timer.jpg" alt="The timer page with presets, a custom duration and Pomodoro" width="100%"></td>
   </tr>
 </table>
 
-### Launcher
+### Connectivity and audio
 
 <table>
   <tr>
-    <td width="50%" align="center"><strong>App launcher</strong><br><img src="assets/launcher.png" alt="App launcher" width="100%"></td>
-    <td width="50%" align="center"><strong>Omarchy menu</strong><br><img src="assets/menu.png" alt="Omarchy menu" width="100%"></td>
+    <td width="33%" align="center"><strong>Wi-Fi</strong><br><img src="assets/wifi.jpg" alt="The Wi-Fi page listing nearby networks" width="100%"></td>
+    <td width="33%" align="center"><strong>Bluetooth</strong><br><img src="assets/bluetooth.jpg" alt="The Bluetooth page with devices by state" width="100%"></td>
+    <td width="33%" align="center"><strong>Audio</strong><br><img src="assets/audio.jpg" alt="The Audio page with output, input and applications" width="100%"></td>
+  </tr>
+</table>
+
+### Weather and calendar
+
+<table>
+  <tr>
+    <td width="50%" align="center"><strong>Weather</strong><br><img src="assets/weather.jpg" alt="Current weather and a three-day forecast" width="100%"></td>
+    <td width="50%" align="center"><strong>Calendar</strong><br><img src="assets/calendar.jpg" alt="A month calendar behind the clock" width="100%"></td>
+  </tr>
+</table>
+
+### Player and launcher
+
+<table>
+  <tr>
+    <td width="50%" align="center"><strong>Player</strong><br><img src="assets/player.jpg" alt="The player with album art, a progress bar and controls" width="100%"></td>
+    <td width="50%" align="center"><strong>App launcher</strong><br><img src="assets/launcher.jpg" alt="The app launcher" width="100%"></td>
   </tr>
   <tr>
-    <td align="center"><strong>Ask AI</strong><br><img src="assets/launcher-ask.png" alt="Launcher with a question for the AI" width="100%"></td>
-    <td align="center"><strong>Answer</strong><br><img src="assets/ai-answer.png" alt="The AI's answer in the island" width="100%"></td>
+    <td colspan="2" align="center"><strong>Omarchy menu</strong><br><img src="assets/menu.jpg" alt="The Omarchy menu" width="50%"></td>
   </tr>
 </table>
 
@@ -80,22 +111,24 @@ Island runs inside Omarchy's Quickshell process and reserves no screen space.
 
 <table>
   <tr>
-    <td width="50%" align="center"><strong>Emoji</strong><br><img src="assets/emoji.png" alt="Emoji picker" width="100%"></td>
-    <td width="50%" align="center"><strong>Keybindings</strong><br><img src="assets/keybinds.png" alt="Keybinding search" width="100%"></td>
+    <td width="50%" align="center"><strong>Emoji</strong><br><img src="assets/emoji.jpg" alt="The emoji picker" width="100%"></td>
+    <td width="50%" align="center"><strong>Keybindings</strong><br><img src="assets/keybinds.jpg" alt="The keybinding search" width="100%"></td>
   </tr>
   <tr>
-    <td colspan="2" align="center"><strong>Clipboard history</strong><br><img src="assets/clipboard.png" alt="Clipboard history with an image preview" width="50%"></td>
+    <td colspan="2" align="center"><strong>Clipboard history</strong><br><img src="assets/clipboard.jpg" alt="Clipboard history" width="50%"></td>
   </tr>
 </table>
 
-
-### Live activities
+### Personalization
 
 <table>
   <tr>
-    <td width="33%" align="center"><strong>Downloading</strong><br><img src="assets/download.png" alt="Download progress" width="100%"></td>
-    <td width="33%" align="center"><strong>Downloaded</strong><br><img src="assets/download-done.png" alt="Download complete" width="100%"></td>
-    <td width="33%" align="center"><strong>Updated</strong><br><img src="assets/update-done.png" alt="System update complete" width="100%"></td>
+    <td width="33%" align="center"><strong>Themes</strong><br><img src="assets/themes.jpg" alt="The theme switcher" width="100%"></td>
+    <td width="33%" align="center"><strong>Wallpapers</strong><br><img src="assets/wallpapers.jpg" alt="The wallpaper switcher" width="100%"></td>
+    <td width="33%" align="center"><strong>Power</strong><br><img src="assets/power.jpg" alt="The power menu" width="100%"></td>
+  </tr>
+  <tr>
+    <td colspan="3" align="center"><strong>Settings</strong><br><img src="assets/settings.jpg" alt="The settings pane in the control center" width="40%"></td>
   </tr>
 </table>
 
@@ -104,12 +137,13 @@ Island runs inside Omarchy's Quickshell process and reserves no screen space.
 Requires Omarchy 4 and its Quickshell shell.
 
 ```sh
-omarchy plugin add https://github.com/lanta/island.git
+omarchy plugin add https://github.com/llanttana/island.git
 omarchy bar use lanta.island
 ```
 
 On first launch, click the amber **Set up notifications** pill. It installs
-Island's notification companion, connects supported Omarchy menu entries
+Island's notification companion, connects supported Omarchy menu entries, and
+restarts the shell.
 
 ## Usage
 
@@ -118,12 +152,17 @@ Island's notification companion, connects supported Omarchy menu entries
 | Action | Result |
 | --- | --- |
 | Click the clock | Open the control center. |
-| Click album art or sound wave | Open the player. |
+| Click album art or the sound wave | Open the player. |
+| Click the Wi-Fi or Bluetooth tile | Open its page. |
 | Click a notification | Dismiss it. |
-| Click a download or update | Open the file (or your Downloads folder). |
+| Click a download, update or timer | Open the file, or the timer. |
 | Click the copied pill | Open the clipboard history. |
 | Press Esc | Close the open view. |
+| Click outside the island | Close the open view. |
 | Super + Shift + Space | Hide or show the pill (notifications and views still appear). |
+
+The brightness keys and the touchpad keys draw their feedback through the
+island, so the HUD matches the rest of the pill.
 
 ### Settings
 
