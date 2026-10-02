@@ -1079,7 +1079,14 @@ Item {
             onClicked: function(mouse) {
               if (root.view !== "rest" && root.view !== "feedback") return
               feedbackTimer.stop()
-              if (root.notificationPill) root.activateNotification(root.lastNotification)
+              if (root.notificationPill) {
+                root.activateNotification(root.lastNotification)
+                // The click opened what the notification was about; the banner
+                // is spent. The stopped timer can no longer close it, so put the
+                // island back to rest explicitly.
+                root.feedbackKind = ""
+                root.view = "rest"
+              }
               else if (root.clipboardPill) root.view = "clipboard"
               else if (root.view === "rest" && root.companionNeedsSetup) root.installCompanion()
               else if (root.downloadDone || (root.downloadActive && (mouse.x < 56 || mouse.x > width - 90))) root.openDownloads()
