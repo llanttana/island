@@ -166,7 +166,7 @@ restarts the shell.
 | Click the clock | Open the control center. |
 | Click album art or the sound wave | Open the player. |
 | Click the Wi-Fi or Bluetooth tile | Open its page. |
-| Click a notification | Dismiss it. |
+| Click a notification | Open the app (or chat) it came from. |
 | Click a download, update or timer | Open the file, or the timer. |
 | Click the copied pill | Open the clipboard history. |
 | Press Esc | Close the open view. |
