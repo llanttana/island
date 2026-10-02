@@ -161,6 +161,14 @@ Item {
         color: picker.host.colorAccent
         visible: slot.isSelected && !picker.grid && !picker.fillSelection
       }
+      // Declared before the row, so a row's own controls (a remove button, a
+      // shelf button) sit above this handler and keep their clicks; everywhere
+      // else in the cell still falls through to choose the row.
+      MouseArea {
+        anchors.fill: parent
+        cursorShape: Qt.PointingHandCursor
+        onClicked: picker.chosen(slot.modelData)
+      }
       Loader {
         anchors.fill: parent
         anchors.leftMargin: picker.grid ? 0 : picker.fillSelection ? 10 : 16
@@ -175,11 +183,6 @@ Item {
           item.entry = Qt.binding(function() { return slot.modelData || ({}) })
           item.selected = Qt.binding(function() { return slot.isSelected })
         }
-      }
-      MouseArea {
-        anchors.fill: parent
-        cursorShape: Qt.PointingHandCursor
-        onClicked: picker.chosen(slot.modelData)
       }
     }
 
