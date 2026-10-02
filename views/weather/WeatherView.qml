@@ -53,7 +53,7 @@ ColumnLayout {
   function refresh() {
     if (weather.query === "" || forecastRead.running) return
     weather.error = ""
-    forecastRead.command = ["curl", "-fsS", "--max-time", "12", "https://wttr.in/" + weather.query + "?format=j1"]
+    forecastRead.command = ["curl", "-fsS", "--max-time", "12", "https://wttr.in/" + encodeURIComponent(weather.query) + "?format=j1"]
     forecastRead.running = true
   }
 

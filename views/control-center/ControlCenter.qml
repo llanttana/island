@@ -225,7 +225,7 @@ ColumnLayout {
   }
   Process {
     id: weatherRead
-    command: ["curl", "-fsS", "--max-time", "8", "https://wttr.in/" + cc.weatherQuery + "?format=%t"]
+    command: ["curl", "-fsS", "--max-time", "8", "https://wttr.in/" + encodeURIComponent(cc.weatherQuery) + "?format=%t"]
     stdout: StdioCollector {
       waitForEnd: true
       onStreamFinished: {
