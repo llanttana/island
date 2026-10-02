@@ -12,9 +12,11 @@ ColumnLayout {
   property int shownYear: new Date().getFullYear()
   property int shownMonth: new Date().getMonth()
   readonly property int cellHeight: 34
-  readonly property int todayYear: new Date().getFullYear()
-  readonly property int todayMonth: new Date().getMonth()
-  readonly property int todayDay: new Date().getDate()
+  // Driven by the shell clock so the highlight follows a midnight rollover
+  // instead of freezing at the moment the view was created.
+  readonly property int todayYear: calendar.host.clockDate.getFullYear()
+  readonly property int todayMonth: calendar.host.clockDate.getMonth()
+  readonly property int todayDay: calendar.host.clockDate.getDate()
 
   readonly property color text: host.colorText
   readonly property color textMuted: host.colorMuted
