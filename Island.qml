@@ -550,9 +550,13 @@ Item {
 
   // ---------- Notification click ----------
   //
-  // Clicking a notification opens whatever sent it: a notification carrying its
-  // own action (Omarchy's installer toasts) runs that, otherwise the app's
-  // window is focused, and failing that its desktop entry is launched.
+  // Clicking a notification opens what it is about. Omarchy's own installer
+  // toasts carry the action as an argv vector and run that. Everyone else
+  // registers the jump under the libnotify "default" action — for Telegram it
+  // is what switches to the exact chat. A row that is still live has that
+  // action, so the notification service invokes it; a history row has no action
+  // left (the sender destroyed it), so falling back to the app's window, and
+  // then to its desktop entry, is all that is possible.
   readonly property string openSourceScript:
     'app="$1"; [ -n "$app" ] || exit 1; ' +
     'pat=$(printf "%s" "$app" | sed "s/ /[ ._-]/g"); ' +
@@ -576,11 +580,19 @@ Item {
     var argv = NotificationLogic.parseExecArgv(row.execArgv)
     if (argv) {
       Quickshell.execDetached(argv)
-    } else {
-      openSource.command = ["bash", "-c", openSourceScript, "--", String(row.app || row.summary || "")]
-      openSource.running = true
+      if (row.isActive) notificationCommand("dismissKey", row)
+      return
     }
-    if (row.isActive) notificationCommand("dismissKey", row)
+    // The sender's libnotify "default" action is what opens the specific thing
+    // the notification is about — Telegram switches to the exact chat — and only
+    // a live row still owns it. The service invokes it, then dismisses the toast;
+    // if the sender registered no action it focuses the app window instead.
+    if (row.isActive) notificationCommand("invokeKey", row)
+    // Raise or launch the app as well: on Wayland the sender's own activation
+    // request is not guaranteed to focus its window, and a history row has no
+    // live action left, so this is the only route it has.
+    openSource.command = ["bash", "-c", openSourceScript, "--", String(row.app || row.summary || "")]
+    openSource.running = true
   }
 
   onVolumeChanged: {
@@ -685,6 +697,10 @@ Item {
       var key = String(current.timestamp) + ":" + String(current.originalId)
       if (key === lastNotificationKey) return
       lastNotificationKey = key
+      // The banner row is live by definition — the feed's active list is what
+      // popupModel is showing — and activateNotification relies on this flag to
+      // invoke the sender's action instead of only focusing its window.
+      current.isActive = true
       lastNotification = current
       if (!surfaceOpen) showFeedback(String(current.summary || current.app || "Notification"), settings.bannerSeconds * 1000, "notification")
     } catch (e) {
