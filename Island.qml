@@ -555,7 +555,7 @@ Item {
   // window is focused, and failing that its desktop entry is launched.
   readonly property string openSourceScript:
     'app="$1"; [ -n "$app" ] || exit 1; ' +
-    'pat=$(printf "%s" "$app" | sed "s/ /[ -]/g"); ' +
+    'pat=$(printf "%s" "$app" | sed "s/ /[ ._-]/g"); ' +
     'if [ "$pat" != "$app" ]; then omarchy-hyprland-focus-app "$pat" >/dev/null 2>&1 && exit 0; fi; ' +
     'omarchy-hyprland-focus-app "$app" >/dev/null 2>&1 && exit 0; ' +
     'for dir in "$HOME/.local/share/applications" /usr/share/applications; do ' +
@@ -563,7 +563,10 @@ Item {
         '[ -e "$f" ] || continue; ' +
         'name=$(grep -im1 "^Name=" "$f" | cut -d= -f2-); ' +
         '[ -n "$name" ] || continue; ' +
-        'case "$app" in *"$name"*) exec gtk-launch "$(basename "$f" .desktop)";; esac; ' +
+        // gtk-launch wants the desktop-file basename: an id that already ends
+        // in .desktop (org.telegram.desktop.desktop) is used verbatim, so
+        // stripping the suffix here would look for a file that does not exist.
+        'case "$app" in *"$name"*) exec gtk-launch "$(basename "$f")";; esac; ' +
       'done; ' +
     'done; ' +
     'exit 1'
