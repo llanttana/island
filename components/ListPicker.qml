@@ -167,7 +167,12 @@ Item {
         anchors.rightMargin: picker.grid ? 0 : 12
         sourceComponent: picker.row
         onLoaded: {
-          item.entry = Qt.binding(function() { return slot.modelData })
+          // GridView fills modelData after the delegate is created, so the
+          // binding sees null first. Fall back to the empty object the row
+          // components declare, otherwise a row that reads entry.xxx before
+          // the model lands throws "Value is null and could not be converted
+          // to an object".
+          item.entry = Qt.binding(function() { return slot.modelData || ({}) })
           item.selected = Qt.binding(function() { return slot.isSelected })
         }
       }

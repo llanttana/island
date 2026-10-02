@@ -42,7 +42,9 @@ ListPicker {
       id: appRow
       property var entry: ({})
       property bool selected: false
-      readonly property bool isAsk: !!entry.askAi
+      // entry is null for a frame while GridView hands modelData to a fresh
+      // delegate, so never read through it unguarded.
+      readonly property bool isAsk: !!entry && !!entry.askAi
 
       ClippingRectangle {
         id: iconTile
@@ -63,7 +65,7 @@ ListPicker {
           anchors.centerIn: parent
           width: 26; height: 26
           visible: !appRow.isAsk && status === Image.Ready
-          source: appRow.isAsk ? "" : launcher.iconSource(appRow.entry.icon)
+          source: appRow.isAsk || !appRow.entry ? "" : launcher.iconSource(appRow.entry.icon)
           sourceSize.width: 52
           sourceSize.height: 52
           fillMode: Image.PreserveAspectFit
@@ -84,7 +86,7 @@ ListPicker {
         anchors.right: parent.right
         anchors.verticalCenter: parent.verticalCenter
         visible: !appRow.isAsk
-        text: appRow.isAsk ? "" : AppSearch.entryName(appRow.entry)
+        text: appRow.isAsk || !appRow.entry ? "" : AppSearch.entryName(appRow.entry)
         textFormat: Text.PlainText
         elide: Text.ElideRight
         color: launcher.host.colorText
@@ -110,7 +112,7 @@ ListPicker {
         }
         Text {
           width: parent.width - askLabel.width - parent.spacing
-          text: appRow.isAsk ? "\u201c" + appRow.entry.question + "\u201d" : ""
+          text: appRow.isAsk && appRow.entry ? "\u201c" + appRow.entry.question + "\u201d" : ""
           textFormat: Text.PlainText
           elide: Text.ElideRight
           color: launcher.host.colorMuted
