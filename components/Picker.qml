@@ -69,6 +69,9 @@ Item {
       if (filtered[i].key === lastSelectedKey) { jumpTo(i); return }
     selectCurrent()
   }
+  // The owner's active item can resolve after the picker opens (the wallpaper
+  // symlink is read asynchronously), so follow it when it lands.
+  onCurrentKeyChanged: if (active) selectCurrent()
 
   function selectCurrent() {
     for (var i = 0; i < filtered.length; i++)
@@ -215,7 +218,7 @@ Item {
         Loader {
           anchors.fill: parent
           sourceComponent: picker.card
-          onLoaded: item.entry = Qt.binding(function() { return slot.modelData })
+          onLoaded: item.entry = Qt.binding(function() { return slot.modelData || ({}) })
         }
         // Hairline so dark cards still read against the black island.
         Rectangle {
@@ -238,7 +241,7 @@ Item {
         }
         // Checkmark badge on the item that's active right now.
         Rectangle {
-          visible: slot.modelData.key === picker.currentKey
+          visible: !!slot.modelData && slot.modelData.key === picker.currentKey
           anchors.right: parent.right
           anchors.top: parent.top
           anchors.margins: 7
