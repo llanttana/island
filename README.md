@@ -41,6 +41,8 @@ Omarchy's menus and status, rewritten as one fluid island that morphs between vi
 - **Expanded views:** the control center, player, app launcher, clipboard
   history, emoji and keybinding search, theme and wallpaper switchers, the
   Omarchy menu, and the power menu.
+- **Shelf:** park files, links and text on the island until you clear them or
+  the shell restarts.
 - **Personalization:** text and accent colours follow your current Omarchy theme,
   with a warmth slider for the night light and frosted-glass surfaces.
 - **Settings:** a pane in the control center for animation speed, a MacBook notch
@@ -175,6 +177,16 @@ restarts the shell.
 
 The brightness keys and the touchpad keys draw their feedback through the
 island, so the HUD matches the rest of the pill.
+
+### Shelf
+
+Park the current clipboard with `omarchy-shell lanta.island shelfAdd` (bind it
+to a key if you like); a clipboard-history row has its own shelf button, and
+`Ctrl+S` does the same for the selected row. The shelf is kept in memory, so a
+shell restart or reboot empties it. In the shelf, click a tile to copy it,
+`Alt+Enter` to open a file or link, `Delete` to remove one, and `Ctrl+Delete`
+to clear the whole shelf. `omarchy-shell lanta.island shelf` toggles the view
+and `... shelfClear` empties it.
 
 ### Settings
 
