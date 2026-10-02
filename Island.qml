@@ -11,6 +11,7 @@ import Quickshell.Wayland
 import qs.Commons
 import "components"
 import "views"
+import "views/shelf/ShelfModel.js" as ShelfModel
 import "file:///usr/share/omarchy/shell/plugins/clipboard/ClipboardHistory.js" as ClipboardHistory
 import "companion/lanta.notifications/NotificationLogic.js" as NotificationLogic
 
@@ -202,6 +203,52 @@ Item {
     if (!fresh || !settings.clipboard || Date.now() < clipboardQuietUntil) return
     lastClip = top
     showFeedback("", 2200, "clipboard")
+  }
+
+  // ---------- Shelf ----------
+  //
+  // Files, images, links and text parked on the island. Memory-only on purpose:
+  // a shell restart (or reboot) empties it, and nothing is written to disk.
+  property var shelf: []
+  readonly property int shelfCount: shelf.length
+
+  function shelfAdd(entry) {
+    var next = ShelfModel.add(shelf, entry)
+    var grew = next.length > shelf.length
+    shelf = next
+    if (grew) announce("Added to shelf")
+    return grew
+  }
+  function shelfRemove(item) {
+    if (!item) return
+    shelf = ShelfModel.removeKey(shelf, ShelfModel.itemKey(item))
+  }
+  function shelfClear() { shelf = [] }
+  function shelfAddText(raw) {
+    var items = ShelfModel.fromText(raw)
+    if (!items.length) return
+    var next = shelf
+    for (var i = 0; i < items.length; i++) next = ShelfModel.add(next, items[i])
+    if (next.length === shelf.length) return
+    shelf = next
+    announce("Added to shelf")
+  }
+  Process {
+    id: shelfPaste
+    stdout: StdioCollector {
+      waitForEnd: true
+      onStreamFinished: root.shelfAddText(String(text || ""))
+    }
+  }
+  // Park the current clipboard (a file uri-list when the app offers one,
+  // otherwise text) for the `shelfAdd` keybind.
+  function shelfAddClipboard() {
+    if (shelfPaste.running) return
+    shelfPaste.command = ["bash", "-c",
+      'if wl-paste --list-types 2>/dev/null | grep -qx "text/uri-list"; then '
+      + 'wl-paste --type text/uri-list --no-newline 2>/dev/null; '
+      + 'else wl-paste --type text --no-newline 2>/dev/null; fi']
+    shelfPaste.running = true
   }
 
   property bool surfaceContentReady: false
@@ -832,6 +879,11 @@ Item {
       root.timer.stop()
       return "ok"
     }
+    // The shelf: `omarchy-shell lanta.island shelf` toggles it, `shelfAdd`
+    // parks the current clipboard, `shelfClear` empties it.
+    function shelf(): string { return root.toggleView("shelf") }
+    function shelfAdd(): string { root.shelfAddClipboard(); return "ok" }
+    function shelfClear(): string { root.shelfClear(); return "ok" }
     function close(): string {
       root.view = "rest"
       return "rest"

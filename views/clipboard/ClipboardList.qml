@@ -26,6 +26,8 @@ ListPicker {
     if (event.key === Qt.Key_Return || event.key === Qt.Key_Enter) {
       if (event.modifiers & Qt.AltModifier) { open(selected); event.accepted = true }
       else if (event.modifiers & Qt.ShiftModifier) { paste(selected, true); event.accepted = true }
+    } else if (event.key === Qt.Key_S && (event.modifiers & Qt.ControlModifier)) {
+      toShelf(selected); event.accepted = true
     } else if (event.key === Qt.Key_Delete) {
       remove(selected); event.accepted = true
     }
@@ -71,6 +73,16 @@ ListPicker {
     if (!row) return
     history = ClipboardHistory.removeEntryAt(history, row.index)
     historyFile.setText(JSON.stringify(history, null, 2) + "\n")
+  }
+  // Park the entry on the island's shelf. A multi-file row arrives as one
+  // text/uri-list, so those go through the text parser.
+  function toShelf(row) {
+    if (!row) return
+    if (row.entryType === "image") clipboard.host.shelfAdd({ kind: "image", path: row.path, mime: row.mime })
+    else if (row.entryType === "file") {
+      if (row.path) clipboard.host.shelfAdd({ kind: "file", path: row.path })
+      else clipboard.host.shelfAddText(row.fullText)
+    } else clipboard.host.shelfAdd({ kind: "text", text: row.fullText })
   }
 
   // Preview pane: the selected picture, rounded, at its own proportions.
@@ -177,7 +189,8 @@ ListPicker {
       Text {
         anchors.left: badge.right
         anchors.leftMargin: 12
-        anchors.right: parent.right
+        anchors.right: shelfAction.left
+        anchors.rightMargin: 8
         anchors.verticalCenter: parent.verticalCenter
         text: String(clipRow.entry.previewText || "").trim()
         textFormat: Text.PlainText
@@ -187,6 +200,25 @@ ListPicker {
         font.family: "Adwaita Sans"
         font.pixelSize: 14
         font.weight: clipRow.selected ? Font.Medium : Font.Normal
+      }
+      // Park the entry on the shelf without pasting it.
+      Text {
+        id: shelfAction
+        anchors.right: parent.right
+        anchors.rightMargin: 2
+        anchors.verticalCenter: parent.verticalCenter
+        text: "󰉋"
+        color: shelfMouse.containsMouse ? clipRow.ink : clipboard.host.colorMuted
+        font.family: clipboard.host.fontFamily
+        font.pixelSize: 16
+        MouseArea {
+          id: shelfMouse
+          anchors.fill: parent
+          anchors.margins: -7
+          hoverEnabled: true
+          cursorShape: Qt.PointingHandCursor
+          onClicked: clipboard.toShelf(clipRow.entry)
+        }
       }
     }
   }

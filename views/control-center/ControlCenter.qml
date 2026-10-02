@@ -1211,6 +1211,13 @@ ColumnLayout {
                 on: cc.timer.running
                 onClicked: cc.host.view = "timer"
               }
+              CcChip {
+                visible: cc.host.shelfCount > 0
+                icon: "󰉋"
+                label: cc.host.shelfCount + (cc.host.shelfCount === 1 ? " item" : " items")
+                on: true
+                onClicked: cc.host.view = "shelf"
+              }
             }
 
             RowLayout {

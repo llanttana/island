@@ -19,6 +19,7 @@ import "system"
 import "calendar"
 import "weather"
 import "timer"
+import "shelf"
 
 // Every view the island can open. Each is a Surface: its name (also its IPC
 // route: `omarchy-shell lanta.island show <name>`), how wide the
@@ -28,7 +29,7 @@ Item {
   id: views
   required property var host
 
-  readonly property var surfaces: [controlsSurface, audioSurface, systemSurface, themesSurface, wallpapersSurface, appsSurface, powerSurface, emojiSurface, keybindsSurface, clipboardSurface, menuSurface, playerSurface, settingsSurface, answerSurface, wifiSurface, bluetoothSurface, calendarSurface, weatherSurface, timerSurface]
+  readonly property var surfaces: [controlsSurface, audioSurface, systemSurface, themesSurface, wallpapersSurface, appsSurface, powerSurface, emojiSurface, keybindsSurface, clipboardSurface, menuSurface, playerSurface, settingsSurface, answerSurface, wifiSurface, bluetoothSurface, calendarSurface, weatherSurface, timerSurface, shelfSurface]
   function surfaceFor(name) {
     for (var i = 0; i < surfaces.length; i++) if (surfaces[i].viewName === name) return surfaces[i]
     return null
@@ -204,5 +205,14 @@ Item {
     viewName: "power"
     padding: 18
     PowerMenu { host: views.host; active: powerSurface.active; anchors.fill: parent }
+  }
+
+  Surface {
+    id: shelfSurface
+    host: views.host
+    viewName: "shelf"
+    fixedWidth: 600
+    maxHeight: 640
+    ShelfView { host: views.host; active: shelfSurface.active; anchors.fill: parent }
   }
 }
