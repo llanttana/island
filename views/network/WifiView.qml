@@ -103,6 +103,11 @@ ColumnLayout {
   // The SSID whose password box is open, and the one showing its actions.
   property string passwordSsid: ""
   property string detailSsid: ""
+  // What has been typed into the password box. It lives on the page, not in
+  // the row delegate: a scan updates signal strengths, the sorted list changes
+  // and the Repeater rebuilds its delegates, so anything held inside the text
+  // field itself would be lost the moment a row moves.
+  property string passwordDraft: ""
 
   function rescan() {
     if (!device) return
@@ -119,11 +124,15 @@ ColumnLayout {
 
   function clearPrompts() {
     passwordSsid = ""
+    passwordDraft = ""
     detailSsid = ""
   }
 
   function openPassword(ssid) {
     detailSsid = ""
+    // Keep the draft when the same box is being re-opened (e.g. after the list
+    // re-sorted); only a different network starts from a clean field.
+    if (passwordSsid !== ssid) passwordDraft = ""
     passwordSsid = ssid
   }
 
@@ -163,6 +172,7 @@ ColumnLayout {
     busySsid = ssid
     actionTimeout.restart()
     passwordSsid = ""
+    passwordDraft = ""
     net.connectWithPsk(value)
   }
 
@@ -471,13 +481,18 @@ ColumnLayout {
                     anchors.rightMargin: 12
                     verticalAlignment: TextInput.AlignVCenter
                     echoMode: TextInput.Password
+                    // Restore from the page-level draft so a re-sorted row
+                    // keeps whatever was already typed.
+                    text: netRow.passwordOpen ? wifi.passwordDraft : ""
                     color: wifi.text
                     selectionColor: wifi.host.withAlpha(wifi.host.colorAccent, 0.4)
                     selectedTextColor: wifi.text
                     font.family: "Adwaita Sans"
                     font.pixelSize: 13
                     clip: true
-                    onVisibleChanged: if (visible) { text = ""; forceActiveFocus() }
+                    onTextEdited: if (netRow.passwordOpen) wifi.passwordDraft = text
+                    onVisibleChanged: if (visible) forceActiveFocus()
+                    Component.onCompleted: if (visible) forceActiveFocus()
                     onAccepted: wifi.submitPassword(text)
                     Keys.onEscapePressed: wifi.clearPrompts()
                     Text {
