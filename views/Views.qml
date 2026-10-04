@@ -201,7 +201,11 @@ Item {
     id: settingsSurface
     host: views.host
     viewName: "settings"
-    fixedWidth: 540
+    // Same width and ceiling as the control center that opens it: the pill then
+    // only changes height as Settings arrives, so the page is never revealed by
+    // a widening edge (that sideways wipe is what made opening it look jerky).
+    fixedWidth: 480
+    maxHeight: 720
     content: Component {
       SettingsView { host: views.host; active: settingsSurface.active; anchors.fill: parent }
     }

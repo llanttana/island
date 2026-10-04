@@ -14,7 +14,7 @@ ColumnLayout {
   readonly property color text: host.colorText
   readonly property color textMuted: host.colorMuted
   readonly property color well: host.withAlpha(host.colorText, 0.1)
-  readonly property int animDuration: 180 * host.motionScale
+  readonly property int animDuration: host.motionBase
   readonly property var presets: [
     { label: "5 min", seconds: 300, name: "Break" },
     { label: "10 min", seconds: 600, name: "Timer" },
@@ -122,7 +122,7 @@ ColumnLayout {
               width: parent.width * timerView.timer.progress
               radius: 2.5
               color: timerView.host.colorAccent
-              Behavior on width { NumberAnimation { duration: 400 * timerView.host.motionScale; easing.type: Easing.OutCubic } }
+              Behavior on width { NumberAnimation { duration: timerView.host.motionPanel; easing.type: timerView.host.easeStandard } }
             }
           }
         }
@@ -197,7 +197,7 @@ ColumnLayout {
             color: timerView.well
             border.width: 1
             border.color: timerView.customError ? timerView.host.colorUrgent : timerView.host.colorBorder
-            Behavior on border.color { ColorAnimation { duration: timerView.animDuration } }
+            Behavior on border.color { ColorAnimation { duration: timerView.animDuration; easing.type: timerView.host.easeStandard } }
 
             Text {
               id: customGlyph

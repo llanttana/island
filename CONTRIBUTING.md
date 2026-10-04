@@ -26,9 +26,12 @@ issues. Remove personal information from logs and screenshots before posting.
 4. Do not edit Omarchy's packaged files under `/usr/share/omarchy/`. Use them as
    a reference only.
 
-The main UI is in `Island.qml`, `components/`, and `views/`. Companion setup and
-removal live in `companion/`. Update the README when a user-facing action,
-dependency, or configuration path changes.
+The main UI is in `Island.qml`, `components/`, and `views/`. Every animation
+takes its duration and easing from the motion tokens on the island root (the
+Motion block in `Island.qml`) instead of hard-coded values, so the whole plugin
+keeps one tempo and one easing family; add a token there if none of the existing
+roles fit. Companion setup and removal live in `companion/`. Update the README
+when a user-facing action, dependency, or configuration path changes.
 
 ## Checking your work
 

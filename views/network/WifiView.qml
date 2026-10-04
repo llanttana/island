@@ -20,7 +20,7 @@ ColumnLayout {
   readonly property color textMuted: host.colorMuted
   readonly property color well: host.withAlpha(host.colorText, 0.1)
   readonly property color divider: host.withAlpha(host.colorText, 0.08)
-  readonly property int animDuration: 180 * host.motionScale
+  readonly property int animDuration: host.motionBase
 
   // ---------- Adapter ----------
 
@@ -254,7 +254,7 @@ ColumnLayout {
       height: 32
       radius: 16
       color: rescanMouse.containsMouse ? wifi.host.withAlpha(wifi.text, 0.16) : wifi.well
-      Behavior on color { ColorAnimation { duration: wifi.animDuration } }
+      Behavior on color { ColorAnimation { duration: wifi.animDuration; easing.type: wifi.host.easeStandard } }
       Text {
         anchors.centerIn: parent
         text: "󰑐"

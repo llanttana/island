@@ -29,9 +29,9 @@ Row {
       opacity: focused ? 1 : occupied ? 0.8 : 0.28
       scale: focused ? 1.35 : 1
 
-      Behavior on opacity { NumberAnimation { duration: 150 * dots.host.motionScale; easing.type: Easing.OutCubic } }
-      Behavior on color { ColorAnimation { duration: 150 * dots.host.motionScale } }
-      Behavior on scale { NumberAnimation { duration: 200 * dots.host.motionScale; easing.type: Easing.OutBack; easing.overshoot: 1.6 } }
+      Behavior on opacity { NumberAnimation { duration: dots.host.motionFadeIn; easing.type: dots.host.easeStandard } }
+      Behavior on color { ColorAnimation { duration: dots.host.motionBase; easing.type: dots.host.easeStandard } }
+      Behavior on scale { NumberAnimation { duration: dots.host.motionBase; easing.type: dots.host.easePop; easing.overshoot: 1.6 } }
 
       MouseArea {
         anchors.fill: parent

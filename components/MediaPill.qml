@@ -12,7 +12,7 @@ Item {
 
   opacity: shown ? 1 : 0
   visible: opacity > 0.01
-  Behavior on opacity { NumberAnimation { duration: opacity > 0.5 ? 70 : 150 * media.host.motionScale; easing.type: Easing.InOutQuad } }
+  Behavior on opacity { NumberAnimation { duration: opacity > 0.5 ? media.host.motionFadeOut : media.host.motionFadeIn; easing.type: media.host.easeCross } }
 
   ClippingRectangle {
     id: art

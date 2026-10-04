@@ -391,6 +391,34 @@ Item {
 
   readonly property real motionScale: settings.motionScale > 0 ? settings.motionScale : 1.5
 
+  // ---------- Motion ----------
+  // The island's whole animation vocabulary lives here. No view or component
+  // invents its own timing: each one picks the duration and easing that match
+  // its job, so everything moves at one tempo and one easing family.
+  //
+  //   instant - feedback under the pointer: press, hover, a slider filling
+  //   base    - a state change: colour, switch, icon, chip
+  //   panel   - the pill reshaping, a card opening, a progress bar filling
+  //   open    - the pill growing out of the resting state
+  //   fadeIn  - content arriving; fadeOut is much quicker, so a swap reads as
+  //             one page replacing another instead of two showing through
+  readonly property int motionInstant: Math.round(120 * motionScale)
+  readonly property int motionBase: Math.round(180 * motionScale)
+  readonly property int motionPanel: Math.round(240 * motionScale)
+  readonly property int motionOpen: Math.round(300 * motionScale)
+  readonly property int motionDelay: Math.round(110 * motionScale)
+  readonly property int motionFadeIn: Math.round(150 * motionScale)
+  readonly property int motionFadeOut: Math.round(70 * motionScale)
+
+  // One easing per role, never per feel. Anything that moves or fades in uses
+  // easeStandard; the pill opening leans on easeEmphasis so it leaves quickly
+  // and settles; easeCross is for one thing replacing another; easePop carries
+  // the small overshoot on badges.
+  readonly property int easeStandard: Easing.OutCubic
+  readonly property int easeEmphasis: Easing.OutQuint
+  readonly property int easeCross: Easing.InOutQuad
+  readonly property int easePop: Easing.OutBack
+
   // Small status accessories (workspace dots, battery) sit beside the clock
   // only in the plain resting state, so they never crowd a live activity.
   readonly property bool accessoriesShown: view === "rest" && !mediaPill && !downloadPill && !systemPill && !timerPill && !companionNeedsSetup
@@ -1100,7 +1128,7 @@ Item {
           id: island
           x: (parent.width - width) / 2
           y: root.pillHidden ? -height - 12 : root.settings.notch ? 0 : 8
-          Behavior on y { NumberAnimation { duration: 300 * root.motionScale; easing.type: Easing.OutCubic } }
+          Behavior on y { NumberAnimation { duration: root.motionOpen; easing.type: root.easeStandard } }
           readonly property Item activeSurface: views.surfaceFor(root.view)
           readonly property real targetWidth: activeSurface ? activeSurface.islandWidth
             : root.notificationPill ? 440
@@ -1127,13 +1155,13 @@ Item {
             : root.view === "rest" ? (root.settings.notch ? 36 : 40) : 52
           property real radiusCap: root.volumePill || root.brightnessPill ? 20 : root.view === "answer" ? 44 : root.surfaceOpen ? 30 : 38
           Behavior on radiusCap {
-            NumberAnimation { duration: 390 * root.motionScale; easing.type: Easing.OutQuint }
+            NumberAnimation { duration: root.motionOpen; easing.type: root.easeEmphasis }
           }
           radius: Math.min(height / 2, root.settings.notch && !root.surfaceOpen ? Math.min(radiusCap, 16) : radiusCap)
           topLeftRadius: root.settings.notch ? 0 : radius
           topRightRadius: root.settings.notch ? 0 : radius
           scale: root.view === "rest" && clockHover.hovered && root.settings.hoverLift && !root.settings.notch ? 1.07 : 1
-          Behavior on scale { NumberAnimation { duration: 240 * root.motionScale; easing.type: Easing.OutBack; easing.overshoot: 1.8 } }
+          Behavior on scale { NumberAnimation { duration: root.motionPanel; easing.type: root.easePop; easing.overshoot: 1.8 } }
           HoverHandler { id: clockHover; enabled: root.view === "rest" }
           color: root.colorBackground
           clip: true
@@ -1141,12 +1169,12 @@ Item {
           // keeps settling for hundreds of milliseconds after the motion has
           // visually finished, re-laying out the island on every one of those
           // frames. This reaches the target exactly, and stops.
-          readonly property int morphDuration: Math.round(300 * root.motionScale)
+          readonly property int morphDuration: root.motionOpen
           // Collapsing is a two-stage move: the outgoing view fades first, so
           // the shell can then shrink on its own. That stage is shorter than the
           // opening one, because it no longer has to hide the content swap too.
-          readonly property int collapseDuration: Math.round(240 * root.motionScale)
-          readonly property int collapseDelay: Math.round(110 * root.motionScale)
+          readonly property int collapseDuration: root.motionPanel
+          readonly property int collapseDelay: root.motionDelay
           // Where the pill is heading, and which way. Opening starts on the next
           // frame (the incoming view builds and paints on the frame of the
           // change, and that frame is over budget on its own); closing waits for
@@ -1220,18 +1248,18 @@ Item {
               duration: island.expanding ? island.morphDuration : island.collapseDuration
               // OutQuint snaps and settles, which reads as a twitch on the way
               // down; the collapse gets a gentler curve.
-              easing.type: island.expanding ? Easing.OutQuint : Easing.OutCubic
+              easing.type: island.expanding ? root.easeEmphasis : root.easeStandard
             }
           }
           Behavior on morphHeight {
             NumberAnimation {
               duration: island.expanding ? island.morphDuration : island.collapseDuration
-              easing.type: island.expanding ? Easing.OutQuint : Easing.OutCubic
+              easing.type: island.expanding ? root.easeEmphasis : root.easeStandard
             }
           }
           width: Math.max(40, Math.round(morphWidth))
           height: Math.max(28, Math.round(morphHeight))
-          Behavior on color { ColorAnimation { duration: 240 * root.motionScale; easing.type: Easing.InOutQuad } }
+          Behavior on color { ColorAnimation { duration: root.motionPanel; easing.type: root.easeCross } }
 
           MouseArea {
             anchors.fill: parent
@@ -1313,7 +1341,7 @@ Item {
             anchors.verticalCenter: parent.verticalCenter
             opacity: island.accessoriesVisible && root.workspaceDotsShown ? 1 : 0
             visible: opacity > 0.01
-            Behavior on opacity { NumberAnimation { duration: 150 * root.motionScale; easing.type: Easing.InOutQuad } }
+            Behavior on opacity { NumberAnimation { duration: root.motionFadeIn; easing.type: root.easeCross } }
           }
 
           BatteryBadge {
@@ -1324,7 +1352,7 @@ Item {
             anchors.verticalCenter: parent.verticalCenter
             opacity: island.accessoriesVisible && root.batteryBadgeShown ? 1 : 0
             visible: opacity > 0.01
-            Behavior on opacity { NumberAnimation { duration: 150 * root.motionScale; easing.type: Easing.InOutQuad } }
+            Behavior on opacity { NumberAnimation { duration: root.motionFadeIn; easing.type: root.easeCross } }
           }
 
           // Drop files, links or text dragged from another app straight onto
@@ -1373,14 +1401,14 @@ Item {
             border.color: root.colorAccent
             opacity: root.dropActive ? 1 : 0
             visible: opacity > 0.01
-            Behavior on opacity { NumberAnimation { duration: 130 * root.motionScale; easing.type: Easing.OutQuad } }
+            Behavior on opacity { NumberAnimation { duration: root.motionInstant; easing.type: root.easeStandard } }
           }
           Row {
             anchors.centerIn: parent
             spacing: 9
             opacity: root.dropActive && !root.surfaceOpen ? 1 : 0
             visible: opacity > 0.01
-            Behavior on opacity { NumberAnimation { duration: 130 * root.motionScale; easing.type: Easing.OutQuad } }
+            Behavior on opacity { NumberAnimation { duration: root.motionInstant; easing.type: root.easeStandard } }
             Item {
               width: dropGlyph.implicitWidth
               height: 24

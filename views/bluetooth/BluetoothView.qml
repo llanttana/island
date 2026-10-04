@@ -20,7 +20,7 @@ ColumnLayout {
   readonly property color textMuted: host.colorMuted
   readonly property color well: host.withAlpha(host.colorText, 0.1)
   readonly property color divider: host.withAlpha(host.colorText, 0.08)
-  readonly property int animDuration: 180 * host.motionScale
+  readonly property int animDuration: host.motionBase
 
   readonly property var adapter: Bluetooth.defaultAdapter
   readonly property bool enabled: !!(adapter && adapter.enabled)
@@ -277,7 +277,7 @@ ColumnLayout {
         height: 26
         radius: 13
         color: forgetMouse.containsMouse ? bt.host.withAlpha(bt.text, 0.18) : bt.host.withAlpha(bt.text, 0.1)
-        Behavior on color { ColorAnimation { duration: bt.animDuration } }
+        Behavior on color { ColorAnimation { duration: bt.animDuration; easing.type: bt.host.easeStandard } }
         Text {
           anchors.centerIn: parent
           text: "󰅖"
@@ -328,7 +328,7 @@ ColumnLayout {
       radius: 16
       visible: bt.enabled
       color: rescanMouse.containsMouse ? bt.host.withAlpha(bt.text, 0.16) : bt.well
-      Behavior on color { ColorAnimation { duration: bt.animDuration } }
+      Behavior on color { ColorAnimation { duration: bt.animDuration; easing.type: bt.host.easeStandard } }
       Text {
         anchors.centerIn: parent
         // Deliberately static: discovery runs the whole time the page is open,

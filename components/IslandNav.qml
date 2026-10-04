@@ -22,7 +22,7 @@ Item {
     height: 32
     radius: 16
     color: backMouse.containsMouse ? nav.host.withAlpha(nav.host.colorText, 0.16) : nav.host.withAlpha(nav.host.colorText, 0.1)
-    Behavior on color { ColorAnimation { duration: 180 * nav.host.motionScale } }
+    Behavior on color { ColorAnimation { duration: nav.host.motionBase; easing.type: nav.host.easeStandard } }
     Text {
       anchors.centerIn: parent
       text: "󰅁"

@@ -13,7 +13,7 @@ ColumnLayout {
   readonly property color text: host.colorText
   readonly property color textMuted: host.colorMuted
   readonly property color well: host.withAlpha(host.colorText, 0.1)
-  readonly property int animDuration: 180 * host.motionScale
+  readonly property int animDuration: host.motionBase
   readonly property var stats: host.systemStats
 
   spacing: 10
@@ -82,7 +82,7 @@ ColumnLayout {
         width: parent.width * Math.max(0, Math.min(1, metric.fraction))
         radius: 2
         color: metric.tint
-        Behavior on width { NumberAnimation { duration: 240 * system.host.motionScale; easing.type: Easing.OutCubic } }
+        Behavior on width { NumberAnimation { duration: system.host.motionPanel; easing.type: system.host.easeStandard } }
       }
     }
   }

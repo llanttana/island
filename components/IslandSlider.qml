@@ -64,7 +64,7 @@ Item {
       color: slider.host.colorAccent
       Behavior on width {
         enabled: !sliderArea.pressed
-        NumberAnimation { duration: 120 * slider.host.motionScale; easing.type: Easing.OutCubic }
+        NumberAnimation { duration: slider.host.motionInstant; easing.type: slider.host.easeStandard }
       }
     }
 

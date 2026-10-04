@@ -19,7 +19,7 @@ Item {
   // neighbours.
   readonly property int slotWidth: tileWidth + 6
   readonly property int tileSpacing: 6
-  readonly property int moveDuration: 200 * host.motionScale
+  readonly property int moveDuration: host.motionPanel
 
   property bool suspendAvailable: true
   property bool hibernateAvailable: false
@@ -123,8 +123,8 @@ Item {
           radius: 23
           color: slot.isSelected ? power.host.colorAccent : power.host.withAlpha(power.host.colorText, 0.1)
           scale: tileMouse.pressed ? 0.94 : slot.isSelected ? 1.06 : 1
-          Behavior on color { ColorAnimation { duration: power.moveDuration; easing.type: Easing.OutCubic } }
-          Behavior on scale { NumberAnimation { duration: power.moveDuration; easing.type: Easing.OutBack; easing.overshoot: 1.3 } }
+          Behavior on color { ColorAnimation { duration: power.moveDuration; easing.type: power.host.easeStandard } }
+          Behavior on scale { NumberAnimation { duration: power.moveDuration; easing.type: power.host.easePop; easing.overshoot: 1.3 } }
 
           Column {
             anchors.centerIn: parent
@@ -135,7 +135,7 @@ Item {
               color: slot.isSelected ? power.host.colorAccentText : power.host.colorText
               font.family: power.host.fontFamily
               font.pixelSize: 26
-              Behavior on color { ColorAnimation { duration: power.moveDuration } }
+              Behavior on color { ColorAnimation { duration: power.moveDuration; easing.type: power.host.easeStandard } }
             }
             Text {
               anchors.horizontalCenter: parent.horizontalCenter
@@ -145,7 +145,7 @@ Item {
               font.family: "Adwaita Sans"
               font.pixelSize: 13
               font.weight: Font.DemiBold
-              Behavior on color { ColorAnimation { duration: power.moveDuration } }
+              Behavior on color { ColorAnimation { duration: power.moveDuration; easing.type: power.host.easeStandard } }
             }
           }
         }

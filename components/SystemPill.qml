@@ -11,7 +11,7 @@ Item {
 
   opacity: shown ? 1 : 0
   visible: opacity > 0.01
-  Behavior on opacity { NumberAnimation { duration: opacity > 0.5 ? 70 : 150 * pill.host.motionScale; easing.type: Easing.InOutQuad } }
+  Behavior on opacity { NumberAnimation { duration: opacity > 0.5 ? pill.host.motionFadeOut : pill.host.motionFadeIn; easing.type: pill.host.easeCross } }
 
   Row {
     anchors.left: parent.left
@@ -44,7 +44,7 @@ Item {
       color: pill.stats.temp >= 80 ? pill.host.colorUrgent : pill.host.colorMuted
       font.family: pill.host.fontFamily
       font.pixelSize: 14
-      Behavior on color { ColorAnimation { duration: 180 * pill.host.motionScale } }
+      Behavior on color { ColorAnimation { duration: pill.host.motionBase; easing.type: pill.host.easeStandard } }
     }
     Text {
       text: pill.stats.temp > 0 ? pill.stats.temp + "°" : pill.stats.memPercent + "%"
@@ -53,7 +53,7 @@ Item {
       font.pixelSize: 13
       font.weight: Font.DemiBold
       font.features: { "tnum": 1 }
-      Behavior on color { ColorAnimation { duration: 180 * pill.host.motionScale } }
+      Behavior on color { ColorAnimation { duration: pill.host.motionBase; easing.type: pill.host.easeStandard } }
     }
   }
 }

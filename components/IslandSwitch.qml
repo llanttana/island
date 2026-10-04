@@ -14,7 +14,7 @@ Rectangle {
   radius: 14
   opacity: enabled ? 1 : 0.4
   color: checked ? host.colorAccent : host.withAlpha(host.colorText, 0.1)
-  Behavior on color { ColorAnimation { duration: 180 * sw.host.motionScale; easing.type: Easing.OutCubic } }
+  Behavior on color { ColorAnimation { duration: sw.host.motionBase; easing.type: sw.host.easeStandard } }
 
   Rectangle {
     width: 24
@@ -23,8 +23,8 @@ Rectangle {
     y: 2
     x: sw.checked ? sw.width - width - 2 : 2
     color: sw.checked ? sw.host.colorAccentText : "#ffffff"
-    Behavior on color { ColorAnimation { duration: 180 * sw.host.motionScale; easing.type: Easing.OutCubic } }
-    Behavior on x { NumberAnimation { duration: 180 * sw.host.motionScale; easing.type: Easing.OutCubic } }
+    Behavior on color { ColorAnimation { duration: sw.host.motionBase; easing.type: sw.host.easeStandard } }
+    Behavior on x { NumberAnimation { duration: sw.host.motionBase; easing.type: sw.host.easeStandard } }
   }
 
   MouseArea {

@@ -14,7 +14,7 @@ Row {
     color: badge.host.batteryTint
     font.family: badge.host.fontFamily
     font.pixelSize: 13
-    Behavior on color { ColorAnimation { duration: 200 * badge.host.motionScale } }
+    Behavior on color { ColorAnimation { duration: badge.host.motionBase; easing.type: badge.host.easeStandard } }
   }
 
   Text {
@@ -26,6 +26,6 @@ Row {
     font.weight: Font.DemiBold
     font.features: { "tnum": 1 }
     font.letterSpacing: -0.2
-    Behavior on color { ColorAnimation { duration: 200 * badge.host.motionScale } }
+    Behavior on color { ColorAnimation { duration: badge.host.motionBase; easing.type: badge.host.easeStandard } }
   }
 }

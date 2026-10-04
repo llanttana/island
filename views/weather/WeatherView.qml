@@ -15,7 +15,7 @@ ColumnLayout {
   readonly property color text: host.colorText
   readonly property color textMuted: host.colorMuted
   readonly property color well: host.withAlpha(host.colorText, 0.1)
-  readonly property int animDuration: 180 * host.motionScale
+  readonly property int animDuration: host.motionBase
 
   property string query: ""
   property var current: null
@@ -114,7 +114,7 @@ ColumnLayout {
       height: 32
       radius: 16
       color: refreshMouse.containsMouse ? weather.host.withAlpha(weather.text, 0.16) : weather.well
-      Behavior on color { ColorAnimation { duration: weather.animDuration } }
+      Behavior on color { ColorAnimation { duration: weather.animDuration; easing.type: weather.host.easeStandard } }
       Text {
         anchors.centerIn: parent
         text: "󰑐"

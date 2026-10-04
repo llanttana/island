@@ -21,7 +21,7 @@ ColumnLayout {
   readonly property color text: host.colorText
   readonly property color textMuted: host.colorMuted
   readonly property color well: host.withAlpha(host.colorText, 0.1)
-  readonly property int animDuration: 180 * host.motionScale
+  readonly property int animDuration: host.motionBase
 
   function daysInMonth(year, month) { return new Date(year, month + 1, 0).getDate() }
   // Monday-first: JS counts from Sunday.
@@ -61,7 +61,7 @@ ColumnLayout {
       height: 32
       radius: 16
       color: prevMonthMouse.containsMouse ? calendar.host.withAlpha(calendar.text, 0.16) : calendar.well
-      Behavior on color { ColorAnimation { duration: calendar.animDuration } }
+      Behavior on color { ColorAnimation { duration: calendar.animDuration; easing.type: calendar.host.easeStandard } }
       Text {
         anchors.centerIn: parent
         text: "󰅁"
@@ -82,7 +82,7 @@ ColumnLayout {
       height: 32
       radius: 16
       color: todayMouse.containsMouse ? calendar.host.withAlpha(calendar.text, 0.16) : calendar.well
-      Behavior on color { ColorAnimation { duration: calendar.animDuration } }
+      Behavior on color { ColorAnimation { duration: calendar.animDuration; easing.type: calendar.host.easeStandard } }
       Text {
         anchors.centerIn: parent
         text: "󰃭"
@@ -103,7 +103,7 @@ ColumnLayout {
       height: 32
       radius: 16
       color: nextMonthMouse.containsMouse ? calendar.host.withAlpha(calendar.text, 0.16) : calendar.well
-      Behavior on color { ColorAnimation { duration: calendar.animDuration } }
+      Behavior on color { ColorAnimation { duration: calendar.animDuration; easing.type: calendar.host.easeStandard } }
       Text {
         anchors.centerIn: parent
         text: "󰅂"

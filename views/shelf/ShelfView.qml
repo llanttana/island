@@ -243,8 +243,8 @@ ListPicker {
         border.color: tile.marked
           ? shelf.host.withAlpha(shelf.host.colorAccent, 0.6)
           : shelf.host.withAlpha(shelf.host.colorText, 0.08)
-        Behavior on color { ColorAnimation { duration: 130 * shelf.host.motionScale; easing.type: Easing.OutQuad } }
-        Behavior on border.color { ColorAnimation { duration: 130 * shelf.host.motionScale; easing.type: Easing.OutQuad } }
+        Behavior on color { ColorAnimation { duration: shelf.host.motionInstant; easing.type: shelf.host.easeStandard } }
+        Behavior on border.color { ColorAnimation { duration: shelf.host.motionInstant; easing.type: shelf.host.easeStandard } }
 
         // Thumbnail and name, centred in the card so the compact tile still
         // looks balanced.

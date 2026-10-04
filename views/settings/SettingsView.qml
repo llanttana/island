@@ -63,7 +63,7 @@ ColumnLayout {
   readonly property color card: host.withAlpha(host.colorText, 0.07)
   readonly property color well: host.withAlpha(host.colorText, 0.1)
   readonly property color divider: host.withAlpha(host.colorText, 0.08)
-  readonly property int animDuration: 180 * host.motionScale
+  readonly property int animDuration: host.motionBase
 
   spacing: 8
   onActiveChanged: if (active) Qt.callLater(function() { settingsView.forceActiveFocus() })
@@ -89,15 +89,15 @@ ColumnLayout {
     implicitHeight: 28
     radius: 14
     color: checked ? settingsView.host.colorAccent : settingsView.well
-    Behavior on color { ColorAnimation { duration: settingsView.animDuration; easing.type: Easing.OutCubic } }
+    Behavior on color { ColorAnimation { duration: settingsView.animDuration; easing.type: settingsView.host.easeStandard } }
     Rectangle {
       width: 24; height: 24; radius: 12
       y: 2
       x: sw.checked ? sw.width - width - 2 : 2
       // The track's ink, so a white accent does not hide a white knob.
       color: sw.checked ? settingsView.host.colorAccentText : "#ffffff"
-      Behavior on color { ColorAnimation { duration: settingsView.animDuration } }
-      Behavior on x { NumberAnimation { duration: settingsView.animDuration; easing.type: Easing.OutCubic } }
+      Behavior on color { ColorAnimation { duration: settingsView.animDuration; easing.type: settingsView.host.easeStandard } }
+      Behavior on x { NumberAnimation { duration: settingsView.animDuration; easing.type: settingsView.host.easeStandard } }
     }
     MouseArea {
       anchors.fill: parent
@@ -128,7 +128,7 @@ ColumnLayout {
       x: 2 + Math.max(0, seg.index) * width
       radius: 7
       color: settingsView.host.withAlpha(settingsView.text, 0.2)
-      Behavior on x { NumberAnimation { duration: settingsView.animDuration; easing.type: Easing.OutCubic } }
+      Behavior on x { NumberAnimation { duration: settingsView.animDuration; easing.type: settingsView.host.easeStandard } }
     }
     Row {
       anchors.fill: parent
@@ -262,7 +262,7 @@ ColumnLayout {
       anchors.verticalCenter: parent.verticalCenter
       width: 32; height: 32; radius: 16
       color: backMouse.containsMouse ? settingsView.host.withAlpha(settingsView.text, 0.16) : settingsView.well
-      Behavior on color { ColorAnimation { duration: settingsView.animDuration } }
+      Behavior on color { ColorAnimation { duration: settingsView.animDuration; easing.type: settingsView.host.easeStandard } }
       Text {
         anchors.centerIn: parent
         text: "󰅁"
@@ -309,7 +309,7 @@ ColumnLayout {
             : "transparent"
           border.width: 1
           border.color: settingsView.tab === modelData.id ? "transparent" : settingsView.divider
-          Behavior on color { ColorAnimation { duration: settingsView.animDuration } }
+          Behavior on color { ColorAnimation { duration: settingsView.animDuration; easing.type: settingsView.host.easeStandard } }
           Text {
             anchors.centerIn: parent
             text: modelData.label

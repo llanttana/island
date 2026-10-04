@@ -32,7 +32,7 @@ ColumnLayout {
   // Hairline that defines a card against the frosted glass behind it.
   readonly property color border: host.colorBorder
   readonly property string iconFont: host.fontFamily
-  readonly property int animDuration: 180 * host.motionScale
+  readonly property int animDuration: host.motionBase
 
   // --- Network ---
   readonly property var netDevices: Networking.devices ? Networking.devices.values : []
@@ -558,7 +558,7 @@ ColumnLayout {
     border.color: cc.border
     opacity: available ? 1 : 0.5
     scale: tileMouse.pressed ? 0.97 : 1
-    Behavior on scale { NumberAnimation { duration: 120 * cc.host.motionScale; easing.type: Easing.OutCubic } }
+    Behavior on scale { NumberAnimation { duration: cc.host.motionInstant; easing.type: cc.host.easeStandard } }
 
     Rectangle {
       id: badge
@@ -567,7 +567,7 @@ ColumnLayout {
       anchors.verticalCenter: parent.verticalCenter
       width: 36; height: 36; radius: 18
       color: t.checked ? cc.accent : cc.host.withAlpha(cc.text, 0.1)
-      Behavior on color { ColorAnimation { duration: cc.animDuration; easing.type: Easing.OutCubic } }
+      Behavior on color { ColorAnimation { duration: cc.animDuration; easing.type: cc.host.easeStandard } }
       Text {
         anchors.centerIn: parent
         text: t.icon
@@ -643,10 +643,10 @@ ColumnLayout {
     color: checked ? cc.accent : cc.tile
     border.width: checked ? 0 : 1
     border.color: cc.border
-    Behavior on border.width { NumberAnimation { duration: cc.animDuration } }
+    Behavior on border.width { NumberAnimation { duration: cc.animDuration; easing.type: cc.host.easeStandard } }
     scale: roundMouse.pressed ? 0.94 : 1
-    Behavior on color { ColorAnimation { duration: cc.animDuration; easing.type: Easing.OutCubic } }
-    Behavior on scale { NumberAnimation { duration: 120 * cc.host.motionScale; easing.type: Easing.OutCubic } }
+    Behavior on color { ColorAnimation { duration: cc.animDuration; easing.type: cc.host.easeStandard } }
+    Behavior on scale { NumberAnimation { duration: cc.host.motionInstant; easing.type: cc.host.easeStandard } }
     Text {
       anchors.centerIn: parent
       text: r.icon
@@ -690,7 +690,7 @@ ColumnLayout {
       color: cc.accent
       Behavior on height {
         enabled: !vMouse.pressed
-        NumberAnimation { duration: 140 * cc.host.motionScale; easing.type: Easing.OutCubic }
+        NumberAnimation { duration: cc.host.motionInstant; easing.type: cc.host.easeStandard }
       }
     }
     Text {
@@ -778,7 +778,7 @@ ColumnLayout {
       : cc.well
     border.width: 1
     border.color: chip.on || chip.alert ? "transparent" : cc.border
-    Behavior on color { ColorAnimation { duration: cc.animDuration; easing.type: Easing.OutCubic } }
+    Behavior on color { ColorAnimation { duration: cc.animDuration; easing.type: cc.host.easeStandard } }
 
     Row {
       id: chipRow
@@ -790,7 +790,7 @@ ColumnLayout {
         color: chip.ink
         font.family: cc.iconFont
         font.pixelSize: 13
-        Behavior on color { ColorAnimation { duration: cc.animDuration } }
+        Behavior on color { ColorAnimation { duration: cc.animDuration; easing.type: cc.host.easeStandard } }
       }
       Text {
         anchors.verticalCenter: parent.verticalCenter
@@ -800,7 +800,7 @@ ColumnLayout {
         font.family: "Adwaita Sans"
         font.pixelSize: 11
         font.weight: chip.on ? Font.DemiBold : Font.Normal
-        Behavior on color { ColorAnimation { duration: cc.animDuration } }
+        Behavior on color { ColorAnimation { duration: cc.animDuration; easing.type: cc.host.easeStandard } }
       }
     }
     MouseArea {
@@ -862,7 +862,7 @@ ColumnLayout {
         color: cc.textMuted
         font.family: cc.iconFont
         font.pixelSize: 14
-        Behavior on rotation { NumberAnimation { duration: cc.animDuration; easing.type: Easing.OutCubic } }
+        Behavior on rotation { NumberAnimation { duration: cc.animDuration; easing.type: cc.host.easeStandard } }
       }
       MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onClicked: sec.chevronClicked() }
     }
@@ -1034,7 +1034,7 @@ ColumnLayout {
                 color: outputMouse.containsMouse ? cc.host.withAlpha(cc.text, 0.18) : cc.well
                 border.width: 1
                 border.color: cc.border
-                Behavior on color { ColorAnimation { duration: cc.animDuration } }
+                Behavior on color { ColorAnimation { duration: cc.animDuration; easing.type: cc.host.easeStandard } }
                 RowLayout {
                   anchors.fill: parent
                   anchors.leftMargin: 9
@@ -1089,7 +1089,7 @@ ColumnLayout {
                 border.width: 1
                 border.color: cc.border
                 opacity: cc.sourcePresent ? 1 : 0.5
-                Behavior on color { ColorAnimation { duration: cc.animDuration } }
+                Behavior on color { ColorAnimation { duration: cc.animDuration; easing.type: cc.host.easeStandard } }
                 RowLayout {
                   anchors.fill: parent
                   anchors.leftMargin: 9
@@ -1465,7 +1465,7 @@ ColumnLayout {
                 Layout.fillHeight: true
                 radius: 10
                 color: profile.selected ? cc.accent : "transparent"
-                Behavior on color { ColorAnimation { duration: cc.animDuration; easing.type: Easing.OutCubic } }
+                Behavior on color { ColorAnimation { duration: cc.animDuration; easing.type: cc.host.easeStandard } }
 
                 Row {
                   anchors.centerIn: parent
@@ -1536,7 +1536,7 @@ ColumnLayout {
               implicitHeight: 22
               radius: 12
               color: clearMouse.containsMouse ? cc.host.withAlpha(cc.text, 0.16) : cc.well
-              Behavior on color { ColorAnimation { duration: cc.animDuration } }
+              Behavior on color { ColorAnimation { duration: cc.animDuration; easing.type: cc.host.easeStandard } }
               Text {
                 id: clearLabel
                 anchors.centerIn: parent

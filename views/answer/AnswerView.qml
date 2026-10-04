@@ -189,7 +189,7 @@ Item {
     radius: height / 2
     color: answer.host.colorBackground
     opacity: hover.hovered && !answer.busy ? 1 : 0
-    Behavior on opacity { NumberAnimation { duration: 180 * answer.host.motionScale } }
+    Behavior on opacity { NumberAnimation { duration: answer.host.motionBase; easing.type: answer.host.easeStandard } }
     RowLayout {
       id: actions
       anchors.centerIn: parent

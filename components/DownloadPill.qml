@@ -17,7 +17,7 @@ Item {
 
   opacity: downloading || done ? 1 : 0
   visible: opacity > 0.01
-  Behavior on opacity { NumberAnimation { duration: opacity > 0.5 ? 70 : 150 * pill.host.motionScale; easing.type: Easing.InOutQuad } }
+  Behavior on opacity { NumberAnimation { duration: opacity > 0.5 ? pill.host.motionFadeOut : pill.host.motionFadeIn; easing.type: pill.host.easeCross } }
 
   function formatBytes(n) {
     if (n >= 1073741824) return (n / 1073741824).toFixed(1) + " GB"
@@ -31,7 +31,7 @@ Item {
   Item {
     anchors.fill: parent
     opacity: pill.downloading ? 1 : 0
-    Behavior on opacity { NumberAnimation { duration: opacity > 0.5 ? 70 : 150 * pill.host.motionScale; easing.type: Easing.InOutQuad } }
+    Behavior on opacity { NumberAnimation { duration: opacity > 0.5 ? pill.host.motionFadeOut : pill.host.motionFadeIn; easing.type: pill.host.easeCross } }
 
     // A still arrow inside a ring that spins (there's no total size to show
     // progress against).
@@ -113,7 +113,7 @@ Item {
   Item {
     anchors.fill: parent
     opacity: pill.done ? 1 : 0
-    Behavior on opacity { NumberAnimation { duration: opacity > 0.5 ? 70 : 150 * pill.host.motionScale; easing.type: Easing.InOutQuad } }
+    Behavior on opacity { NumberAnimation { duration: opacity > 0.5 ? pill.host.motionFadeOut : pill.host.motionFadeIn; easing.type: pill.host.easeCross } }
 
     Rectangle {
       id: check
@@ -123,7 +123,7 @@ Item {
       width: 40; height: 40; radius: 20
       color: pill.host.colorAccent
       scale: pill.done ? 1 : 0.4
-      Behavior on scale { NumberAnimation { duration: 360 * pill.host.motionScale; easing.type: Easing.OutBack; easing.overshoot: 2.2 } }
+      Behavior on scale { NumberAnimation { duration: pill.host.motionPanel; easing.type: pill.host.easePop; easing.overshoot: 2.2 } }
       Text {
         anchors.centerIn: parent
         text: "󰄬"

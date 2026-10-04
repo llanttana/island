@@ -54,10 +54,12 @@ Item {
   opacity: active && host.surfaceContentReady ? 1 : 0
   // Leaving is quick and arriving is unhurried, so a view change reads as one
   // page replacing another instead of two layouts showing through each other.
+  // One duration for the whole arrival: the fade used to change length halfway
+  // through (once the morph had started), which re-timed a running animation.
   Behavior on opacity {
     NumberAnimation {
-      duration: (surface.active ? (surface.host.surfaceContentReady ? 190 : 110) : 80) * surface.host.motionScale
-      easing.type: Easing.InOutQuad
+      duration: surface.active ? surface.host.motionBase : surface.host.motionFadeOut
+      easing.type: surface.host.easeCross
     }
   }
 

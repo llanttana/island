@@ -16,7 +16,7 @@ ColumnLayout {
   readonly property color text: host.colorText
   readonly property color textMuted: host.colorMuted
   readonly property color well: host.withAlpha(host.colorText, 0.1)
-  readonly property int animDuration: 180 * host.motionScale
+  readonly property int animDuration: host.motionBase
 
   // ---------- PipeWire nodes ----------
 
@@ -263,7 +263,7 @@ ColumnLayout {
                   color: audio.textMuted
                   font.family: audio.host.fontFamily
                   font.pixelSize: 13
-                  Behavior on rotation { NumberAnimation { duration: audio.animDuration; easing.type: Easing.OutCubic } }
+                  Behavior on rotation { NumberAnimation { duration: audio.animDuration; easing.type: audio.host.easeStandard } }
                 }
               }
               MouseArea {

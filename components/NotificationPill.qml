@@ -18,7 +18,7 @@ Item {
 
     opacity: host.notificationPill ? 1 : 0
   visible: opacity > 0.01
-  Behavior on opacity { NumberAnimation { duration: opacity > 0.5 ? 70 : 150 * host.motionScale; easing.type: Easing.InOutQuad } }
+  Behavior on opacity { NumberAnimation { duration: opacity > 0.5 ? host.motionFadeOut : host.motionFadeIn; easing.type: host.easeCross } }
 
   ClippingRectangle {
     id: appTile

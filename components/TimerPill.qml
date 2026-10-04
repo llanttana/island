@@ -11,7 +11,7 @@ Item {
 
   opacity: shown ? 1 : 0
   visible: opacity > 0.01
-  Behavior on opacity { NumberAnimation { duration: opacity > 0.5 ? 70 : 150 * pill.host.motionScale; easing.type: Easing.InOutQuad } }
+  Behavior on opacity { NumberAnimation { duration: opacity > 0.5 ? pill.host.motionFadeOut : pill.host.motionFadeIn; easing.type: pill.host.easeCross } }
 
   Text {
     anchors.left: parent.left
@@ -61,7 +61,7 @@ Item {
       anchors.bottom: parent.bottom
       width: parent.width * pill.timer.progress
       color: pill.host.colorAccent
-      Behavior on width { NumberAnimation { duration: 400 * pill.host.motionScale; easing.type: Easing.OutCubic } }
+      Behavior on width { NumberAnimation { duration: pill.host.motionPanel; easing.type: pill.host.easeStandard } }
     }
   }
 }

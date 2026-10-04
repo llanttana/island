@@ -200,7 +200,7 @@ Item {
         opacity: available ? (controlMouse.pressed ? 0.6 : 1) : 0.35
         font.family: player.host.fontFamily
         scale: controlMouse.pressed ? 0.9 : 1
-        Behavior on scale { NumberAnimation { duration: 120 * player.host.motionScale; easing.type: Easing.OutCubic } }
+        Behavior on scale { NumberAnimation { duration: player.host.motionInstant; easing.type: player.host.easeStandard } }
         MouseArea {
           id: controlMouse
           anchors.fill: parent

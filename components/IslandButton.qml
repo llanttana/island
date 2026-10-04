@@ -15,7 +15,7 @@ Rectangle {
   color: button.danger ? host.withAlpha(host.colorUrgent, 0.18)
     : buttonMouse.containsMouse ? host.withAlpha(host.colorText, 0.16)
     : host.withAlpha(host.colorText, 0.1)
-  Behavior on color { ColorAnimation { duration: 180 * button.host.motionScale } }
+  Behavior on color { ColorAnimation { duration: button.host.motionBase; easing.type: button.host.easeStandard } }
 
   Text {
     id: buttonLabel

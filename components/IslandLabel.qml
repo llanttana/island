@@ -32,5 +32,5 @@ Text {
   font.features: { "tnum": 1, "case": 1 }
   font.letterSpacing: -0.4
   // Get out of the way fast, fade back in gently.
-  Behavior on opacity { NumberAnimation { duration: opacity > 0.5 ? 70 : 150 * host.motionScale; easing.type: Easing.InOutQuad } }
+  Behavior on opacity { NumberAnimation { duration: opacity > 0.5 ? host.motionFadeOut : host.motionFadeIn; easing.type: host.easeCross } }
 }
