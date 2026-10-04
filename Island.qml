@@ -56,7 +56,10 @@ Item {
   // Live CPU/memory/temperature, shared by the monitor live activity and its
   // page. It only takes the pill when pinned, or on its own when the machine
   // is running hot.
-  SystemStats { id: systemSampler }
+  SystemStats {
+    id: systemSampler
+    active: root.view === "system" || root.settings.systemMonitor || root.settings.autoMonitorHot
+  }
   readonly property var systemStats: systemSampler
   readonly property bool systemPinned: !!settings.systemMonitor
   readonly property bool systemHot: !!settings.autoMonitorHot && systemSampler.ready && (systemSampler.temp >= 85 || systemSampler.cpu >= 95)

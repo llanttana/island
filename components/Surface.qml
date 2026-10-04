@@ -4,10 +4,16 @@ import QtQuick
 // it, sizes the island around it, and handles showing it. The view inside
 // only needs an `active` input and an implicit size.
 //
+// The view arrives as a Component and a Loader builds it the first time the
+// surface opens. The island has twenty views and building them all at startup
+// costs memory and load time for pages that may never be shown.
+//
 //   Surface {
 //     id: emojiSurface
 //     host: root; viewName: "emojis"; fixedWidth: 600
-//     EmojiPicker { host: emojiSurface.host; active: emojiSurface.active }
+//     content: Component {
+//       EmojiPicker { host: emojiSurface.host; active: emojiSurface.active }
+//     }
 //   }
 Item {
   id: surface
@@ -21,9 +27,11 @@ Item {
   property int maxHeight: 100000
   // Whether the island takes the keyboard while this is open.
   property bool wantsKeyboard: true
+  // The view itself, and whether it has been built yet.
+  property Component content
+  property bool built: false
 
-  default property alias content: holder.data
-  readonly property Item view: holder.children.length ? holder.children[0] : null
+  readonly property Item view: loader.item
   readonly property bool active: host.view === viewName
 
   readonly property real islandWidth: fixedWidth > 0 ? fixedWidth : implicitWidth + 2 * padding
@@ -53,11 +61,17 @@ Item {
     }
   }
 
+  // Build on the first open, synchronously, so the size is already there when
+  // the island works out how far to morph; keep it afterwards.
+  onActiveChanged: if (active) built = true
+
   // Lets the island know this view exists (for its open/closed logic).
   Component.onCompleted: host.registerSurface(viewName)
 
-  Item {
-    id: holder
+  Loader {
+    id: loader
     anchors.fill: parent
+    active: surface.built
+    sourceComponent: surface.content
   }
 }

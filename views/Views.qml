@@ -41,7 +41,9 @@ Item {
     viewName: "controls"
     fixedWidth: 480
     maxHeight: 780
-    ControlCenter { host: views.host; active: controlsSurface.active; anchors.fill: parent }
+    content: Component {
+      ControlCenter { host: views.host; active: controlsSurface.active; anchors.fill: parent }
+    }
   }
 
   Surface {
@@ -52,7 +54,9 @@ Item {
     // along one axis.
     fixedWidth: 480
     maxHeight: 720
-    AudioView { host: views.host; active: audioSurface.active; anchors.fill: parent }
+    content: Component {
+      AudioView { host: views.host; active: audioSurface.active; anchors.fill: parent }
+    }
   }
 
   Surface {
@@ -61,7 +65,9 @@ Item {
     viewName: "system"
     fixedWidth: 480
     maxHeight: 720
-    SystemView { host: views.host; active: systemSurface.active; anchors.fill: parent }
+    content: Component {
+      SystemView { host: views.host; active: systemSurface.active; anchors.fill: parent }
+    }
   }
 
   Surface {
@@ -69,7 +75,9 @@ Item {
     host: views.host
     viewName: "calendar"
     fixedWidth: 360
-    CalendarView { host: views.host; active: calendarSurface.active; anchors.fill: parent }
+    content: Component {
+      CalendarView { host: views.host; active: calendarSurface.active; anchors.fill: parent }
+    }
   }
 
   Surface {
@@ -78,7 +86,9 @@ Item {
     viewName: "weather"
     fixedWidth: 480
     maxHeight: 640
-    WeatherView { host: views.host; active: weatherSurface.active; anchors.fill: parent }
+    content: Component {
+      WeatherView { host: views.host; active: weatherSurface.active; anchors.fill: parent }
+    }
   }
 
   Surface {
@@ -87,7 +97,9 @@ Item {
     viewName: "timer"
     fixedWidth: 480
     maxHeight: 560
-    TimerView { host: views.host; active: timerSurface.active; anchors.fill: parent }
+    content: Component {
+      TimerView { host: views.host; active: timerSurface.active; anchors.fill: parent }
+    }
   }
 
   Surface {
@@ -96,7 +108,9 @@ Item {
     viewName: "themes"
     fixedWidth: 820
     padding: 20
-    ThemeSwitcher { host: views.host; active: themesSurface.active; anchors.fill: parent }
+    content: Component {
+      ThemeSwitcher { host: views.host; active: themesSurface.active; anchors.fill: parent }
+    }
   }
 
   Surface {
@@ -105,7 +119,9 @@ Item {
     viewName: "wallpapers"
     fixedWidth: 820
     padding: 20
-    WallpaperSwitcher { host: views.host; active: wallpapersSurface.active; anchors.fill: parent }
+    content: Component {
+      WallpaperSwitcher { host: views.host; active: wallpapersSurface.active; anchors.fill: parent }
+    }
   }
 
   Surface {
@@ -113,7 +129,9 @@ Item {
     host: views.host
     viewName: "apps"
     fixedWidth: 600
-    AppLauncher { host: views.host; active: appsSurface.active; anchors.fill: parent }
+    content: Component {
+      AppLauncher { host: views.host; active: appsSurface.active; anchors.fill: parent }
+    }
   }
 
   Surface {
@@ -121,7 +139,9 @@ Item {
     host: views.host
     viewName: "emoji"
     fixedWidth: 600
-    EmojiPicker { host: views.host; active: emojiSurface.active; anchors.fill: parent }
+    content: Component {
+      EmojiPicker { host: views.host; active: emojiSurface.active; anchors.fill: parent }
+    }
   }
 
   Surface {
@@ -129,7 +149,9 @@ Item {
     host: views.host
     viewName: "keybinds"
     fixedWidth: 700
-    KeybindList { host: views.host; active: keybindsSurface.active; anchors.fill: parent }
+    content: Component {
+      KeybindList { host: views.host; active: keybindsSurface.active; anchors.fill: parent }
+    }
   }
 
   Surface {
@@ -137,7 +159,9 @@ Item {
     host: views.host
     viewName: "clipboard"
     fixedWidth: 780
-    ClipboardList { host: views.host; active: clipboardSurface.active; anchors.fill: parent }
+    content: Component {
+      ClipboardList { host: views.host; active: clipboardSurface.active; anchors.fill: parent }
+    }
   }
 
   Surface {
@@ -145,7 +169,9 @@ Item {
     host: views.host
     viewName: "menu"
     fixedWidth: 520
-    OmarchyMenu { host: views.host; active: menuSurface.active; anchors.fill: parent }
+    content: Component {
+      OmarchyMenu { host: views.host; active: menuSurface.active; anchors.fill: parent }
+    }
   }
 
   Surface {
@@ -154,7 +180,9 @@ Item {
     viewName: "player"
     fixedWidth: 440
     padding: 24
-    PlayerView { host: views.host; active: playerSurface.active; anchors.fill: parent }
+    content: Component {
+      PlayerView { host: views.host; active: playerSurface.active; anchors.fill: parent }
+    }
   }
 
   Surface {
@@ -164,7 +192,9 @@ Item {
     readonly property bool thinking: !!(view && view.thinking)
     fixedWidth: thinking ? 280 : 580
     padding: thinking ? 14 : 28
-    AnswerView { host: views.host; active: answerSurface.active; anchors.fill: parent }
+    content: Component {
+      AnswerView { host: views.host; active: answerSurface.active; anchors.fill: parent }
+    }
   }
 
   Surface {
@@ -172,7 +202,9 @@ Item {
     host: views.host
     viewName: "settings"
     fixedWidth: 540
-    SettingsView { host: views.host; active: settingsSurface.active; anchors.fill: parent }
+    content: Component {
+      SettingsView { host: views.host; active: settingsSurface.active; anchors.fill: parent }
+    }
   }
 
   Surface {
@@ -184,7 +216,9 @@ Item {
     // view sideways while it fades.
     fixedWidth: 480
     maxHeight: 720
-    WifiView { host: views.host; active: wifiSurface.active; anchors.fill: parent }
+    content: Component {
+      WifiView { host: views.host; active: wifiSurface.active; anchors.fill: parent }
+    }
   }
 
   Surface {
@@ -196,7 +230,9 @@ Item {
     // view sideways while it fades.
     fixedWidth: 480
     maxHeight: 720
-    BluetoothView { host: views.host; active: bluetoothSurface.active; anchors.fill: parent }
+    content: Component {
+      BluetoothView { host: views.host; active: bluetoothSurface.active; anchors.fill: parent }
+    }
   }
 
   Surface {
@@ -204,7 +240,9 @@ Item {
     host: views.host
     viewName: "power"
     padding: 18
-    PowerMenu { host: views.host; active: powerSurface.active; anchors.fill: parent }
+    content: Component {
+      PowerMenu { host: views.host; active: powerSurface.active; anchors.fill: parent }
+    }
   }
 
   Surface {
@@ -213,6 +251,8 @@ Item {
     viewName: "shelf"
     fixedWidth: 600
     maxHeight: 640
-    ShelfView { host: views.host; active: shelfSurface.active; anchors.fill: parent }
+    content: Component {
+      ShelfView { host: views.host; active: shelfSurface.active; anchors.fill: parent }
+    }
   }
 }

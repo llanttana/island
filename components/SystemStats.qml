@@ -16,6 +16,9 @@ Item {
   property var cpuHistory: []   // newest last, up to 60 samples (~2 min)
   property var memHistory: []
   property var tempHistory: []
+  // Sampling spawns a shell every two seconds, so it only runs while someone
+  // reads it: the system page, the pinned monitor, or the hot-usage check.
+  property bool active: true
   readonly property real memFraction: stats.memTotal > 0 ? stats.memUsed / stats.memTotal : 0
   readonly property real memPercent: Math.round(stats.memFraction * 100)
 
@@ -53,7 +56,7 @@ Item {
 
   Timer {
     interval: 2000
-    running: true
+    running: stats.active
     repeat: true
     triggeredOnStart: true
     onTriggered: if (!sampler.running) sampler.running = true
