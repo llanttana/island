@@ -161,7 +161,7 @@ Item {
       } else if (event.key === Qt.Key_Return || event.key === Qt.Key_Enter) {
         picker.apply(); event.accepted = true
       } else if (event.key === Qt.Key_Escape) {
-        picker.close(); event.accepted = true
+        picker.host.goBack(); event.accepted = true
       }
     }
   }

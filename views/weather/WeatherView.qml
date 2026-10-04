@@ -101,7 +101,7 @@ ColumnLayout {
 
   spacing: 10
   onActiveChanged: if (active) { Qt.callLater(function() { weather.forceActiveFocus() }); weather.refresh() }
-  Keys.onEscapePressed: host.view = "controls"
+  Keys.onEscapePressed: host.goBack()
 
   IslandNav {
     Layout.fillWidth: true

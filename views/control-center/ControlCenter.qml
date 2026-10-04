@@ -520,10 +520,11 @@ ColumnLayout {
 
   spacing: 8
 
-  // Esc closes the control center.
+  // Esc goes back; at the control center itself there is nowhere left to go,
+  // so it does nothing (the Win/Super key closes the island).
   Keys.onEscapePressed: {
     if (cc.trayMenuItem !== null) cc.closeTrayMenu()
-    else cc.host.view = "rest"
+    else cc.host.goBack()
   }
 
 

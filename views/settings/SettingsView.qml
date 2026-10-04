@@ -50,7 +50,7 @@ ColumnLayout {
 
   spacing: 8
   onActiveChanged: if (active) Qt.callLater(function() { settingsView.forceActiveFocus() })
-  Keys.onEscapePressed: host.view = "controls"
+  Keys.onEscapePressed: host.goBack()
   // The list is long now, so the keyboard moves it as well as the wheel.
   Keys.onPressed: function(event) {
     if (event.key === Qt.Key_Down) { scroller.flick(0, -600); event.accepted = true }

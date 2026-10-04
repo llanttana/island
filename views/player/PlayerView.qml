@@ -56,7 +56,7 @@ Item {
     if (event.key === Qt.Key_Space) { action("playPause"); event.accepted = true }
     else if (event.key === Qt.Key_Left) { seekTo(position - 10); event.accepted = true }
     else if (event.key === Qt.Key_Right) { seekTo(position + 10); event.accepted = true }
-    else if (event.key === Qt.Key_Escape) { host.view = "rest"; event.accepted = true }
+    else if (event.key === Qt.Key_Escape) { host.goBack(); event.accepted = true }
   }
 
   ColumnLayout {

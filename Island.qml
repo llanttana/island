@@ -172,6 +172,12 @@ Item {
 
   readonly property var clockDate: clock.date
   property string view: "rest"
+  // Back navigation: `view` is a flat string, so remember where each screen
+  // was opened from. Esc walks that history back a step and never closes the
+  // island -- the Win/Super key does that.
+  property var viewHistory: []
+  property string viewBeforeChange: "rest"
+  property bool restoringView: false
   readonly property bool notificationPill: view === "feedback" && feedbackKind === "notification"
   readonly property bool volumePill: view === "feedback" && feedbackKind === "volume"
   readonly property bool brightnessPill: view === "feedback" && feedbackKind === "brightness"
@@ -450,6 +456,20 @@ Item {
   }
 
   onViewChanged: {
+    if (restoringView) {
+      restoringView = false
+    } else {
+      if (view === "rest") {
+        viewHistory = []
+      } else if (view !== "controls" && view !== viewBeforeChange) {
+        // Opened from the resting pill: the control center is the island's
+        // implicit home, not a stop on the way back. Transient feedback pills
+        // are not history either.
+        if (viewBeforeChange !== "rest" && viewBeforeChange !== "feedback")
+          viewHistory = viewHistory.concat([viewBeforeChange])
+      }
+    }
+    viewBeforeChange = view
     surfaceContentReady = false
     if (surfaceOpenFor(view)) surfaceRevealTimer.restart()
     else surfaceRevealTimer.stop()
@@ -831,6 +851,25 @@ Item {
     return view
   }
 
+  // Esc: step back one screen. At the home screen there is nowhere left to go,
+  // so it does nothing -- the island is closed with the Win/Super key.
+  function goBack(): string {
+    if (view === "rest") return view
+    if (viewHistory.length > 0) {
+      var target = viewHistory[viewHistory.length - 1]
+      viewHistory = viewHistory.slice(0, viewHistory.length - 1)
+      restoringView = true
+      view = target
+      return view
+    }
+    if (view !== "controls") {
+      restoringView = true
+      view = "controls"
+      return view
+    }
+    return view
+  }
+
   IpcHandler {
     target: "lanta.island"
     function show(name: string): string {
@@ -842,7 +881,7 @@ Item {
       root.view = "menu"
       return root.view
     }
-    function toggle(): string { return root.toggleView("controls") }
+    function toggle(): string { root.view = root.view === "rest" ? "controls" : "rest"; return root.view }
     function themes(): string { return root.toggleView("themes") }
     function wallpapers(): string { return root.toggleView("wallpapers") }
     function apps(): string { return root.toggleView("apps") }

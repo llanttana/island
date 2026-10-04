@@ -98,7 +98,7 @@ Item {
         if (picker.selected) picker.chosen(picker.selected)
         event.accepted = true
       } else if (event.key === Qt.Key_Escape) {
-        picker.host.view = "rest"; event.accepted = true
+        picker.host.goBack(); event.accepted = true
       }
     }
   }

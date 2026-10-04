@@ -116,7 +116,7 @@ ListPicker {
         visible: tile.selected
         anchors.right: parent.right
         anchors.top: parent.top
-        anchors.margins: 2
+        anchors.margins: 6
         text: "󰅖"
         color: removeMouse.containsMouse ? shelf.host.colorText : shelf.host.colorMuted
         font.family: shelf.host.fontFamily

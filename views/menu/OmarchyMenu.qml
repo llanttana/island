@@ -22,6 +22,7 @@ ListPicker {
   onKeyFilter: function(event) {
     var empty = query === ""
     if (event.key === Qt.Key_Escape && activeMenu !== "root") { goBack(); event.accepted = true }
+    else if (event.key === Qt.Key_Escape) { host.goBack(); event.accepted = true }
     else if (empty && (event.key === Qt.Key_Backspace || event.key === Qt.Key_Left) && activeMenu !== "root") { goBack(); event.accepted = true }
     else if (empty && event.key === Qt.Key_Right && selected && (selected.kind === "menu" || selected.kind === "link")) { activate(selected); event.accepted = true }
   }

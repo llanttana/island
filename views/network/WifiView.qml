@@ -238,7 +238,7 @@ ColumnLayout {
 
   Keys.onEscapePressed: {
     if (passwordSsid !== "" || detailSsid !== "") { clearPrompts(); return }
-    host.view = "controls"
+    host.goBack()
   }
 
   // ---------- Navigation ----------

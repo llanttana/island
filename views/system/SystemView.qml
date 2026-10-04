@@ -18,7 +18,7 @@ ColumnLayout {
 
   spacing: 10
   onActiveChanged: if (active) Qt.callLater(function() { system.forceActiveFocus() })
-  Keys.onEscapePressed: host.view = "controls"
+  Keys.onEscapePressed: host.goBack()
 
   // One metric: glyph, name, value, and a thin level bar under it.
   component MetricRow: Item {

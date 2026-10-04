@@ -48,7 +48,7 @@ ColumnLayout {
 
   spacing: 10
   onActiveChanged: if (active) Qt.callLater(function() { calendar.forceActiveFocus() })
-  Keys.onEscapePressed: host.view = "rest"
+  Keys.onEscapePressed: host.goBack()
 
   IslandNav {
     Layout.fillWidth: true

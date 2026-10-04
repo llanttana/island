@@ -171,7 +171,7 @@ ColumnLayout {
 
   spacing: 10
 
-  Keys.onEscapePressed: host.view = "controls"
+  Keys.onEscapePressed: host.goBack()
 
   // ---------- Rows ----------
 

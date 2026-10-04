@@ -69,7 +69,7 @@ Item {
       runner.running = false
     }
   }
-  Keys.onEscapePressed: host.view = "rest"
+  Keys.onEscapePressed: host.goBack()
 
   function start(q) {
     question = String(q || "").trim()

@@ -65,7 +65,7 @@ ColumnLayout {
     // typed right away; the presets are still one click.
     customInput.forceActiveFocus()
   })
-  Keys.onEscapePressed: host.view = "controls"
+  Keys.onEscapePressed: host.goBack()
 
   IslandNav {
     Layout.fillWidth: true
