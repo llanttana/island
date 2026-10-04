@@ -400,11 +400,11 @@ ListPicker {
 
     Rectangle {
       id: menuCard
-      width: 202
-      height: menuColumn.implicitHeight + 12
+      width: 184
+      height: menuColumn.implicitHeight + 8
       x: Math.max(6, Math.min(shelf.menuX, contextMenu.width - width - 6))
       y: Math.max(6, Math.min(shelf.menuY, contextMenu.height - height - 6))
-      radius: 12
+      radius: 10
       color: shelf.host.colorBackground
       border.width: 1
       border.color: shelf.host.withAlpha(shelf.host.colorText, 0.14)
@@ -412,35 +412,37 @@ ListPicker {
       Column {
         id: menuColumn
         anchors.fill: parent
-        anchors.margins: 6
-        spacing: 2
+        anchors.margins: 4
+        spacing: 1
 
         Repeater {
           model: shelf.menuActions
           delegate: Rectangle {
             required property var modelData
             width: menuColumn.width
-            height: 32
-            radius: 8
+            height: 26
+            radius: 6
             color: actionMouse.containsMouse ? shelf.host.withAlpha(shelf.host.colorText, 0.1) : "transparent"
             Row {
               anchors.left: parent.left
-              anchors.leftMargin: 9
+              anchors.leftMargin: 7
               anchors.verticalCenter: parent.verticalCenter
-              spacing: 9
+              spacing: 7
               Text {
                 anchors.verticalCenter: parent.verticalCenter
+                width: 16
+                horizontalAlignment: Text.AlignHCenter
                 text: modelData.icon
                 color: shelf.host.colorMuted
                 font.family: shelf.host.fontFamily
-                font.pixelSize: 15
+                font.pixelSize: 13
               }
               Text {
                 anchors.verticalCenter: parent.verticalCenter
                 text: modelData.label
                 color: shelf.host.colorText
                 font.family: "Adwaita Sans"
-                font.pixelSize: 13
+                font.pixelSize: 12
               }
             }
             MouseArea {
