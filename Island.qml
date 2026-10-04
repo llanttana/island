@@ -211,6 +211,9 @@ Item {
   // a shell restart (or reboot) empties it, and nothing is written to disk.
   property var shelf: []
   readonly property int shelfCount: shelf.length
+  // True while a file/link/text is being dragged over the island, so the pill
+  // can show a drop ring.
+  property bool dropActive: false
 
   function shelfAdd(entry) {
     var next = ShelfModel.add(shelf, entry)
@@ -1005,6 +1008,7 @@ Item {
             : root.timerPill ? 240
             : root.systemPill ? 240
             : root.mediaPill ? 240
+            : root.dropActive ? root.restWidth + 220
             : root.restWidth
           readonly property real targetHeight: activeSurface ? activeSurface.islandHeight
             : root.notificationPill ? 84
@@ -1013,6 +1017,7 @@ Item {
             : root.mediaPill || root.downloadPill || root.systemPill || root.timerPill ? (root.settings.notch ? 40 : 44)
             : root.volumePill ? 56
             : root.brightnessPill ? 56
+            : root.dropActive ? 76
             : root.view === "rest" ? (root.settings.notch ? 36 : 40) : 52
           property real radiusCap: root.volumePill || root.brightnessPill ? 20 : root.view === "answer" ? 44 : root.surfaceOpen ? 30 : 38
           Behavior on radiusCap {
@@ -1214,6 +1219,50 @@ Item {
             opacity: island.accessoriesVisible && root.batteryBadgeShown ? 1 : 0
             visible: opacity > 0.01
             Behavior on opacity { NumberAnimation { duration: 150 * root.motionScale; easing.type: Easing.InOutQuad } }
+          }
+
+          // Drop files, links or text dragged from another app straight onto
+          // the island and they land on the shelf. The target is whatever the
+          // island currently shows: the rest pill (small, but it works), or the
+          // open shelf, which is a far easier target. Accept on anything the
+          // compositor offers and decide what it is on drop -- Wayland only
+          // exposes the mime types up front, and some sources do not report
+          // urls until the payload is read.
+          DropArea {
+            id: shelfDrop
+            anchors.fill: parent
+            onEntered: function(drag) {
+              root.dropActive = true
+            }
+            onExited: function() {
+              root.dropActive = false
+            }
+            onDropped: function(drop) {
+              root.dropActive = false
+              drop.accept(Qt.CopyAction)
+              if (drop.hasUrls && drop.urls.length > 0) {
+                var lines = []
+                for (var i = 0; i < drop.urls.length; i++) lines.push(String(drop.urls[i]))
+                root.shelfAddText(lines.join("\n"))
+              } else if (drop.hasText) {
+                root.shelfAddText(String(drop.text))
+              }
+              // Show the result, so a drop onto the rest pill opens the shelf
+              // with the new items in it.
+              root.view = "shelf"
+            }
+          }
+
+          // Drop feedback: an accent ring around the island while a drag hovers.
+          Rectangle {
+            anchors.fill: parent
+            radius: island.radius
+            color: "transparent"
+            border.width: 2
+            border.color: root.colorAccent
+            opacity: root.dropActive ? 1 : 0
+            visible: opacity > 0.01
+            Behavior on opacity { NumberAnimation { duration: 120 * root.motionScale; easing.type: Easing.OutQuad } }
           }
         }
       }

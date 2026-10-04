@@ -180,7 +180,9 @@ island, so the HUD matches the rest of the pill.
 
 ### Shelf
 
-Park the current clipboard with `omarchy-shell lanta.island shelfAdd` (bind it
+**Drag files, links or text from another app onto the island** and they land on
+the shelf; drop them onto the open shelf for a bigger target. You can also park
+the current clipboard with `omarchy-shell lanta.island shelfAdd` (bind it
 to a key if you like); a clipboard-history row has its own shelf button, and
 `Ctrl+S` does the same for the selected row. The shelf is kept in memory, so a
 shell restart or reboot empties it. In the shelf, click a tile to copy it,

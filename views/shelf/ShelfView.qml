@@ -11,7 +11,7 @@ import "ShelfModel.js" as ShelfModel
 ListPicker {
   id: shelf
   placeholder: "Search shelf"
-  emptyText: shelf.host.shelf.length ? "Nothing matches" : "Shelf is empty"
+  emptyText: shelf.host.shelf.length ? "Nothing matches" : "Drag files, links or text here"
   // Grid of tiles: wide enough for a thumbnail and a name, tall enough for both.
   rowHeight: 96
   visibleRows: 4
