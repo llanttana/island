@@ -201,14 +201,17 @@ like); a clipboard-history row has its own shelf button, and `Ctrl+S` does the
 same for the selected row.
 
 **Taking things out.** Click a tile to copy it back — an image returns as an
-image, a file as a file — or drag it straight into another app. `Ctrl+click`
-tiles into a selection, and a drag, copy or remove then covers all of them. If
-an app will not take the island's own drag,
+image, a file as a file — or drag it straight into another app. Double click a
+tile to open it: files and links go to `xdg-open`. `Ctrl+click` tiles into a
+selection, and a drag, copy or remove then covers all of them; `Delete` takes
+the selection off the shelf, or the tile the keyboard is on when nothing is
+selected. If an app will not take the island's own drag,
 [`ripdrag`](https://aur.archlinux.org/packages/ripdrag) can: install it and the
 tile menu grows a **Drag out…** entry.
 
 **The tile menu.** Right click a tile for Copy, Open, Remove from shelf and
 Clear shelf — and, for text, **Save as .txt** (it writes to `~/Downloads`).
+`Delete` is the keyboard shortcut for Remove.
 
 The shelf is kept in memory, so a shell restart or reboot empties it.
 `omarchy-shell lanta.island shelf` toggles the view and `... shelfClear` empties

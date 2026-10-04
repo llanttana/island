@@ -26,11 +26,21 @@ ListPicker {
   }
   onChosen: function(entry) { copy(entry) }
   // Esc steps back through the tile menu, then a multi-selection, and only
-  // then lets the picker go back a view.
+  // then lets the picker go back a view. Delete takes tiles off the shelf.
   onKeyFilter: function(event) {
-    if (event.key !== Qt.Key_Escape) return
-    if (shelf.menuEntry !== null) { shelf.closeMenu(); event.accepted = true }
-    else if (shelf.selection.length > 0) { shelf.clearSelection(); event.accepted = true }
+    if (event.key === Qt.Key_Escape) {
+      if (shelf.menuEntry !== null) { shelf.closeMenu(); event.accepted = true }
+      else if (shelf.selection.length > 0) { shelf.clearSelection(); event.accepted = true }
+      return
+    }
+    // Delete, never Backspace: the search field owns that key while the user
+    // is typing, and losing a parked file to a typo would be nasty.
+    if (event.key !== Qt.Key_Delete) return
+    var rows = shelf.targetRows()
+    if (!rows.length) return
+    for (var i = 0; i < rows.length; i++) shelf.remove(rows[i])
+    shelf.clearSelection()
+    event.accepted = true
   }
   onActiveChanged: if (!active) { closeMenu(); clearSelection() }
 
@@ -54,17 +64,25 @@ ListPicker {
       : shelf.selection.slice(0, i).concat(shelf.selection.slice(i + 1))
   }
   function clearSelection() { shelf.selection = [] }
+  // The whole Ctrl+click selection, in shelf order.
+  function selectedRows() {
+    var out = []
+    for (var i = 0; i < shelf.host.shelf.length; i++)
+      if (shelf.isSelectedItem(shelf.host.shelf[i])) out.push(shelf.host.shelf[i])
+    return out
+  }
   // Rows a drag or menu action covers: the whole selection when the grabbed
   // tile is part of it, otherwise just that tile.
   function dragRows(row) {
     if (!row) return []
-    if (shelf.selection.length > 1 && shelf.isSelectedItem(row)) {
-      var out = []
-      for (var i = 0; i < shelf.host.shelf.length; i++)
-        if (shelf.isSelectedItem(shelf.host.shelf[i])) out.push(shelf.host.shelf[i])
-      return out
-    }
+    if (shelf.selection.length > 1 && shelf.isSelectedItem(row)) return shelf.selectedRows()
     return [row]
+  }
+  // What a keyboard action covers: the selection when there is one, otherwise
+  // the tile the keyboard is sitting on.
+  function targetRows() {
+    if (shelf.selection.length > 0) return shelf.selectedRows()
+    return shelf.selected ? [shelf.selected] : []
   }
 
   // ---------- Actions ----------
@@ -338,6 +356,15 @@ ListPicker {
           if (mouse.modifiers & Qt.ControlModifier) { shelf.toggleSelected(tile.entry); return }
           shelf.clearSelection()
           shelf.copy(tile.entry)
+        }
+        // Double click opens the tile instead. The first click of the pair has
+        // already copied it by then: copy is what a plain click does, and
+        // holding it back to see whether a second click arrives would make the
+        // common gesture feel slow.
+        onDoubleClicked: function(mouse) {
+          if (mouse.modifiers & Qt.ControlModifier) return
+          shelf.clearSelection()
+          shelf.open(tile.entry)
         }
       }
 
