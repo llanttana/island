@@ -458,16 +458,12 @@ Item {
   onViewChanged: {
     if (restoringView) {
       restoringView = false
-    } else {
-      if (view === "rest") {
-        viewHistory = []
-      } else if (view !== "controls" && view !== viewBeforeChange) {
-        // Opened from the resting pill: the control center is the island's
-        // implicit home, not a stop on the way back. Transient feedback pills
-        // are not history either.
-        if (viewBeforeChange !== "rest" && viewBeforeChange !== "feedback")
-          viewHistory = viewHistory.concat([viewBeforeChange])
-      }
+    } else if (view === "rest") {
+      viewHistory = []
+    } else if (view !== viewBeforeChange && viewBeforeChange !== "feedback") {
+      // Remember every screen we passed through, the pill included, so Esc can
+      // retrace the path and the topmost screen lands back on the pill.
+      viewHistory = viewHistory.concat([viewBeforeChange])
     }
     viewBeforeChange = view
     surfaceContentReady = false
@@ -851,8 +847,8 @@ Item {
     return view
   }
 
-  // Esc: step back one screen. At the home screen there is nowhere left to go,
-  // so it does nothing -- the island is closed with the Win/Super key.
+  // Esc: step back one screen. The pill is on the history too, so the topmost
+  // screen lands back on it; the Win/Super key still closes from anywhere.
   function goBack(): string {
     if (view === "rest") return view
     if (viewHistory.length > 0) {
@@ -862,11 +858,9 @@ Item {
       view = target
       return view
     }
-    if (view !== "controls") {
-      restoringView = true
-      view = "controls"
-      return view
-    }
+    // No history (a view opened before any transition): fall back to the pill.
+    restoringView = true
+    view = "rest"
     return view
   }
 

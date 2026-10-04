@@ -17,6 +17,8 @@ ListPicker {
   visibleRows: 4
   minRows: 2
   columns: 3
+  // The tiles are cards, so they draw their own selection.
+  showHighlight: false
   items: {
     var q = query.trim().toLowerCase()
     if (!q) return host.shelf
@@ -70,53 +72,74 @@ ListPicker {
       readonly property bool isImage: !!entry && entry.kind === "image"
       readonly property string glyph: shelf.glyphs[entry ? entry.kind : ""] || shelf.glyphs.text
 
-      ClippingRectangle {
-        id: thumb
-        anchors.horizontalCenter: parent.horizontalCenter
-        anchors.top: parent.top
-        anchors.topMargin: 4
-        width: 44
-        height: 44
-        radius: 10
-        color: shelf.host.withAlpha(shelf.host.colorText, 0.08)
-        Image {
-          id: shelfThumb
-          anchors.fill: parent
-          source: tile.isImage && tile.entry.path ? "file://" + tile.entry.path : ""
-          sourceSize.width: 88
-          sourceSize.height: 88
-          fillMode: Image.PreserveAspectCrop
-          asynchronous: true
-          visible: status === Image.Ready
+      // Every tile is a card, so an empty cell reads as empty space instead of
+      // a stray icon and the selected one does not look larger than the rest.
+      Rectangle {
+        id: card
+        anchors.fill: parent
+        anchors.margins: 3
+        radius: 12
+        color: tile.selected
+          ? shelf.host.withAlpha(shelf.host.colorAccent, 0.16)
+          : shelf.host.withAlpha(shelf.host.colorText, 0.05)
+        border.width: 1
+        border.color: tile.selected
+          ? shelf.host.withAlpha(shelf.host.colorAccent, 0.6)
+          : shelf.host.withAlpha(shelf.host.colorText, 0.08)
+        Behavior on color { ColorAnimation { duration: 130 * shelf.host.motionScale; easing.type: Easing.OutQuad } }
+        Behavior on border.color { ColorAnimation { duration: 130 * shelf.host.motionScale; easing.type: Easing.OutQuad } }
+
+        ClippingRectangle {
+          id: thumb
+          anchors.horizontalCenter: parent.horizontalCenter
+          anchors.top: parent.top
+          anchors.topMargin: 9
+          width: 44
+          height: 44
+          radius: 10
+          color: shelf.host.withAlpha(shelf.host.colorText, 0.08)
+          Image {
+            id: shelfThumb
+            anchors.fill: parent
+            source: tile.isImage && tile.entry.path ? "file://" + tile.entry.path : ""
+            sourceSize.width: 88
+            sourceSize.height: 88
+            fillMode: Image.PreserveAspectCrop
+            asynchronous: true
+            visible: status === Image.Ready
+          }
+          Text {
+            anchors.centerIn: parent
+            visible: !tile.isImage || shelfThumb.status !== Image.Ready
+            text: tile.glyph
+            color: shelf.host.colorMuted
+            font.family: shelf.host.fontFamily
+            font.pixelSize: 20
+          }
         }
         Text {
-          anchors.centerIn: parent
-          visible: !tile.isImage || shelfThumb.status !== Image.Ready
-          text: tile.glyph
-          color: shelf.host.colorMuted
-          font.family: shelf.host.fontFamily
-          font.pixelSize: 20
+          anchors.horizontalCenter: parent.horizontalCenter
+          anchors.top: thumb.bottom
+          anchors.topMargin: 5
+          width: parent.width - 14
+          horizontalAlignment: Text.AlignHCenter
+          text: String(tile.entry ? tile.entry.name || "" : "")
+          textFormat: Text.PlainText
+          elide: Text.ElideMiddle
+          maximumLineCount: 1
+          color: shelf.host.colorText
+          font.family: "Adwaita Sans"
+          font.pixelSize: 11
         }
       }
+
+      // Remove button, tucked inside the card's rounded corner.
       Text {
-        anchors.horizontalCenter: parent.horizontalCenter
-        anchors.top: thumb.bottom
-        anchors.topMargin: 6
-        width: parent.width - 10
-        horizontalAlignment: Text.AlignHCenter
-        text: String(tile.entry ? tile.entry.name || "" : "")
-        textFormat: Text.PlainText
-        elide: Text.ElideMiddle
-        maximumLineCount: 1
-        color: shelf.host.colorText
-        font.family: "Adwaita Sans"
-        font.pixelSize: 11
-      }
-      Text {
+        id: removeButton
         visible: tile.selected
-        anchors.right: parent.right
-        anchors.top: parent.top
-        anchors.margins: 6
+        anchors.right: card.right
+        anchors.top: card.top
+        anchors.margins: 5
         text: "󰅖"
         color: removeMouse.containsMouse ? shelf.host.colorText : shelf.host.colorMuted
         font.family: shelf.host.fontFamily
@@ -124,7 +147,7 @@ ListPicker {
         MouseArea {
           id: removeMouse
           anchors.fill: parent
-          anchors.margins: -6
+          anchors.margins: -7
           hoverEnabled: true
           cursorShape: Qt.PointingHandCursor
           onClicked: shelf.remove(tile.entry)

@@ -37,6 +37,9 @@ Item {
   // Spotlight-style selection: the selected row fills with the theme accent
   // (rows should switch their text to host.colorAccentText when selected).
   property bool fillSelection: false
+  // Views that draw their own selection background (the shelf's cards) turn
+  // the built-in highlight off.
+  property bool showHighlight: true
   readonly property string query: search.text
   readonly property var selected: items[list.currentIndex] || null
   signal chosen(var entry)
@@ -146,7 +149,7 @@ Item {
         anchors.topMargin: picker.grid ? 3 : 0
         anchors.bottomMargin: picker.grid ? 3 : 0
         radius: 12
-        color: !slot.isSelected ? "transparent"
+        color: (!slot.isSelected || !picker.showHighlight) ? "transparent"
           : picker.fillSelection ? picker.host.colorAccent
           : picker.grid ? picker.host.withAlpha(picker.host.colorAccent, 0.28)
           : picker.host.withAlpha(picker.host.colorText, 0.07)
