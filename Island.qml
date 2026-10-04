@@ -151,6 +151,7 @@ Item {
       property int bannerSeconds: 5
       property int nightTemp: 4000
       property bool notch: false
+      property bool solidBlack: false
       property bool downloads: true
       property bool clipboard: true
       property bool systemUpdates: true
@@ -310,14 +311,18 @@ Item {
   // borrowing a hue from the palette reads as decoration rather than state. On
   // a light theme white would disappear, so it flips to near-black.
 
-  // Frosted glass: the theme background at partial alpha.
-  readonly property color colorBackground: withAlpha(Color.background, 0.72)
-  readonly property color colorText: Color.foreground
+  // Frosted glass: the theme background at partial alpha. The "Solid Black"
+  // option drops the glass for an opaque black pill with white ink, the way
+  // the original Island looked.
+  readonly property color colorBackground: settings.solidBlack ? "#000000" : withAlpha(Color.background, 0.72)
+  readonly property color colorText: settings.solidBlack ? "#ffffff" : Color.foreground
   // A dimmed foreground rather than the theme's `muted`: the pill now sits on
   // the theme's own background at partial alpha, and themes whose muted is a
   // near-background colour (kanagawa: #54546D) become unreadable there.
   readonly property color colorMuted: withAlpha(colorText, 0.62)
-  readonly property color colorAccent: luminance(Color.background) < 0.5 ? "#ffffff" : "#14141a"
+  readonly property color colorAccent: settings.solidBlack
+    ? "#ffffff"
+    : luminance(Color.background) < 0.5 ? "#ffffff" : "#14141a"
   readonly property color colorAccentText: contrastOn(colorAccent)
   readonly property color colorUrgent: Color.urgent
   readonly property color colorSurface: withAlpha(colorText, 0.07)

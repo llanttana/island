@@ -13,6 +13,21 @@ ColumnLayout {
   readonly property var settings: host.settings
   readonly property string version: host.manifest && host.manifest.version ? String(host.manifest.version) : "—"
 
+  // Tabs replace the old single long scroll.
+  property string tab: "look"
+  readonly property var tabs: [
+    { id: "look", label: "Look" },
+    { id: "pill", label: "Pill" },
+    { id: "system", label: "System" },
+    { id: "about", label: "About" }
+  ]
+  function cycleTab(delta) {
+    var i = 0
+    for (var k = 0; k < tabs.length; k++) if (tabs[k].id === tab) { i = k; break }
+    tab = tabs[(i + delta + tabs.length) % tabs.length].id
+  }
+  onTabChanged: scroller.contentY = 0
+
   // Everything back to the shipped value. nightTemp is included even though it
   // has no row here, so a reset is genuinely a reset.
   function resetDefaults() {
@@ -22,6 +37,7 @@ ColumnLayout {
     s.clock24h = true
     s.clockSeconds = false
     s.notch = false
+    s.solidBlack = false
     s.workspaceDots = true
     s.batteryBadge = true
     s.mediaPill = true
@@ -59,6 +75,8 @@ ColumnLayout {
     else if (event.key === Qt.Key_PageUp) { scroller.contentY = Math.max(0, scroller.contentY - scroller.height); event.accepted = true }
     else if (event.key === Qt.Key_Home) { scroller.contentY = 0; event.accepted = true }
     else if (event.key === Qt.Key_End) { scroller.contentY = Math.max(0, scroller.contentHeight - scroller.height); event.accepted = true }
+    else if (event.key === Qt.Key_Left) { settingsView.cycleTab(-1); event.accepted = true }
+    else if (event.key === Qt.Key_Right) { settingsView.cycleTab(1); event.accepted = true }
   }
 
   // iOS switch: accent track when on, white knob sliding across.
@@ -270,10 +288,49 @@ ColumnLayout {
     }
   }
 
+  // ---------- Tabs ----------
+
+  Row {
+    Layout.fillWidth: true
+    Layout.bottomMargin: 4
+    spacing: 4
+    Repeater {
+      model: settingsView.tabs
+      delegate: Item {
+        required property var modelData
+        width: (parent.width - 12) / 4
+        height: 30
+        Rectangle {
+          anchors.fill: parent
+          radius: 9
+          color: settingsView.tab === modelData.id
+            ? settingsView.host.withAlpha(settingsView.text, 0.18)
+            : "transparent"
+          border.width: 1
+          border.color: settingsView.tab === modelData.id ? "transparent" : settingsView.divider
+          Behavior on color { ColorAnimation { duration: settingsView.animDuration } }
+          Text {
+            anchors.centerIn: parent
+            text: modelData.label
+            color: settingsView.tab === modelData.id ? settingsView.text : settingsView.textMuted
+            font.family: "Adwaita Sans"
+            font.pixelSize: 12
+            font.weight: settingsView.tab === modelData.id ? Font.DemiBold : Font.Normal
+          }
+          MouseArea {
+            anchors.fill: parent
+            cursorShape: Qt.PointingHandCursor
+            onClicked: settingsView.tab = modelData.id
+          }
+        }
+      }
+    }
+  }
+
   // ---------- Groups ----------
 
-  // The groups scroll under the navigation bar once they outgrow the
-  // island's window (which is 800 px tall).
+  // The groups scroll under the tabs once they outgrow the island's window
+  // (which is 800 px tall).
   Flickable {
     id: scroller
     Layout.fillWidth: true
@@ -288,6 +345,7 @@ ColumnLayout {
       spacing: 8
 
       SettingsGroup {
+        visible: settingsView.tab === "look"
         title: "Appearance"
         SettingsRow {
           label: "Animation Speed"
@@ -311,6 +369,14 @@ ColumnLayout {
           SettingsSwitch {
             checked: settingsView.settings.notch
             onToggled: function(on) { settingsView.settings.notch = on }
+          }
+        }
+        SettingsRow {
+          label: "Solid Black"
+          detail: "Opaque black pill with white ink, like the original"
+          SettingsSwitch {
+            checked: settingsView.settings.solidBlack
+            onToggled: function(on) { settingsView.settings.solidBlack = on }
           }
         }
         SettingsRow {
@@ -348,6 +414,7 @@ ColumnLayout {
       }
 
       SettingsGroup {
+        visible: settingsView.tab === "pill"
         title: "Live Activities"
         SettingsRow {
           label: "Now Playing"
@@ -417,6 +484,7 @@ ColumnLayout {
       }
 
       SettingsGroup {
+        visible: settingsView.tab === "system"
         title: "Behavior"
         SettingsRow {
           label: "Hide in Fullscreen"
@@ -438,6 +506,7 @@ ColumnLayout {
       }
 
       SettingsGroup {
+        visible: settingsView.tab === "system"
         title: "Search"
         SettingsRow {
           label: "Ask With"
@@ -452,6 +521,7 @@ ColumnLayout {
       }
 
       SettingsGroup {
+        visible: settingsView.tab === "system"
         title: "Notifications"
         SettingsRow {
           label: "Banner Duration"
@@ -465,6 +535,7 @@ ColumnLayout {
       }
 
       SettingsGroup {
+        visible: settingsView.tab === "about"
         title: "About"
         SettingsRow {
           label: "Version"
