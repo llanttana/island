@@ -41,8 +41,9 @@ Omarchy's menus and status, rewritten as one fluid island that morphs between vi
 - **Expanded views:** the control center, player, app launcher, clipboard
   history, emoji and keybinding search, theme and wallpaper switchers, the
   Omarchy menu, and the power menu.
-- **Shelf:** park files, links and text on the island until you clear them or
-  the shell restarts.
+- **Shelf:** park files, links and text on the island by dragging them in;
+  click a tile to copy it back, drag it out into another app, right click it for
+  its actions, and `Ctrl+click` to move several at once.
 - **Personalization:** text and accent colours follow your current Omarchy theme,
   with a warmth slider for the night light and frosted-glass surfaces.
 - **Settings:** a pane in the control center for animation speed, a MacBook notch
@@ -121,6 +122,14 @@ Island runs inside Omarchy's Quickshell process and reserves no screen space.
   </tr>
 </table>
 
+### Shelf
+
+<table>
+  <tr>
+    <td align="center"><img src="assets/shelf.jpg" alt="The shelf with a link, text, images and a file parked on it" width="70%"></td>
+  </tr>
+</table>
+
 ### Personalization
 
 <table>
@@ -171,7 +180,8 @@ restarts the shell.
 | Click a notification | Open the app (or chat) it came from. |
 | Click a download, update or timer | Open the file, or the timer. |
 | Click the copied pill | Open the clipboard history. |
-| Press Esc | Close the open view. |
+| Tap Super | Open the control center, or close the island. |
+| Press Esc | Go back one view; from the control center it returns to the pill. |
 | Click outside the island | Close the open view. |
 | Super + Shift + Space | Hide or show the pill (notifications and views still appear). |
 
@@ -180,15 +190,29 @@ island, so the HUD matches the rest of the pill.
 
 ### Shelf
 
-**Drag files, links or text from another app onto the island** and they land on
-the shelf; drop them onto the open shelf for a bigger target. You can also park
-the current clipboard with `omarchy-shell lanta.island shelfAdd` (bind it
-to a key if you like); a clipboard-history row has its own shelf button, and
-`Ctrl+S` does the same for the selected row. The shelf is kept in memory, so a
-shell restart or reboot empties it. In the shelf, click a tile to copy it,
-`Alt+Enter` to open a file or link, `Delete` to remove one, and `Ctrl+Delete`
-to clear the whole shelf. `omarchy-shell lanta.island shelf` toggles the view
-and `... shelfClear` empties it.
+Park files, links and text on the island until you clear them or the shell
+restarts.
+
+**Putting things on it.** Drag a file, link or text from any app onto the island
+and it lands on the shelf; hover the resting pill for a moment and it expands
+into the shelf first, so the target is a big one. You can also park the current
+clipboard with `omarchy-shell lanta.island shelfAdd` (bind it to a key if you
+like); a clipboard-history row has its own shelf button, and `Ctrl+S` does the
+same for the selected row.
+
+**Taking things out.** Click a tile to copy it back — an image returns as an
+image, a file as a file — or drag it straight into another app. `Ctrl+click`
+tiles into a selection, and a drag, copy or remove then covers all of them. If
+an app will not take the island's own drag,
+[`ripdrag`](https://aur.archlinux.org/packages/ripdrag) can: install it and the
+tile menu grows a **Drag out…** entry.
+
+**The tile menu.** Right click a tile for Copy, Open, Remove from shelf and
+Clear shelf — and, for text, **Save as .txt** (it writes to `~/Downloads`).
+
+The shelf is kept in memory, so a shell restart or reboot empties it.
+`omarchy-shell lanta.island shelf` toggles the view and `... shelfClear` empties
+it.
 
 ### Settings
 
