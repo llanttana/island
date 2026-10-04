@@ -590,8 +590,58 @@ ColumnLayout {
     var row = Math.max(0, Math.floor(p.y / 60))
     var index = Math.max(0, Math.min(cc.tileIds.length - 1, row * 2 + col))
     var target = cc.tileIds[index]
-    if (target && target !== id) cc.moveTile(id, target)
+    if (target && target !== id) {
+      if (cc.arranging) cc.moveDraft(id, target)
+      else cc.moveTile(id, target)
+    }
   }
+
+  // ---------- Arrange mode ----------
+  //
+  // The pencil button puts the tiles into an editing draft: dragging and
+  // resizing change the draft only, and Save writes it to island.json; Cancel
+  // throws it away.
+  property bool arranging: false
+  property var draftOrder: []
+  property var draftWide: []
+  function draftIsWide(id) { return cc.draftWide.indexOf(id) >= 0 }
+  function beginArrange() {
+    cc.draftOrder = cc.tileIds.slice()
+    cc.draftWide = String(cc.host.settings.tileWide || "").split(",").filter(function(x) { return x !== "" })
+    cc.arranging = true
+    cc.host.announce("Arrange mode")
+  }
+  function cancelArrange() { cc.arranging = false }
+  function saveArrange() {
+    cc.host.settings.tileOrder = cc.draftOrder.join(",")
+    cc.host.settings.tileWide = cc.draftWide.join(",")
+    cc.arranging = false
+    cc.host.announce("Layout saved")
+  }
+  function setDraftWide(id, wide) {
+    var list = cc.draftWide.filter(function(x) { return x !== id })
+    if (wide) list.push(id)
+    cc.draftWide = list
+  }
+  function moveDraft(from, to) {
+    var ids = cc.draftOrder.slice()
+    var i = ids.indexOf(from)
+    var j = ids.indexOf(to)
+    if (i < 0 || j < 0 || i === j) return
+    ids.splice(i, 1)
+    ids.splice(j, 0, from)
+    cc.draftOrder = ids
+  }
+  // Live resize: 1 column when narrow, 2 when wide.
+  function applyWide(id, wide) {
+    if (cc.arranging) { if (cc.draftIsWide(id) !== wide) cc.setDraftWide(id, wide) }
+    else if (cc.isTileWide(id) !== wide) cc.setTileWide(id, wide)
+  }
+  function resizeTileLive(id, dx) {
+    if (dx > 20) cc.applyWide(id, true)
+    else if (dx < -20) cc.applyWide(id, false)
+  }
+  function toggleWide(id) { cc.applyWide(id, !(cc.arranging ? cc.draftIsWide(id) : cc.isTileWide(id))) }
 
   component CcTile: Rectangle {
     id: t
@@ -708,7 +758,7 @@ ColumnLayout {
         dragGhost.x = 0
         dragGhost.y = 0
       }
-      onClicked: t.clicked()
+      onClicked: if (!cc.arranging) t.clicked()
     }
 
     MouseArea {
@@ -717,19 +767,20 @@ ColumnLayout {
       anchors.right: parent.right
       anchors.top: parent.top
       anchors.bottom: parent.bottom
-      width: 10
+      width: 12
       cursorShape: Qt.SizeHorCursor
       drag.target: widthProxy
       drag.axis: Drag.XAxis
       onPressed: widthProxy.x = 0
-      onReleased: if (t.tileId !== "") cc.resizeTile(t.tileId, widthProxy.x)
+      onPositionChanged: if (t.tileId !== "" && edgeMouse.drag.active) cc.resizeTileLive(t.tileId, widthProxy.x)
+      onReleased: if (t.tileId !== "" && Math.abs(widthProxy.x) <= 20) cc.toggleWide(t.tileId)
     }
 
     MouseArea {
       anchors.fill: badge
       enabled: t.available && t.badgeClickable
       cursorShape: Qt.PointingHandCursor
-      onClicked: t.badgeClicked()
+      onClicked: if (!cc.arranging) t.badgeClicked()
     }
   }
 
@@ -1065,19 +1116,28 @@ ColumnLayout {
         columnSpacing: 8
         rowSpacing: 8
         Repeater {
-          model: cc.tileIds
+          model: cc.arranging ? cc.draftOrder : cc.tileIds
           delegate: Item {
             id: tileSlot
             required property var modelData
             Layout.fillWidth: true
             Layout.preferredHeight: 52
-            Layout.columnSpan: cc.isTileWide(tileSlot.modelData) ? 2 : 1
+            Layout.columnSpan: (cc.arranging ? cc.draftIsWide(tileSlot.modelData) : cc.isTileWide(tileSlot.modelData)) ? 2 : 1
 
             Loader {
               id: slotLoader
               anchors.fill: parent
               sourceComponent: cc.tileComponent(tileSlot.modelData)
               onLoaded: if (item) item.tileId = tileSlot.modelData
+            }
+            // Editing outline while arranging.
+            Rectangle {
+              anchors.fill: parent
+              radius: 26
+              color: "transparent"
+              border.width: 1
+              border.color: cc.host.withAlpha(cc.accent, 0.7)
+              visible: cc.arranging
             }
           }
         }
@@ -1088,6 +1148,11 @@ ColumnLayout {
         Layout.fillWidth: true
         spacing: 8
         Item { Layout.fillWidth: true }
+        CcRound {
+          icon: cc.arranging ? "󰅖" : "󰏫"
+          checked: cc.arranging
+          onClicked: cc.arranging ? cc.cancelArrange() : cc.beginArrange()
+        }
         CcRound {
           icon: "󰒓"
           onClicked: cc.host.view = "settings"
@@ -1102,6 +1167,60 @@ ColumnLayout {
             // Bring the saved warmth back when the filter comes on.
             if (next) { cc.nightAttempts = 0; nightApply.restart() }
             cc.host.announce(next ? "Night light on" : "Night light off")
+          }
+        }
+      }
+
+      // Arrange bar: drag tiles to move them, drag an edge to resize, then
+      // Save the draft (or Cancel it).
+      Rectangle {
+        Layout.fillWidth: true
+        Layout.preferredHeight: 42
+        visible: cc.arranging
+        radius: 13
+        color: cc.well
+
+        RowLayout {
+          anchors.fill: parent
+          anchors.margins: 4
+          spacing: 6
+          Text {
+            Layout.fillWidth: true
+            Layout.leftMargin: 8
+            text: "Drag a tile to move it, drag its edge to resize"
+            color: cc.textMuted
+            font.family: "Adwaita Sans"
+            font.pixelSize: 11
+            elide: Text.ElideRight
+          }
+          Rectangle {
+            Layout.preferredWidth: 86
+            Layout.fillHeight: true
+            radius: 10
+            color: cc.tile
+            Text {
+              anchors.centerIn: parent
+              text: "Cancel"
+              color: cc.text
+              font.family: "Adwaita Sans"
+              font.pixelSize: 12
+            }
+            MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onClicked: cc.cancelArrange() }
+          }
+          Rectangle {
+            Layout.preferredWidth: 86
+            Layout.fillHeight: true
+            radius: 10
+            color: cc.accent
+            Text {
+              anchors.centerIn: parent
+              text: "Save"
+              color: cc.accentInk
+              font.family: "Adwaita Sans"
+              font.pixelSize: 12
+              font.weight: Font.DemiBold
+            }
+            MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onClicked: cc.saveArrange() }
           }
         }
       }
@@ -1580,50 +1699,56 @@ ColumnLayout {
         title: "Power"
         visible: cc.powerProfiles.length > 0
 
-        RowLayout {
+        // One control with a tab per profile, instead of three separate
+        // buttons.
+        Rectangle {
           Layout.fillWidth: true
-          spacing: 6
+          Layout.preferredHeight: 38
+          radius: 13
+          color: cc.well
 
-          Repeater {
-            model: cc.powerProfiles
-            delegate: Rectangle {
-              id: profile
-              required property var modelData
-              readonly property bool selected: modelData === cc.activeProfile
+          RowLayout {
+            anchors.fill: parent
+            anchors.margins: 3
+            spacing: 3
 
-              Layout.fillWidth: true
-              Layout.preferredHeight: 38
-              radius: 13
-              color: profile.selected ? cc.accent : cc.well
-              scale: profileMouse.pressed ? 0.97 : 1
-              Behavior on color { ColorAnimation { duration: cc.animDuration; easing.type: Easing.OutCubic } }
-              Behavior on scale { NumberAnimation { duration: 120 * cc.host.motionScale; easing.type: Easing.OutCubic } }
+            Repeater {
+              model: cc.powerProfiles
+              delegate: Rectangle {
+                id: profile
+                required property var modelData
+                readonly property bool selected: modelData === cc.activeProfile
 
-              Row {
-                anchors.centerIn: parent
-                spacing: 6
-                Text {
-                  anchors.verticalCenter: parent.verticalCenter
-                  text: cc.profileIcons[profile.modelData] || ""
-                  color: profile.selected ? cc.accentInk : cc.text
-                  font.family: cc.iconFont
-                  font.pixelSize: 14
+                Layout.fillWidth: true
+                Layout.fillHeight: true
+                radius: 10
+                color: profile.selected ? cc.accent : "transparent"
+                Behavior on color { ColorAnimation { duration: cc.animDuration; easing.type: Easing.OutCubic } }
+
+                Row {
+                  anchors.centerIn: parent
+                  spacing: 6
+                  Text {
+                    anchors.verticalCenter: parent.verticalCenter
+                    text: cc.profileIcons[profile.modelData] || ""
+                    color: profile.selected ? cc.accentInk : cc.text
+                    font.family: cc.iconFont
+                    font.pixelSize: 14
+                  }
+                  Text {
+                    anchors.verticalCenter: parent.verticalCenter
+                    text: cc.profileLabels[profile.modelData] || profile.modelData
+                    color: profile.selected ? cc.accentInk : cc.text
+                    font.family: "Adwaita Sans"
+                    font.pixelSize: 12
+                    font.weight: profile.selected ? Font.DemiBold : Font.Normal
+                  }
                 }
-                Text {
-                  anchors.verticalCenter: parent.verticalCenter
-                  text: cc.profileLabels[profile.modelData] || profile.modelData
-                  color: profile.selected ? cc.accentInk : cc.text
-                  font.family: "Adwaita Sans"
-                  font.pixelSize: 12
-                  font.weight: profile.selected ? Font.DemiBold : Font.Normal
+                MouseArea {
+                  anchors.fill: parent
+                  cursorShape: Qt.PointingHandCursor
+                  onClicked: cc.setProfile(profile.modelData)
                 }
-              }
-
-              MouseArea {
-                id: profileMouse
-                anchors.fill: parent
-                cursorShape: Qt.PointingHandCursor
-                onClicked: cc.setProfile(profile.modelData)
               }
             }
           }
