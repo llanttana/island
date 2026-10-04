@@ -25,19 +25,21 @@ ListPicker {
     return host.shelf.filter(function(item) { return ShelfModel.searchText(item).indexOf(q) !== -1 })
   }
   onChosen: function(entry) { copy(entry) }
-  // Click copies, Alt+Enter opens a file or link, Delete takes the item off,
-  // Ctrl+Delete empties the shelf.
+  // Esc closes the tile menu first; everything else is the picker's own.
   onKeyFilter: function(event) {
-    if (event.key === Qt.Key_Return || event.key === Qt.Key_Enter) {
-      if (event.modifiers & Qt.AltModifier) { open(selected); event.accepted = true }
-    } else if (event.key === Qt.Key_Delete) {
-      if (event.modifiers & Qt.ControlModifier) shelf.host.shelfClear()
-      else remove(selected)
+    if (event.key === Qt.Key_Escape && shelf.menuEntry !== null) {
+      shelf.closeMenu()
       event.accepted = true
     }
   }
+  onActiveChanged: if (!active) closeMenu()
 
   readonly property var glyphs: ({ image: "󰋩", file: "󰈔", url: "󰖟", text: "󰆒" })
+
+  // ---------- Actions ----------
+  //
+  // Click a tile to copy it, drag it out to hand it to another app, right click
+  // it for the little menu of actions.
 
   // Copies the item, not just its text: an image goes back as an image, a file
   // as a file uri-list, so it can be pasted where it came from.
@@ -63,6 +65,63 @@ ListPicker {
   }
 
   function remove(row) { if (row) shelf.host.shelfRemove(row) }
+
+  // What the platform drag hands over. Files and images travel as a
+  // text/uri-list so any app can take them as a file; text and links travel as
+  // text, with links also offered as a uri-list.
+  function fileUri(path) {
+    var parts = String(path || "").split("/")
+    for (var i = 0; i < parts.length; i++) parts[i] = encodeURIComponent(parts[i])
+    return "file://" + parts.join("/")
+  }
+  function mimeFor(row) {
+    if (!row) return ({})
+    if (row.kind === "image" || row.kind === "file")
+      return ({ "text/uri-list": fileUri(row.path) + "\r\n" })
+    if (row.kind === "url")
+      return ({ "text/uri-list": String(row.text || "") + "\r\n", "text/plain": String(row.text || "") })
+    return ({ "text/plain": String(row.text || "") })
+  }
+
+  // ---------- Tile menu ----------
+  property var menuEntry: null
+  property real menuX: 0
+  property real menuY: 0
+  function openMenu(entry, x, y) {
+    menuEntry = entry
+    menuX = x
+    menuY = y
+  }
+  function closeMenu() { menuEntry = null }
+
+  readonly property var menuActions: {
+    var e = menuEntry
+    if (!e) return []
+    var actions = []
+    if (e.kind === "image") {
+      actions.push({ id: "copy", icon: "󰆏", label: "Copy image" })
+      actions.push({ id: "open", icon: "󰋩", label: "Open" })
+    } else if (e.kind === "file") {
+      actions.push({ id: "copy", icon: "󰆏", label: "Copy file" })
+      actions.push({ id: "open", icon: "󰈔", label: "Open" })
+    } else if (e.kind === "url") {
+      actions.push({ id: "copy", icon: "󰆏", label: "Copy link" })
+      actions.push({ id: "open", icon: "󰖟", label: "Open link" })
+    } else {
+      actions.push({ id: "copy", icon: "󰆏", label: "Copy text" })
+    }
+    actions.push({ id: "remove", icon: "󰅖", label: "Remove from shelf" })
+    if (shelf.host.shelf.length > 1) actions.push({ id: "clear", icon: "󰩹", label: "Clear shelf" })
+    return actions
+  }
+  function runMenuAction(id) {
+    var e = menuEntry
+    if (id === "copy") copy(e)
+    else if (id === "open") open(e)
+    else if (id === "remove") remove(e)
+    else if (id === "clear") shelf.host.shelfClear()
+    closeMenu()
+  }
 
   row: Component {
     Item {
@@ -133,6 +192,47 @@ ListPicker {
         }
       }
 
+      // Left: click copies the item, drag pulls it out to another app. The
+      // gesture drags an invisible proxy, so the card itself never moves; the
+      // platform then takes the payload over for the drop into the other app.
+      Item {
+        id: dragProxy
+        anchors.fill: parent
+        Drag.active: dragArea.drag.active
+        Drag.dragType: Drag.Automatic
+        Drag.supportedActions: Qt.CopyAction | Qt.MoveAction
+        Drag.mimeData: shelf.mimeFor(tile.entry)
+        Drag.hotSpot: Qt.point(width / 2, height / 2)
+        Drag.onDragStarted: shelf.host.tileDragging = true
+        Drag.onDragFinished: function(dropAction) {
+          shelf.host.tileDragging = false
+          // A move means the other app took it away; a copy leaves it here.
+          if (dropAction === Qt.MoveAction) shelf.remove(tile.entry)
+        }
+      }
+      MouseArea {
+        id: dragArea
+        anchors.fill: parent
+        cursorShape: Qt.PointingHandCursor
+        drag.target: dragProxy
+        // Shrink the island's input region on press, before the platform drag
+        // starts, so the drop can reach the app underneath the band.
+        onPressed: shelf.host.tileDragging = true
+        onReleased: shelf.host.tileDragging = false
+        onCanceled: shelf.host.tileDragging = false
+        onClicked: shelf.copy(tile.entry)
+      }
+
+      // Right: the tile's menu.
+      MouseArea {
+        anchors.fill: parent
+        acceptedButtons: Qt.RightButton
+        onClicked: function(mouse) {
+          var p = tile.mapToItem(shelf, mouse.x, mouse.y)
+          shelf.openMenu(tile.entry, p.x, p.y)
+        }
+      }
+
       // Remove button, tucked inside the card's rounded corner.
       Text {
         id: removeButton
@@ -151,6 +251,78 @@ ListPicker {
           hoverEnabled: true
           cursorShape: Qt.PointingHandCursor
           onClicked: shelf.remove(tile.entry)
+        }
+      }
+    }
+  }
+
+  // The tile menu: a small card of actions at the right click, kept inside the
+  // shelf. Clicking anywhere else dismisses it.
+  Item {
+    id: contextMenu
+    anchors.fill: parent
+    visible: shelf.menuEntry !== null
+    z: 50
+
+    MouseArea {
+      anchors.fill: parent
+      acceptedButtons: Qt.LeftButton | Qt.RightButton | Qt.MiddleButton
+      onClicked: shelf.closeMenu()
+    }
+
+    Rectangle {
+      id: menuCard
+      width: 202
+      height: menuColumn.implicitHeight + 12
+      x: Math.max(6, Math.min(shelf.menuX, contextMenu.width - width - 6))
+      y: Math.max(6, Math.min(shelf.menuY, contextMenu.height - height - 6))
+      radius: 12
+      color: shelf.host.colorBackground
+      border.width: 1
+      border.color: shelf.host.withAlpha(shelf.host.colorText, 0.14)
+
+      Column {
+        id: menuColumn
+        anchors.fill: parent
+        anchors.margins: 6
+        spacing: 2
+
+        Repeater {
+          model: shelf.menuActions
+          delegate: Rectangle {
+            required property var modelData
+            width: menuColumn.width
+            height: 32
+            radius: 8
+            color: actionMouse.containsMouse ? shelf.host.withAlpha(shelf.host.colorText, 0.1) : "transparent"
+            Row {
+              anchors.left: parent.left
+              anchors.leftMargin: 9
+              anchors.verticalCenter: parent.verticalCenter
+              spacing: 9
+              Text {
+                anchors.verticalCenter: parent.verticalCenter
+                text: modelData.icon
+                color: shelf.host.colorMuted
+                font.family: shelf.host.fontFamily
+                font.pixelSize: 15
+              }
+              Text {
+                anchors.verticalCenter: parent.verticalCenter
+                text: modelData.label
+                color: shelf.host.colorText
+                font.family: "Adwaita Sans"
+                font.pixelSize: 13
+              }
+            }
+            MouseArea {
+              id: actionMouse
+              anchors.fill: parent
+              hoverEnabled: true
+              cursorShape: Qt.PointingHandCursor
+              onClicked: shelf.runMenuAction(modelData.id)
+            }
+          }
         }
       }
     }

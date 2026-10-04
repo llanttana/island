@@ -220,6 +220,9 @@ Item {
   // True while a file/link/text is being dragged over the island, so the pill
   // can show a drop ring.
   property bool dropActive: false
+  // True while a shelf tile is being dragged out, so the island stops claiming
+  // the whole band and lets the drop reach the app underneath.
+  property bool tileDragging: false
 
   function shelfAdd(entry) {
     var next = ShelfModel.add(shelf, entry)
@@ -947,8 +950,10 @@ Item {
         // anywhere outside the pill lands on the dismiss layer below and
         // closes it. The rest of the time only the pill itself is interactive,
         // which is what keeps the band from swallowing clicks aimed at the
-        // windows underneath.
-        mask: Region { item: root.surfaceOpen ? dismissArea : island }
+        // windows underneath. A drag out of the shelf shrinks the region back
+        // to the island, otherwise this overlay would swallow the drop before
+        // it reached the app underneath.
+        mask: Region { item: root.surfaceOpen && !root.tileDragging ? dismissArea : island }
         // The frost comes from a Hyprland layer rule on this namespace (see
         // ~/.config/hypr/looknfeel.lua), not from BackgroundEffect: a protocol
         // blur region is a plain rectangle, which left a frosted border around
@@ -959,8 +964,10 @@ Item {
           id: focusGrab
           windows: [window]
           property bool armed: false
-          active: window.visible && root.surfaceOpen && armed
-          onCleared: if (root.surfaceOpen) root.view = "rest"
+          // A keyboard grab gets in the way of dragging a tile out, so it steps
+          // aside while a shelf tile is held.
+          active: window.visible && root.surfaceOpen && armed && !root.tileDragging
+          onCleared: if (root.surfaceOpen && !root.tileDragging) root.view = "rest"
         }
         Timer {
           interval: 120
