@@ -535,6 +535,64 @@ ColumnLayout {
 
   // Pill toggle: icon badge (accent-filled when on), title, and state. With
   // `chevron` it reads as "opens a page" instead of "toggles in place".
+  // ---------- Quick tiles ----------
+  //
+  // The four tiles are a two-column grid the user can rearrange: drag a tile
+  // onto another to move it into that slot, drag its right edge to make it
+  // wide. The order and the wide tiles live in island.json.
+
+  readonly property var tileIds: {
+    var known = ["wifi", "bluetooth", "focus", "gameMode"]
+    var raw = String(cc.host.settings.tileOrder || "").split(",")
+    var out = []
+    for (var i = 0; i < raw.length; i++)
+      if (known.indexOf(raw[i]) >= 0 && out.indexOf(raw[i]) < 0) out.push(raw[i])
+    for (var k = 0; k < known.length; k++)
+      if (out.indexOf(known[k]) < 0) out.push(known[k])
+    return out
+  }
+  function isTileWide(id) {
+    return String(cc.host.settings.tileWide || "").split(",").indexOf(id) >= 0
+  }
+  function setTileWide(id, wide) {
+    var list = String(cc.host.settings.tileWide || "").split(",").filter(function(x) { return x !== "" && x !== id })
+    if (wide) list.push(id)
+    cc.host.settings.tileWide = list.join(",")
+  }
+  function resizeTile(id, dx) {
+    if (dx > 24) cc.setTileWide(id, true)
+    else if (dx < -24) cc.setTileWide(id, false)
+    else cc.setTileWide(id, !cc.isTileWide(id))
+  }
+  function moveTile(from, to) {
+    var ids = cc.tileIds.slice()
+    var i = ids.indexOf(from)
+    var j = ids.indexOf(to)
+    if (i < 0 || j < 0 || i === j) return
+    ids.splice(i, 1)
+    ids.splice(j, 0, from)
+    cc.host.settings.tileOrder = ids.join(",")
+    cc.host.announce("Tiles rearranged")
+  }
+  function tileComponent(id) {
+    if (id === "wifi") return wifiTile
+    if (id === "bluetooth") return btTile
+    if (id === "focus") return focusTile
+    return gameTile
+  }
+  // A tile was dragged and let go: work out which slot the ghost is over and
+  // move the tile there. The ghost lives inside the tile, so its offset plus
+  // the tile's position gives the pointer in grid coordinates.
+  function dropTile(id, item, ghost) {
+    var p = item.mapToItem(tileGrid, ghost.x + item.width / 2, ghost.y + item.height / 2)
+    var cell = (tileGrid.width - 8) / 2
+    var col = Math.max(0, Math.min(1, Math.floor(p.x / (cell + 8))))
+    var row = Math.max(0, Math.floor(p.y / 60))
+    var index = Math.max(0, Math.min(cc.tileIds.length - 1, row * 2 + col))
+    var target = cc.tileIds[index]
+    if (target && target !== id) cc.moveTile(id, target)
+  }
+
   component CcTile: Rectangle {
     id: t
     property string icon: ""
@@ -546,6 +604,8 @@ ColumnLayout {
     // When the tile is a radio (Wi-Fi, Bluetooth), the circle switches it and
     // the rest of the pill opens the list.
     property bool badgeClickable: false
+    // Set by the tile grid: the id used for reordering and resizing.
+    property string tileId: ""
     signal clicked()
     signal badgeClicked()
 
@@ -614,12 +674,55 @@ ColumnLayout {
       font.family: cc.iconFont
       font.pixelSize: 14
     }
+    // Reordering and resizing. The drag moves an invisible ghost rather than
+    // the tile, so the grid never shifts under the pointer; the slot's DropArea
+    // does the reorder on release. The tile's right edge is the resize handle:
+    // drag it out to make the tile wide, back in to make it narrow.
+    Item {
+      id: dragGhost
+      width: t.width
+      height: t.height
+      visible: tileMouse.drag.active
+      z: 200
+      Rectangle {
+        anchors.fill: parent
+        radius: t.radius
+        color: t.color
+        border.width: 1
+        border.color: cc.border
+        opacity: 0.92
+      }
+    }
+    Item { id: widthProxy; width: 1; height: 1; visible: false }
+
     MouseArea {
       id: tileMouse
       anchors.fill: parent
       enabled: t.available
       cursorShape: Qt.PointingHandCursor
+      drag.target: t.tileId !== "" ? dragGhost : null
+      drag.axis: Drag.XAndYAxis
+      onReleased: {
+        if (t.tileId === "") return
+        if (dragGhost.x !== 0 || dragGhost.y !== 0) cc.dropTile(t.tileId, t, dragGhost)
+        dragGhost.x = 0
+        dragGhost.y = 0
+      }
       onClicked: t.clicked()
+    }
+
+    MouseArea {
+      id: edgeMouse
+      visible: t.tileId !== ""
+      anchors.right: parent.right
+      anchors.top: parent.top
+      anchors.bottom: parent.bottom
+      width: 10
+      cursorShape: Qt.SizeHorCursor
+      drag.target: widthProxy
+      drag.axis: Drag.XAxis
+      onPressed: widthProxy.x = 0
+      onReleased: if (t.tileId !== "") cc.resizeTile(t.tileId, widthProxy.x)
     }
 
     MouseArea {
@@ -896,9 +999,8 @@ ColumnLayout {
 
       // ---------- Toggles ----------
 
-      RowLayout {
-        Layout.fillWidth: true
-        spacing: 8
+      Component {
+        id: wifiTile
         CcTile {
           readonly property bool wifi: !!cc.wifiDevice
           icon: wifi ? (Networking.wifiEnabled ? "󰖩" : "󰖪") : "󰈀"
@@ -914,6 +1016,23 @@ ColumnLayout {
           onBadgeClicked: Networking.wifiEnabled = !Networking.wifiEnabled
           onClicked: cc.host.view = "wifi"
         }
+      }
+      Component {
+        id: btTile
+        CcTile {
+          icon: cc.btAdapter && cc.btAdapter.enabled ? "󰂯" : "󰂲"
+          title: "Bluetooth"
+          subtitle: !cc.btAdapter ? "Unavailable" : !cc.btAdapter.enabled ? "Off" : cc.btConnected ? String(cc.btConnected.name || "Connected") : "On"
+          checked: !!(cc.btAdapter && cc.btAdapter.enabled)
+          available: !!cc.btAdapter
+          chevron: !!cc.btAdapter
+          badgeClickable: !!cc.btAdapter
+          onBadgeClicked: if (cc.btAdapter) cc.btAdapter.enabled = !cc.btAdapter.enabled
+          onClicked: cc.host.view = "bluetooth"
+        }
+      }
+      Component {
+        id: focusTile
         CcTile {
           icon: "󰍶"
           title: "Focus"
@@ -926,32 +1045,52 @@ ColumnLayout {
             cc.host.announce(next ? "Focus on" : "Focus off")
           }
         }
-        CcRound {
-          icon: "󰒓"
-          onClicked: cc.host.view = "settings"
-        }
       }
-
-      RowLayout {
-        Layout.fillWidth: true
-        spacing: 8
-        CcTile {
-          icon: cc.btAdapter && cc.btAdapter.enabled ? "󰂯" : "󰂲"
-          title: "Bluetooth"
-          subtitle: !cc.btAdapter ? "Unavailable" : !cc.btAdapter.enabled ? "Off" : cc.btConnected ? String(cc.btConnected.name || "Connected") : "On"
-          checked: !!(cc.btAdapter && cc.btAdapter.enabled)
-          available: !!cc.btAdapter
-          chevron: !!cc.btAdapter
-          badgeClickable: !!cc.btAdapter
-          onBadgeClicked: if (cc.btAdapter) cc.btAdapter.enabled = !cc.btAdapter.enabled
-          onClicked: cc.host.view = "bluetooth"
-        }
+      Component {
+        id: gameTile
         CcTile {
           icon: "󰊗"
           title: "Game Mode"
           subtitle: cc.gameMode ? "On" : "Off"
           checked: cc.gameMode
           onClicked: cc.setGameMode(!cc.gameMode)
+        }
+      }
+
+      // Two columns of tiles, in the user's order; a wide tile spans both.
+      GridLayout {
+        id: tileGrid
+        Layout.fillWidth: true
+        columns: 2
+        columnSpacing: 8
+        rowSpacing: 8
+        Repeater {
+          model: cc.tileIds
+          delegate: Item {
+            id: tileSlot
+            required property var modelData
+            Layout.fillWidth: true
+            Layout.preferredHeight: 52
+            Layout.columnSpan: cc.isTileWide(tileSlot.modelData) ? 2 : 1
+
+            Loader {
+              id: slotLoader
+              anchors.fill: parent
+              sourceComponent: cc.tileComponent(tileSlot.modelData)
+              onLoaded: if (item) item.tileId = tileSlot.modelData
+            }
+          }
+        }
+      }
+
+      // The round buttons moved here when the tiles became a grid.
+      RowLayout {
+        Layout.fillWidth: true
+        spacing: 8
+        Item { Layout.fillWidth: true }
+        CcRound {
+          icon: "󰒓"
+          onClicked: cc.host.view = "settings"
         }
         CcRound {
           icon: "󰖔"
