@@ -16,7 +16,8 @@ Omarchy's menus and status, rewritten as one fluid island that morphs between vi
 
 - **At rest:** a clock, or album art with an animated sound wave while music plays.
 - **Control center:** a compact panel with Wi-Fi, Bluetooth, Focus and Game Mode
-  tiles, output/input/volume sliders, the active output and input devices, the
+  tiles (drag one onto another to rearrange them, drag its right edge to make it
+  wide), output/input/volume sliders, the active output and input devices, the
   keyboard layout, screen recording, an idle inhibitor, night light, the battery,
   a weather chip, the timer and the power profile — all in one place.
 - **Connectivity:** real Wi-Fi and Bluetooth pages. Wi-Fi lists nearby networks
@@ -214,10 +215,21 @@ The shelf is kept in memory, so a shell restart or reboot empties it.
 `omarchy-shell lanta.island shelf` toggles the view and `... shelfClear` empties
 it.
 
+### Customizing the tiles
+
+The four quick tiles in the control center are yours to arrange: drag a tile
+onto another slot to move it there, and drag its right edge out to make it wide
+(back in to make it narrow). The layout is saved to
+`~/.config/omarchy/island.json` as `tileOrder` and `tileWide`.
+
 ### Settings
 
-Open the control center and click the gear. Changes apply right away and are
-saved to `~/.config/omarchy/island.json`, which you can also edit by hand.
+Open the control center and click the gear. The pane is split into **Look**,
+**Pill**, **System** and **About** tabs — click one or press ←/→. Changes apply
+right away and are saved to `~/.config/omarchy/island.json`, which you can also
+edit by hand. **Look → Solid Black** drops the frosted glass for an opaque black
+pill with white ink; **System → Keep Shelf** restores parked shelf items after a
+shell restart.
 
 ### Ask AI
 
