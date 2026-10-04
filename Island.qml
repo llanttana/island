@@ -1008,7 +1008,7 @@ Item {
             : root.timerPill ? 240
             : root.systemPill ? 240
             : root.mediaPill ? 240
-            : root.dropActive ? root.restWidth + 220
+            : root.dropActive ? 360
             : root.restWidth
           readonly property real targetHeight: activeSurface ? activeSurface.islandHeight
             : root.notificationPill ? 84
@@ -1017,7 +1017,7 @@ Item {
             : root.mediaPill || root.downloadPill || root.systemPill || root.timerPill ? (root.settings.notch ? 40 : 44)
             : root.volumePill ? 56
             : root.brightnessPill ? 56
-            : root.dropActive ? 76
+            : root.dropActive ? 64
             : root.view === "rest" ? (root.settings.notch ? 36 : 40) : 52
           property real radiusCap: root.volumePill || root.brightnessPill ? 20 : root.view === "answer" ? 44 : root.surfaceOpen ? 30 : 38
           Behavior on radiusCap {
@@ -1056,7 +1056,7 @@ Item {
           // pill rather than flying in from the edges of a collapsing one.
           readonly property bool settled: Math.abs(morphWidth - targetWidth) < 1.5
             && Math.abs(morphHeight - targetHeight) < 1.5
-          readonly property bool accessoriesVisible: root.accessoriesShown && settled
+          readonly property bool accessoriesVisible: root.accessoriesShown && settled && !root.dropActive
 
           function syncMorphTarget() {
             island.morphTargetWidth = island.targetWidth
@@ -1253,16 +1253,53 @@ Item {
             }
           }
 
-          // Drop feedback: an accent ring around the island while a drag hovers.
+          // Drop feedback: a soft accent wash, a matching outline, and -- while
+          // the island is at rest -- a short hint in place of the clock, so the
+          // target reads as a drop zone instead of a stretched pill.
           Rectangle {
+            id: dropWash
             anchors.fill: parent
             radius: island.radius
-            color: "transparent"
+            topLeftRadius: island.topLeftRadius
+            topRightRadius: island.topRightRadius
+            color: root.dropActive && !root.surfaceOpen ? root.withAlpha(root.colorAccent, 0.12) : "transparent"
             border.width: 2
             border.color: root.colorAccent
             opacity: root.dropActive ? 1 : 0
             visible: opacity > 0.01
-            Behavior on opacity { NumberAnimation { duration: 120 * root.motionScale; easing.type: Easing.OutQuad } }
+            Behavior on opacity { NumberAnimation { duration: 130 * root.motionScale; easing.type: Easing.OutQuad } }
+          }
+          Row {
+            anchors.centerIn: parent
+            spacing: 9
+            opacity: root.dropActive && !root.surfaceOpen ? 1 : 0
+            visible: opacity > 0.01
+            Behavior on opacity { NumberAnimation { duration: 130 * root.motionScale; easing.type: Easing.OutQuad } }
+            Item {
+              width: dropGlyph.implicitWidth
+              height: 24
+              Text {
+                id: dropGlyph
+                anchors.centerIn: parent
+                text: "󰉋"
+                color: root.colorAccent
+                font.family: root.fontFamily
+                font.pixelSize: 20
+              }
+            }
+            Item {
+              width: dropText.implicitWidth
+              height: 24
+              Text {
+                id: dropText
+                anchors.centerIn: parent
+                text: "Drop to shelf"
+                color: root.colorText
+                font.family: "Adwaita Sans"
+                font.pixelSize: 14
+                font.weight: Font.DemiBold
+              }
+            }
           }
         }
       }
