@@ -303,12 +303,8 @@ ListPicker {
         Drag.supportedActions: Qt.CopyAction | Qt.LinkAction
         Drag.mimeData: shelf.mimeForRows(shelf.dragRows(tile.entry))
         Drag.hotSpot: Qt.point(width / 2, height / 2)
-        Drag.onDragStarted: {
-          console.log("SHELF drag started rows=" + shelf.dragRows(tile.entry).length)
-          shelf.host.tileDragging = true
-        }
+        Drag.onDragStarted: shelf.host.tileDragging = true
         Drag.onDragFinished: function(dropAction) {
-          console.log("SHELF drag finished action=" + dropAction)
           shelf.host.tileDragging = false
           // The other app took it: get the shelf out of the way again.
           if (dropAction !== Qt.IgnoreAction) shelf.host.view = "rest"
