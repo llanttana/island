@@ -223,6 +223,17 @@ Item {
   // True while a shelf tile is being dragged out, so the island stops claiming
   // the whole band and lets the drop reach the app underneath.
   property bool tileDragging: false
+  // Hovering a drag over the resting pill for a moment opens the shelf, so a
+  // small target turns into a big one before the drop.
+  onDropActiveChanged: {
+    if (dropActive && view === "rest") dropReveal.restart()
+    else if (!dropActive) dropReveal.stop()
+  }
+  Timer {
+    id: dropReveal
+    interval: 500
+    onTriggered: if (root.dropActive && root.view === "rest") root.view = "shelf"
+  }
 
   function shelfAdd(entry) {
     var next = ShelfModel.add(shelf, entry)
@@ -944,7 +955,7 @@ Item {
         implicitHeight: 800
         WlrLayershell.namespace: "omarchy-island"
         WlrLayershell.layer: WlrLayer.Overlay
-        WlrLayershell.keyboardFocus: island.activeSurface && island.activeSurface.wantsKeyboard
+        WlrLayershell.keyboardFocus: island.activeSurface && island.activeSurface.wantsKeyboard && !root.tileDragging
           ? WlrKeyboardFocus.Exclusive : WlrKeyboardFocus.None
         // While a view is open the whole window takes input, so a click
         // anywhere outside the pill lands on the dismiss layer below and

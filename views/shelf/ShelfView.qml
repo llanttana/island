@@ -49,7 +49,7 @@ ListPicker {
     if (row.kind === "image")
       copier.command = ["bash", "-c", 'wl-copy --type "$1" < "$2"', "--", String(row.mime || "image/png"), String(row.path || "")]
     else if (row.kind === "file")
-      copier.command = ["bash", "-c", 'p="${1// /%20}"; printf "file://%s\\n" "$p" | wl-copy --type text/uri-list', "--", String(row.path || "")]
+      copier.command = ["bash", "-c", 'printf "%s\\n" "$1" | wl-copy --type text/uri-list', "--", fileUri(row.path)]
     else
       copier.command = ["bash", "-c", 'printf "%s" "$1" | wl-copy', "--", String(row.text || "")]
     copier.startDetached()
@@ -66,9 +66,21 @@ ListPicker {
 
   function remove(row) { if (row) shelf.host.shelfRemove(row) }
 
+  // Text is the one payload a file manager cannot take, so offer to write it
+  // out as a .txt in Downloads instead.
+  Process { id: saver }
+  function saveText(row) {
+    if (!row || row.kind !== "text") return
+    var name = "shelf-" + Qt.formatDateTime(new Date(), "yyyyMMdd-HHmmss") + ".txt"
+    saver.command = ["bash", "-c", 'printf "%s" "$1" > "$2"', "--",
+                     String(row.text || ""), shelf.host.home + "/Downloads/" + name]
+    saver.startDetached()
+  }
+
   // What the platform drag hands over. Files and images travel as a
-  // text/uri-list so any app can take them as a file; text and links travel as
-  // text, with links also offered as a uri-list.
+  // text/uri-list so any app can take them as a file. Plain text offers only
+  // text/* (adding a uri-list would let a target paste the path instead), while
+  // a link offers both because apps differ on which one they prefer.
   function fileUri(path) {
     var parts = String(path || "").split("/")
     for (var i = 0; i < parts.length; i++) parts[i] = encodeURIComponent(parts[i])
@@ -78,9 +90,10 @@ ListPicker {
     if (!row) return ({})
     if (row.kind === "image" || row.kind === "file")
       return ({ "text/uri-list": fileUri(row.path) + "\r\n" })
+    var text = String(row.text || "")
     if (row.kind === "url")
-      return ({ "text/uri-list": String(row.text || "") + "\r\n", "text/plain": String(row.text || "") })
-    return ({ "text/plain": String(row.text || "") })
+      return ({ "text/uri-list": text + "\r\n", "text/plain": text, "text/plain;charset=utf-8": text })
+    return ({ "text/plain": text, "text/plain;charset=utf-8": text })
   }
 
   // ---------- Tile menu ----------
@@ -109,6 +122,7 @@ ListPicker {
       actions.push({ id: "open", icon: "󰖟", label: "Open link" })
     } else {
       actions.push({ id: "copy", icon: "󰆏", label: "Copy text" })
+      actions.push({ id: "save", icon: "󰈔", label: "Save as .txt" })
     }
     actions.push({ id: "remove", icon: "󰅖", label: "Remove from shelf" })
     if (shelf.host.shelf.length > 1) actions.push({ id: "clear", icon: "󰩹", label: "Clear shelf" })
@@ -118,6 +132,7 @@ ListPicker {
     var e = menuEntry
     if (id === "copy") copy(e)
     else if (id === "open") open(e)
+    else if (id === "save") saveText(e)
     else if (id === "remove") remove(e)
     else if (id === "clear") shelf.host.shelfClear()
     closeMenu()
@@ -200,14 +215,16 @@ ListPicker {
         anchors.fill: parent
         Drag.active: dragArea.drag.active
         Drag.dragType: Drag.Automatic
-        Drag.supportedActions: Qt.CopyAction | Qt.MoveAction
+        // Copy or link only: Move would let a file manager relocate the file
+        // the shelf is only pointing at.
+        Drag.supportedActions: Qt.CopyAction | Qt.LinkAction
         Drag.mimeData: shelf.mimeFor(tile.entry)
         Drag.hotSpot: Qt.point(width / 2, height / 2)
         Drag.onDragStarted: shelf.host.tileDragging = true
         Drag.onDragFinished: function(dropAction) {
           shelf.host.tileDragging = false
-          // A move means the other app took it away; a copy leaves it here.
-          if (dropAction === Qt.MoveAction) shelf.remove(tile.entry)
+          // The other app took it: get the shelf out of the way again.
+          if (dropAction !== Qt.IgnoreAction) shelf.host.view = "rest"
         }
       }
       MouseArea {
@@ -215,9 +232,12 @@ ListPicker {
         anchors.fill: parent
         cursorShape: Qt.PointingHandCursor
         drag.target: dragProxy
-        // Shrink the island's input region on press, before the platform drag
-        // starts, so the drop can reach the app underneath the band.
-        onPressed: shelf.host.tileDragging = true
+        // Snapshot the card so the drag has a ghost under the cursor. (The
+        // island's input region shrinks in onDragStarted instead of here --
+        // changing it during the press cancels the drag gesture.)
+        onPressed: {
+          card.grabToImage(function(result) { dragProxy.Drag.imageSource = result.url })
+        }
         onReleased: shelf.host.tileDragging = false
         onCanceled: shelf.host.tileDragging = false
         onClicked: shelf.copy(tile.entry)
