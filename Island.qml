@@ -155,10 +155,6 @@ Item {
       property int nightTemp: 4000
       property bool notch: false
       property bool solidBlack: false
-      // Control-center tile layout: the order of the four quick tiles and
-      // which of them span both columns, as comma-separated ids.
-      property string tileOrder: "wifi,bluetooth,focus,gameMode"
-      property string tileWide: ""
       property bool keepShelf: false
       property bool downloads: true
       property bool clipboard: true

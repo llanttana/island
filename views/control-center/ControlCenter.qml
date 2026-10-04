@@ -535,114 +535,6 @@ ColumnLayout {
 
   // Pill toggle: icon badge (accent-filled when on), title, and state. With
   // `chevron` it reads as "opens a page" instead of "toggles in place".
-  // ---------- Quick tiles ----------
-  //
-  // The four tiles are a two-column grid the user can rearrange: drag a tile
-  // onto another to move it into that slot, drag its right edge to make it
-  // wide. The order and the wide tiles live in island.json.
-
-  readonly property var tileIds: {
-    var known = ["wifi", "bluetooth", "focus", "gameMode"]
-    var raw = String(cc.host.settings.tileOrder || "").split(",")
-    var out = []
-    for (var i = 0; i < raw.length; i++)
-      if (known.indexOf(raw[i]) >= 0 && out.indexOf(raw[i]) < 0) out.push(raw[i])
-    for (var k = 0; k < known.length; k++)
-      if (out.indexOf(known[k]) < 0) out.push(known[k])
-    return out
-  }
-  function isTileWide(id) {
-    return String(cc.host.settings.tileWide || "").split(",").indexOf(id) >= 0
-  }
-  function setTileWide(id, wide) {
-    var list = String(cc.host.settings.tileWide || "").split(",").filter(function(x) { return x !== "" && x !== id })
-    if (wide) list.push(id)
-    cc.host.settings.tileWide = list.join(",")
-  }
-  function resizeTile(id, dx) {
-    if (dx > 24) cc.setTileWide(id, true)
-    else if (dx < -24) cc.setTileWide(id, false)
-    else cc.setTileWide(id, !cc.isTileWide(id))
-  }
-  function moveTile(from, to) {
-    var ids = cc.tileIds.slice()
-    var i = ids.indexOf(from)
-    var j = ids.indexOf(to)
-    if (i < 0 || j < 0 || i === j) return
-    ids.splice(i, 1)
-    ids.splice(j, 0, from)
-    cc.host.settings.tileOrder = ids.join(",")
-    cc.host.announce("Tiles rearranged")
-  }
-  function tileComponent(id) {
-    if (id === "wifi") return wifiTile
-    if (id === "bluetooth") return btTile
-    if (id === "focus") return focusTile
-    return gameTile
-  }
-  // A tile was dragged and let go: work out which slot the ghost is over and
-  // move the tile there. The ghost lives inside the tile, so its offset plus
-  // the tile's position gives the pointer in grid coordinates.
-  function dropTile(id, item, ghost) {
-    var p = item.mapToItem(tileGrid, ghost.x + item.width / 2, ghost.y + item.height / 2)
-    var cell = (tileGrid.width - 8) / 2
-    var col = Math.max(0, Math.min(1, Math.floor(p.x / (cell + 8))))
-    var row = Math.max(0, Math.floor(p.y / 60))
-    var index = Math.max(0, Math.min(cc.tileIds.length - 1, row * 2 + col))
-    var target = cc.tileIds[index]
-    if (target && target !== id) {
-      if (cc.arranging) cc.moveDraft(id, target)
-      else cc.moveTile(id, target)
-    }
-  }
-
-  // ---------- Arrange mode ----------
-  //
-  // The pencil button puts the tiles into an editing draft: dragging and
-  // resizing change the draft only, and Save writes it to island.json; Cancel
-  // throws it away.
-  property bool arranging: false
-  property var draftOrder: []
-  property var draftWide: []
-  function draftIsWide(id) { return cc.draftWide.indexOf(id) >= 0 }
-  function beginArrange() {
-    cc.draftOrder = cc.tileIds.slice()
-    cc.draftWide = String(cc.host.settings.tileWide || "").split(",").filter(function(x) { return x !== "" })
-    cc.arranging = true
-    cc.host.announce("Arrange mode")
-  }
-  function cancelArrange() { cc.arranging = false }
-  function saveArrange() {
-    cc.host.settings.tileOrder = cc.draftOrder.join(",")
-    cc.host.settings.tileWide = cc.draftWide.join(",")
-    cc.arranging = false
-    cc.host.announce("Layout saved")
-  }
-  function setDraftWide(id, wide) {
-    var list = cc.draftWide.filter(function(x) { return x !== id })
-    if (wide) list.push(id)
-    cc.draftWide = list
-  }
-  function moveDraft(from, to) {
-    var ids = cc.draftOrder.slice()
-    var i = ids.indexOf(from)
-    var j = ids.indexOf(to)
-    if (i < 0 || j < 0 || i === j) return
-    ids.splice(i, 1)
-    ids.splice(j, 0, from)
-    cc.draftOrder = ids
-  }
-  // Live resize: 1 column when narrow, 2 when wide.
-  function applyWide(id, wide) {
-    if (cc.arranging) { if (cc.draftIsWide(id) !== wide) cc.setDraftWide(id, wide) }
-    else if (cc.isTileWide(id) !== wide) cc.setTileWide(id, wide)
-  }
-  function resizeTileLive(id, dx) {
-    if (dx > 20) cc.applyWide(id, true)
-    else if (dx < -20) cc.applyWide(id, false)
-  }
-  function toggleWide(id) { cc.applyWide(id, !(cc.arranging ? cc.draftIsWide(id) : cc.isTileWide(id))) }
-
   component CcTile: Rectangle {
     id: t
     property string icon: ""
@@ -654,8 +546,6 @@ ColumnLayout {
     // When the tile is a radio (Wi-Fi, Bluetooth), the circle switches it and
     // the rest of the pill opens the list.
     property bool badgeClickable: false
-    // Set by the tile grid: the id used for reordering and resizing.
-    property string tileId: ""
     signal clicked()
     signal badgeClicked()
 
@@ -724,63 +614,19 @@ ColumnLayout {
       font.family: cc.iconFont
       font.pixelSize: 14
     }
-    // Reordering and resizing. The drag moves an invisible ghost rather than
-    // the tile, so the grid never shifts under the pointer; the slot's DropArea
-    // does the reorder on release. The tile's right edge is the resize handle:
-    // drag it out to make the tile wide, back in to make it narrow.
-    Item {
-      id: dragGhost
-      width: t.width
-      height: t.height
-      visible: tileMouse.drag.active
-      z: 200
-      Rectangle {
-        anchors.fill: parent
-        radius: t.radius
-        color: t.color
-        border.width: 1
-        border.color: cc.border
-        opacity: 0.92
-      }
-    }
-    Item { id: widthProxy; width: 1; height: 1; visible: false }
-
     MouseArea {
       id: tileMouse
       anchors.fill: parent
       enabled: t.available
       cursorShape: Qt.PointingHandCursor
-      drag.target: t.tileId !== "" ? dragGhost : null
-      drag.axis: Drag.XAndYAxis
-      onReleased: {
-        if (t.tileId === "") return
-        if (dragGhost.x !== 0 || dragGhost.y !== 0) cc.dropTile(t.tileId, t, dragGhost)
-        dragGhost.x = 0
-        dragGhost.y = 0
-      }
-      onClicked: if (!cc.arranging) t.clicked()
-    }
-
-    MouseArea {
-      id: edgeMouse
-      visible: t.tileId !== ""
-      anchors.right: parent.right
-      anchors.top: parent.top
-      anchors.bottom: parent.bottom
-      width: 12
-      cursorShape: Qt.SizeHorCursor
-      drag.target: widthProxy
-      drag.axis: Drag.XAxis
-      onPressed: widthProxy.x = 0
-      onPositionChanged: if (t.tileId !== "" && edgeMouse.drag.active) cc.resizeTileLive(t.tileId, widthProxy.x)
-      onReleased: if (t.tileId !== "" && Math.abs(widthProxy.x) <= 20) cc.toggleWide(t.tileId)
+      onClicked: t.clicked()
     }
 
     MouseArea {
       anchors.fill: badge
       enabled: t.available && t.badgeClickable
       cursorShape: Qt.PointingHandCursor
-      onClicked: if (!cc.arranging) t.badgeClicked()
+      onClicked: t.badgeClicked()
     }
   }
 
@@ -1050,8 +896,9 @@ ColumnLayout {
 
       // ---------- Toggles ----------
 
-      Component {
-        id: wifiTile
+      RowLayout {
+        Layout.fillWidth: true
+        spacing: 8
         CcTile {
           readonly property bool wifi: !!cc.wifiDevice
           icon: wifi ? (Networking.wifiEnabled ? "󰖩" : "󰖪") : "󰈀"
@@ -1067,23 +914,6 @@ ColumnLayout {
           onBadgeClicked: Networking.wifiEnabled = !Networking.wifiEnabled
           onClicked: cc.host.view = "wifi"
         }
-      }
-      Component {
-        id: btTile
-        CcTile {
-          icon: cc.btAdapter && cc.btAdapter.enabled ? "󰂯" : "󰂲"
-          title: "Bluetooth"
-          subtitle: !cc.btAdapter ? "Unavailable" : !cc.btAdapter.enabled ? "Off" : cc.btConnected ? String(cc.btConnected.name || "Connected") : "On"
-          checked: !!(cc.btAdapter && cc.btAdapter.enabled)
-          available: !!cc.btAdapter
-          chevron: !!cc.btAdapter
-          badgeClickable: !!cc.btAdapter
-          onBadgeClicked: if (cc.btAdapter) cc.btAdapter.enabled = !cc.btAdapter.enabled
-          onClicked: cc.host.view = "bluetooth"
-        }
-      }
-      Component {
-        id: focusTile
         CcTile {
           icon: "󰍶"
           title: "Focus"
@@ -1096,66 +926,32 @@ ColumnLayout {
             cc.host.announce(next ? "Focus on" : "Focus off")
           }
         }
+        CcRound {
+          icon: "󰒓"
+          onClicked: cc.host.view = "settings"
+        }
       }
-      Component {
-        id: gameTile
+
+      RowLayout {
+        Layout.fillWidth: true
+        spacing: 8
+        CcTile {
+          icon: cc.btAdapter && cc.btAdapter.enabled ? "󰂯" : "󰂲"
+          title: "Bluetooth"
+          subtitle: !cc.btAdapter ? "Unavailable" : !cc.btAdapter.enabled ? "Off" : cc.btConnected ? String(cc.btConnected.name || "Connected") : "On"
+          checked: !!(cc.btAdapter && cc.btAdapter.enabled)
+          available: !!cc.btAdapter
+          chevron: !!cc.btAdapter
+          badgeClickable: !!cc.btAdapter
+          onBadgeClicked: if (cc.btAdapter) cc.btAdapter.enabled = !cc.btAdapter.enabled
+          onClicked: cc.host.view = "bluetooth"
+        }
         CcTile {
           icon: "󰊗"
           title: "Game Mode"
           subtitle: cc.gameMode ? "On" : "Off"
           checked: cc.gameMode
           onClicked: cc.setGameMode(!cc.gameMode)
-        }
-      }
-
-      // Two columns of tiles, in the user's order; a wide tile spans both.
-      GridLayout {
-        id: tileGrid
-        Layout.fillWidth: true
-        columns: 2
-        columnSpacing: 8
-        rowSpacing: 8
-        Repeater {
-          model: cc.arranging ? cc.draftOrder : cc.tileIds
-          delegate: Item {
-            id: tileSlot
-            required property var modelData
-            Layout.fillWidth: true
-            Layout.preferredHeight: 52
-            Layout.columnSpan: (cc.arranging ? cc.draftIsWide(tileSlot.modelData) : cc.isTileWide(tileSlot.modelData)) ? 2 : 1
-
-            Loader {
-              id: slotLoader
-              anchors.fill: parent
-              sourceComponent: cc.tileComponent(tileSlot.modelData)
-              onLoaded: if (item) item.tileId = tileSlot.modelData
-            }
-            // Editing outline while arranging.
-            Rectangle {
-              anchors.fill: parent
-              radius: 26
-              color: "transparent"
-              border.width: 1
-              border.color: cc.host.withAlpha(cc.accent, 0.7)
-              visible: cc.arranging
-            }
-          }
-        }
-      }
-
-      // The round buttons moved here when the tiles became a grid.
-      RowLayout {
-        Layout.fillWidth: true
-        spacing: 8
-        Item { Layout.fillWidth: true }
-        CcRound {
-          icon: cc.arranging ? "󰅖" : "󰏫"
-          checked: cc.arranging
-          onClicked: cc.arranging ? cc.cancelArrange() : cc.beginArrange()
-        }
-        CcRound {
-          icon: "󰒓"
-          onClicked: cc.host.view = "settings"
         }
         CcRound {
           icon: "󰖔"
@@ -1167,60 +963,6 @@ ColumnLayout {
             // Bring the saved warmth back when the filter comes on.
             if (next) { cc.nightAttempts = 0; nightApply.restart() }
             cc.host.announce(next ? "Night light on" : "Night light off")
-          }
-        }
-      }
-
-      // Arrange bar: drag tiles to move them, drag an edge to resize, then
-      // Save the draft (or Cancel it).
-      Rectangle {
-        Layout.fillWidth: true
-        Layout.preferredHeight: 42
-        visible: cc.arranging
-        radius: 13
-        color: cc.well
-
-        RowLayout {
-          anchors.fill: parent
-          anchors.margins: 4
-          spacing: 6
-          Text {
-            Layout.fillWidth: true
-            Layout.leftMargin: 8
-            text: "Drag a tile to move it, drag its edge to resize"
-            color: cc.textMuted
-            font.family: "Adwaita Sans"
-            font.pixelSize: 11
-            elide: Text.ElideRight
-          }
-          Rectangle {
-            Layout.preferredWidth: 86
-            Layout.fillHeight: true
-            radius: 10
-            color: cc.tile
-            Text {
-              anchors.centerIn: parent
-              text: "Cancel"
-              color: cc.text
-              font.family: "Adwaita Sans"
-              font.pixelSize: 12
-            }
-            MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onClicked: cc.cancelArrange() }
-          }
-          Rectangle {
-            Layout.preferredWidth: 86
-            Layout.fillHeight: true
-            radius: 10
-            color: cc.accent
-            Text {
-              anchors.centerIn: parent
-              text: "Save"
-              color: cc.accentInk
-              font.family: "Adwaita Sans"
-              font.pixelSize: 12
-              font.weight: Font.DemiBold
-            }
-            MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onClicked: cc.saveArrange() }
           }
         }
       }
