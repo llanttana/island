@@ -25,16 +25,47 @@ ListPicker {
     return host.shelf.filter(function(item) { return ShelfModel.searchText(item).indexOf(q) !== -1 })
   }
   onChosen: function(entry) { copy(entry) }
-  // Esc closes the tile menu first; everything else is the picker's own.
+  // Esc steps back through the tile menu, then a multi-selection, and only
+  // then lets the picker go back a view.
   onKeyFilter: function(event) {
-    if (event.key === Qt.Key_Escape && shelf.menuEntry !== null) {
-      shelf.closeMenu()
-      event.accepted = true
-    }
+    if (event.key !== Qt.Key_Escape) return
+    if (shelf.menuEntry !== null) { shelf.closeMenu(); event.accepted = true }
+    else if (shelf.selection.length > 0) { shelf.clearSelection(); event.accepted = true }
   }
-  onActiveChanged: if (!active) closeMenu()
+  onActiveChanged: if (!active) { closeMenu(); clearSelection() }
 
   readonly property var glyphs: ({ image: "󰋩", file: "󰈔", url: "󰖟", text: "󰆒" })
+
+  // ---------- Multi-select ----------
+  //
+  // Ctrl+click toggles a tile; a drag or a menu action then works on the whole
+  // selection. Keys are the same identity ShelfModel dedupes by.
+  property var selection: []
+  property bool ripdragAvailable: false
+  function isSelectedItem(item) {
+    return !!item && shelf.selection.indexOf(ShelfModel.itemKey(item)) !== -1
+  }
+  function toggleSelected(item) {
+    if (!item) return
+    var key = ShelfModel.itemKey(item)
+    var i = shelf.selection.indexOf(key)
+    shelf.selection = i === -1
+      ? shelf.selection.concat([key])
+      : shelf.selection.slice(0, i).concat(shelf.selection.slice(i + 1))
+  }
+  function clearSelection() { shelf.selection = [] }
+  // Rows a drag or menu action covers: the whole selection when the grabbed
+  // tile is part of it, otherwise just that tile.
+  function dragRows(row) {
+    if (!row) return []
+    if (shelf.selection.length > 1 && shelf.isSelectedItem(row)) {
+      var out = []
+      for (var i = 0; i < shelf.host.shelf.length; i++)
+        if (shelf.isSelectedItem(shelf.host.shelf[i])) out.push(shelf.host.shelf[i])
+      return out
+    }
+    return [row]
+  }
 
   // ---------- Actions ----------
   //
@@ -52,6 +83,23 @@ ListPicker {
       copier.command = ["bash", "-c", 'printf "%s\\n" "$1" | wl-copy --type text/uri-list', "--", fileUri(row.path)]
     else
       copier.command = ["bash", "-c", 'printf "%s" "$1" | wl-copy', "--", String(row.text || "")]
+    copier.startDetached()
+  }
+
+  // Same as copy(), but for a whole selection: files go as one uri-list, text
+  // as one block.
+  function copyRows(rows) {
+    if (!rows || !rows.length) return
+    if (rows.length === 1 && rows[0].kind === "image") { copy(rows[0]); return }
+    var files = [], texts = []
+    for (var i = 0; i < rows.length; i++) {
+      if (rows[i].kind === "file" || rows[i].kind === "image") files.push(fileUri(rows[i].path))
+      else texts.push(String(rows[i].text || ""))
+    }
+    if (files.length)
+      copier.command = ["bash", "-c", 'printf "%s" "$1" | wl-copy --type text/uri-list', "--", files.join("\r\n") + "\r\n"]
+    else
+      copier.command = ["bash", "-c", 'printf "%s" "$1" | wl-copy', "--", texts.join("\n")]
     copier.startDetached()
   }
 
@@ -77,24 +125,51 @@ ListPicker {
     saver.startDetached()
   }
 
-  // What the platform drag hands over. Files and images travel as a
-  // text/uri-list so any app can take them as a file. Plain text offers only
-  // text/* (adding a uri-list would let a target paste the path instead), while
-  // a link offers both because apps differ on which one they prefer.
+  // Fallback for apps that refuse the island's own drag: ripdrag opens a small
+  // source window that does the wl_data_device dance for us.
+  Process { id: ripdrag }
+  Process {
+    id: ripdragProbe
+    command: ["bash", "-c", "command -v ripdrag"]
+    running: true
+    onExited: function(code) { shelf.ripdragAvailable = (code === 0) }
+  }
+  function dragOut(rows) {
+    if (!rows || !rows.length) return
+    var paths = []
+    for (var i = 0; i < rows.length; i++)
+      if (rows[i].kind === "file" || rows[i].kind === "image") paths.push(String(rows[i].path || ""))
+    if (!paths.length) return
+    ripdrag.command = ["ripdrag", "-x"].concat(paths)
+    ripdrag.startDetached()
+  }
+
+  // A file path as a properly percent-encoded file:// URI.
   function fileUri(path) {
     var parts = String(path || "").split("/")
     for (var i = 0; i < parts.length; i++) parts[i] = encodeURIComponent(parts[i])
     return "file://" + parts.join("/")
   }
-  function mimeFor(row) {
-    if (!row) return ({})
-    if (row.kind === "image" || row.kind === "file")
-      return ({ "text/uri-list": fileUri(row.path) + "\r\n" })
-    var text = String(row.text || "")
-    if (row.kind === "url")
+
+  // The drag payload for a set of rows. Files and images travel as one
+  // text/uri-list; plain text offers only text/* (adding a uri-list would let a
+  // target paste the path instead), while a link offers both because apps
+  // differ on which one they prefer.
+  function mimeForRows(rows) {
+    if (!rows || !rows.length) return ({})
+    var files = [], texts = []
+    for (var i = 0; i < rows.length; i++) {
+      if (rows[i].kind === "file" || rows[i].kind === "image") files.push(fileUri(rows[i].path))
+      else texts.push(String(rows[i].text || ""))
+    }
+    if (files.length)
+      return ({ "text/uri-list": files.join("\r\n") + "\r\n" })
+    var text = texts.join("\n")
+    if (rows[0].kind === "url")
       return ({ "text/uri-list": text + "\r\n", "text/plain": text, "text/plain;charset=utf-8": text })
     return ({ "text/plain": text, "text/plain;charset=utf-8": text })
   }
+  function mimeFor(row) { return mimeForRows(row ? [row] : []) }
 
   // ---------- Tile menu ----------
   property var menuEntry: null
@@ -110,13 +185,16 @@ ListPicker {
   readonly property var menuActions: {
     var e = menuEntry
     if (!e) return []
+    var many = shelf.dragRows(e).length > 1
     var actions = []
     if (e.kind === "image") {
-      actions.push({ id: "copy", icon: "󰆏", label: "Copy image" })
+      actions.push({ id: "copy", icon: "󰆏", label: many ? "Copy images" : "Copy image" })
       actions.push({ id: "open", icon: "󰋩", label: "Open" })
+      if (shelf.ripdragAvailable) actions.push({ id: "dragout", icon: "󰇚", label: "Drag out…" })
     } else if (e.kind === "file") {
-      actions.push({ id: "copy", icon: "󰆏", label: "Copy file" })
+      actions.push({ id: "copy", icon: "󰆏", label: many ? "Copy files" : "Copy file" })
       actions.push({ id: "open", icon: "󰈔", label: "Open" })
+      if (shelf.ripdragAvailable) actions.push({ id: "dragout", icon: "󰇚", label: "Drag out…" })
     } else if (e.kind === "url") {
       actions.push({ id: "copy", icon: "󰆏", label: "Copy link" })
       actions.push({ id: "open", icon: "󰖟", label: "Open link" })
@@ -124,17 +202,19 @@ ListPicker {
       actions.push({ id: "copy", icon: "󰆏", label: "Copy text" })
       actions.push({ id: "save", icon: "󰈔", label: "Save as .txt" })
     }
-    actions.push({ id: "remove", icon: "󰅖", label: "Remove from shelf" })
+    actions.push({ id: "remove", icon: "󰅖", label: many ? "Remove selected" : "Remove from shelf" })
     if (shelf.host.shelf.length > 1) actions.push({ id: "clear", icon: "󰩹", label: "Clear shelf" })
     return actions
   }
   function runMenuAction(id) {
     var e = menuEntry
-    if (id === "copy") copy(e)
+    var rows = shelf.dragRows(e)
+    if (id === "copy") copyRows(rows)
     else if (id === "open") open(e)
     else if (id === "save") saveText(e)
-    else if (id === "remove") remove(e)
-    else if (id === "clear") shelf.host.shelfClear()
+    else if (id === "dragout") dragOut(rows)
+    else if (id === "remove") { for (var i = 0; i < rows.length; i++) remove(rows[i]); shelf.clearSelection() }
+    else if (id === "clear") { shelf.host.shelfClear(); shelf.clearSelection() }
     closeMenu()
   }
 
@@ -145,6 +225,9 @@ ListPicker {
       property bool selected: false
       readonly property bool isImage: !!entry && entry.kind === "image"
       readonly property string glyph: shelf.glyphs[entry ? entry.kind : ""] || shelf.glyphs.text
+      // Highlighted either as the picker's current tile or as part of the
+      // Ctrl+click selection.
+      readonly property bool marked: selected || shelf.isSelectedItem(entry)
 
       // Every tile is a card, so an empty cell reads as empty space instead of
       // a stray icon and the selected one does not look larger than the rest.
@@ -153,11 +236,11 @@ ListPicker {
         anchors.fill: parent
         anchors.margins: 3
         radius: 12
-        color: tile.selected
+        color: tile.marked
           ? shelf.host.withAlpha(shelf.host.colorAccent, 0.16)
           : shelf.host.withAlpha(shelf.host.colorText, 0.05)
         border.width: 1
-        border.color: tile.selected
+        border.color: tile.marked
           ? shelf.host.withAlpha(shelf.host.colorAccent, 0.6)
           : shelf.host.withAlpha(shelf.host.colorText, 0.08)
         Behavior on color { ColorAnimation { duration: 130 * shelf.host.motionScale; easing.type: Easing.OutQuad } }
@@ -218,10 +301,14 @@ ListPicker {
         // Copy or link only: Move would let a file manager relocate the file
         // the shelf is only pointing at.
         Drag.supportedActions: Qt.CopyAction | Qt.LinkAction
-        Drag.mimeData: shelf.mimeFor(tile.entry)
+        Drag.mimeData: shelf.mimeForRows(shelf.dragRows(tile.entry))
         Drag.hotSpot: Qt.point(width / 2, height / 2)
-        Drag.onDragStarted: shelf.host.tileDragging = true
+        Drag.onDragStarted: {
+          console.log("SHELF drag started rows=" + shelf.dragRows(tile.entry).length)
+          shelf.host.tileDragging = true
+        }
         Drag.onDragFinished: function(dropAction) {
+          console.log("SHELF drag finished action=" + dropAction)
           shelf.host.tileDragging = false
           // The other app took it: get the shelf out of the way again.
           if (dropAction !== Qt.IgnoreAction) shelf.host.view = "rest"
@@ -240,7 +327,13 @@ ListPicker {
         }
         onReleased: shelf.host.tileDragging = false
         onCanceled: shelf.host.tileDragging = false
-        onClicked: shelf.copy(tile.entry)
+        // Ctrl+click builds a multi-selection; a plain click clears it and
+        // copies the tile.
+        onClicked: function(mouse) {
+          if (mouse.modifiers & Qt.ControlModifier) { shelf.toggleSelected(tile.entry); return }
+          shelf.clearSelection()
+          shelf.copy(tile.entry)
+        }
       }
 
       // Right: the tile's menu.
@@ -250,6 +343,25 @@ ListPicker {
         onClicked: function(mouse) {
           var p = tile.mapToItem(shelf, mouse.x, mouse.y)
           shelf.openMenu(tile.entry, p.x, p.y)
+        }
+      }
+
+      // Multi-select check, opposite the remove button.
+      Rectangle {
+        visible: shelf.isSelectedItem(tile.entry)
+        anchors.left: card.left
+        anchors.top: card.top
+        anchors.margins: 5
+        width: 16
+        height: 16
+        radius: 8
+        color: shelf.host.colorAccent
+        Text {
+          anchors.centerIn: parent
+          text: "󰄬"
+          color: shelf.host.colorAccentText
+          font.family: shelf.host.fontFamily
+          font.pixelSize: 11
         }
       }
 
