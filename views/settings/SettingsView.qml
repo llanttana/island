@@ -38,6 +38,7 @@ ColumnLayout {
     s.clockSeconds = false
     s.notch = false
     s.solidBlack = false
+    s.keepShelf = false
     s.workspaceDots = true
     s.batteryBadge = true
     s.mediaPill = true
@@ -501,6 +502,20 @@ ColumnLayout {
           SettingsSwitch {
             checked: settingsView.settings.autoMonitorHot
             onToggled: function(on) { settingsView.settings.autoMonitorHot = on }
+          }
+        }
+      }
+
+      SettingsGroup {
+        visible: settingsView.tab === "system"
+        title: "Shelf"
+        SettingsRow {
+          label: "Keep Shelf"
+          detail: "Restore parked items after a shell restart"
+          last: true
+          SettingsSwitch {
+            checked: settingsView.settings.keepShelf
+            onToggled: function(on) { settingsView.settings.keepShelf = on }
           }
         }
       }

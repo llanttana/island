@@ -155,6 +155,7 @@ Item {
       property int nightTemp: 4000
       property bool notch: false
       property bool solidBlack: false
+      property bool keepShelf: false
       property bool downloads: true
       property bool clipboard: true
       property bool systemUpdates: true
@@ -251,6 +252,52 @@ Item {
     shelf = ShelfModel.removeKey(shelf, ShelfModel.itemKey(item))
   }
   function shelfClear() { shelf = [] }
+
+  // ---------- Shelf persistence ----------
+  //
+  // The shelf is memory-only by default, so a restart empties it. With the
+  // "Keep Shelf" setting on it is mirrored to a small JSON file and restored
+  // on the next launch.
+  property bool shelfRestoring: false
+  readonly property string shelfPath: home + "/.local/state/omarchy/island-shelf.json"
+  function parseShelf(raw) {
+    try {
+      var data = JSON.parse(String(raw || "[]"))
+      if (!Array.isArray(data)) return []
+      var out = []
+      for (var i = 0; i < data.length; i++) {
+        var item = ShelfModel.normalize(data[i])
+        if (item) out.push(item)
+      }
+      return out
+    } catch (e) {
+      return []
+    }
+  }
+  function saveShelf() {
+    shelfFile.setText(JSON.stringify(root.shelf, null, 2) + "\n")
+  }
+  onShelfChanged: {
+    if (!root.shelfRestoring && root.settings.keepShelf) root.saveShelf()
+  }
+  Connections {
+    target: root.settings
+    function onKeepShelfChanged() { if (root.settings.keepShelf) root.saveShelf() }
+  }
+  FileView {
+    id: shelfFile
+    path: root.shelfPath
+    atomicWrites: true
+    printErrors: false
+    onLoaded: {
+      // An in-memory shelf (a plugin reload, not a fresh start) wins.
+      if (root.shelf.length > 0) return
+      root.shelfRestoring = true
+      root.shelf = root.parseShelf(text())
+      root.shelfRestoring = false
+    }
+    onLoadFailed: function(error) { if (error !== FileViewError.FileNotFound) return }
+  }
   function shelfAddText(raw) {
     var items = ShelfModel.fromText(raw)
     if (!items.length) return
