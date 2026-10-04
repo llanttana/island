@@ -12,11 +12,11 @@ ListPicker {
   id: shelf
   placeholder: "Search shelf"
   emptyText: shelf.host.shelf.length ? "Nothing matches" : "Drag files, links or text here"
-  // Grid of tiles: wide enough for a thumbnail and a name, tall enough for both.
-  rowHeight: 96
-  visibleRows: 4
+  // Grid of tiles: small cards so a good number of items fit at once.
+  rowHeight: 78
+  visibleRows: 5
   minRows: 2
-  columns: 3
+  columns: 4
   // The tiles are cards, so they draw their own selection.
   showHighlight: false
   items: {
@@ -234,8 +234,8 @@ ListPicker {
       Rectangle {
         id: card
         anchors.fill: parent
-        anchors.margins: 3
-        radius: 12
+        anchors.margins: 2
+        radius: 10
         color: tile.marked
           ? shelf.host.withAlpha(shelf.host.colorAccent, 0.16)
           : shelf.host.withAlpha(shelf.host.colorText, 0.05)
@@ -246,47 +246,56 @@ ListPicker {
         Behavior on color { ColorAnimation { duration: 130 * shelf.host.motionScale; easing.type: Easing.OutQuad } }
         Behavior on border.color { ColorAnimation { duration: 130 * shelf.host.motionScale; easing.type: Easing.OutQuad } }
 
-        ClippingRectangle {
-          id: thumb
-          anchors.horizontalCenter: parent.horizontalCenter
-          anchors.top: parent.top
-          anchors.topMargin: 9
-          width: 44
-          height: 44
-          radius: 10
-          color: shelf.host.withAlpha(shelf.host.colorText, 0.08)
-          Image {
-            id: shelfThumb
-            anchors.fill: parent
-            source: tile.isImage && tile.entry.path ? "file://" + tile.entry.path : ""
-            sourceSize.width: 88
-            sourceSize.height: 88
-            fillMode: Image.PreserveAspectCrop
-            asynchronous: true
-            visible: status === Image.Ready
+        // Thumbnail and name, centred in the card so the compact tile still
+        // looks balanced.
+        Item {
+          id: content
+          anchors.centerIn: parent
+          width: parent.width
+          height: thumb.height + 4 + name.implicitHeight
+
+          ClippingRectangle {
+            id: thumb
+            anchors.top: parent.top
+            anchors.horizontalCenter: parent.horizontalCenter
+            width: 34
+            height: 34
+            radius: 8
+            color: shelf.host.withAlpha(shelf.host.colorText, 0.08)
+            Image {
+              id: shelfThumb
+              anchors.fill: parent
+              source: tile.isImage && tile.entry.path ? "file://" + tile.entry.path : ""
+              sourceSize.width: 68
+              sourceSize.height: 68
+              fillMode: Image.PreserveAspectCrop
+              asynchronous: true
+              visible: status === Image.Ready
+            }
+            Text {
+              anchors.centerIn: parent
+              visible: !tile.isImage || shelfThumb.status !== Image.Ready
+              text: tile.glyph
+              color: shelf.host.colorMuted
+              font.family: shelf.host.fontFamily
+              font.pixelSize: 16
+            }
           }
           Text {
-            anchors.centerIn: parent
-            visible: !tile.isImage || shelfThumb.status !== Image.Ready
-            text: tile.glyph
-            color: shelf.host.colorMuted
-            font.family: shelf.host.fontFamily
-            font.pixelSize: 20
+            id: name
+            anchors.top: thumb.bottom
+            anchors.topMargin: 4
+            anchors.horizontalCenter: parent.horizontalCenter
+            width: parent.width - 10
+            horizontalAlignment: Text.AlignHCenter
+            text: String(tile.entry ? tile.entry.name || "" : "")
+            textFormat: Text.PlainText
+            elide: Text.ElideMiddle
+            maximumLineCount: 1
+            color: shelf.host.colorText
+            font.family: "Adwaita Sans"
+            font.pixelSize: 10
           }
-        }
-        Text {
-          anchors.horizontalCenter: parent.horizontalCenter
-          anchors.top: thumb.bottom
-          anchors.topMargin: 5
-          width: parent.width - 14
-          horizontalAlignment: Text.AlignHCenter
-          text: String(tile.entry ? tile.entry.name || "" : "")
-          textFormat: Text.PlainText
-          elide: Text.ElideMiddle
-          maximumLineCount: 1
-          color: shelf.host.colorText
-          font.family: "Adwaita Sans"
-          font.pixelSize: 11
         }
       }
 
@@ -347,17 +356,17 @@ ListPicker {
         visible: shelf.isSelectedItem(tile.entry)
         anchors.left: card.left
         anchors.top: card.top
-        anchors.margins: 5
-        width: 16
-        height: 16
-        radius: 8
+        anchors.margins: 4
+        width: 14
+        height: 14
+        radius: 7
         color: shelf.host.colorAccent
         Text {
           anchors.centerIn: parent
           text: "󰄬"
           color: shelf.host.colorAccentText
           font.family: shelf.host.fontFamily
-          font.pixelSize: 11
+          font.pixelSize: 10
         }
       }
 
@@ -367,15 +376,15 @@ ListPicker {
         visible: tile.selected
         anchors.right: card.right
         anchors.top: card.top
-        anchors.margins: 5
+        anchors.margins: 4
         text: "󰅖"
         color: removeMouse.containsMouse ? shelf.host.colorText : shelf.host.colorMuted
         font.family: shelf.host.fontFamily
-        font.pixelSize: 12
+        font.pixelSize: 11
         MouseArea {
           id: removeMouse
           anchors.fill: parent
-          anchors.margins: -7
+          anchors.margins: -6
           hoverEnabled: true
           cursorShape: Qt.PointingHandCursor
           onClicked: shelf.remove(tile.entry)
