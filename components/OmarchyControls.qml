@@ -119,10 +119,72 @@ Item {
     gameModeWrite.running = true
   }
 
+  // ---------- Keyboard layout (through Hyprland) ----------
+  //
+  // Hyprland reports more than keyboards as keyboards, and `main` is no help:
+  // fcitx5's virtual keyboard takes it, and when that unbinds it lands on a
+  // power button. Keep the real keyboards and read the furthest-advanced one,
+  // which is the one being typed on (the same rule the stock widget uses).
+  property string keyboardLayout: ""
+  property string keyboardDevice: ""
+  readonly property var untypedKeyboard: /^(hl-virtual-keyboard|power-button|sleep-button|lid-switch|video-bus)/
+  function isTypedKeyboard(name) { return !untypedKeyboard.test(String(name || "")) }
+  function pickKeyboard(boards) {
+    var typed = []
+    for (var i = 0; i < boards.length; i++)
+      if (boards[i] && isTypedKeyboard(boards[i].name)) typed.push(boards[i])
+    if (typed.length === 0) return null
+    var best = typed[0]
+    for (var j = 1; j < typed.length; j++)
+      if (Number(typed[j].active_layout_index || 0) > Number(best.active_layout_index || 0)) best = typed[j]
+    return best
+  }
+
+  Process {
+    id: layoutRead
+    command: ["hyprctl", "devices", "-j"]
+    stdout: StdioCollector {
+      waitForEnd: true
+      onStreamFinished: {
+        try {
+          var boards = JSON.parse(String(text || "{}")).keyboards || []
+          var chosen = controls.pickKeyboard(boards)
+          controls.keyboardDevice = chosen ? String(chosen.name || "") : ""
+          controls.keyboardLayout = chosen ? String(chosen.active_keymap || "") : ""
+        } catch (e) {
+          controls.keyboardDevice = ""
+          controls.keyboardLayout = ""
+        }
+      }
+    }
+  }
+  Process { id: layoutSwitch; onExited: if (!layoutRead.running) layoutRead.running = true }
+
+  // The chip cycles layouts.
+  function cycleLayout() {
+    if (controls.keyboardDevice === "") return
+    layoutSwitch.command = ["hyprctl", "switchxkblayout", controls.keyboardDevice, "next"]
+    layoutSwitch.running = true
+  }
+
+  // ---------- Screen recording ----------
+  property bool recording: false
+  Process {
+    id: recordingRead
+    // Same check the stock indicator uses.
+    command: ["pgrep", "--quiet", "-f", "^gpu-screen-recorder"]
+    onExited: function(code) { controls.recording = code === 0 }
+  }
+  // Recording is started and stopped by the panel (through Omarchy's menu and
+  // capture helper); this only keeps the state honest.
+  function setRecording(on) { controls.recording = !!on }
+
   // Called when the panel opens.
   function refresh() {
     if (!brightnessRead.running && host.hasHelper("omarchy-brightness-display")) brightnessRead.running = true
     if (!profilesRead.running && host.hasHelper("omarchy-powerprofiles-list")) profilesRead.running = true
     if (!gameModeRead.running) gameModeRead.running = true
+    if (!layoutRead.running) layoutRead.running = true
+    if (!recordingRead.running) recordingRead.running = true
   }
 }

@@ -87,49 +87,6 @@ ColumnLayout {
   // --- System: keyboard layout, recording, stay awake, tray ---
   readonly property var idleService: host.shell ? host.shell.firstPartyServiceFor("omarchy.idle") : null
   readonly property bool stayAwake: idleService ? !!idleService.stayAwake : false
-  property string keyboardLayout: ""
-  property string keyboardDevice: ""
-  // Hyprland reports more than keyboards as keyboards, and `main` is no help:
-  // fcitx5's virtual keyboard takes it, and when that unbinds it lands on a
-  // power button. Keep the real keyboards and read the furthest-advanced one,
-  // which is the one being typed on (the same rule the stock widget uses).
-  readonly property var untypedKeyboard: /^(hl-virtual-keyboard|power-button|sleep-button|lid-switch|video-bus)/
-  function isTypedKeyboard(name) { return !untypedKeyboard.test(String(name || "")) }
-  function pickKeyboard(boards) {
-    var typed = []
-    for (var i = 0; i < boards.length; i++)
-      if (boards[i] && isTypedKeyboard(boards[i].name)) typed.push(boards[i])
-    if (typed.length === 0) return null
-    var best = typed[0]
-    for (var j = 1; j < typed.length; j++)
-      if (Number(typed[j].active_layout_index || 0) > Number(best.active_layout_index || 0)) best = typed[j]
-    return best
-  }
-  Process {
-    id: layoutRead
-    command: ["hyprctl", "devices", "-j"]
-    stdout: StdioCollector {
-      waitForEnd: true
-      onStreamFinished: {
-        try {
-          var boards = JSON.parse(String(text || "{}")).keyboards || []
-          var chosen = cc.pickKeyboard(boards)
-          cc.keyboardDevice = chosen ? String(chosen.name || "") : ""
-          cc.keyboardLayout = chosen ? String(chosen.active_keymap || "") : ""
-        } catch (e) {
-          cc.keyboardDevice = ""
-          cc.keyboardLayout = ""
-        }
-      }
-    }
-  }
-  property bool recording: false
-  Process {
-    id: recordingRead
-    // Same check the stock indicator uses.
-    command: ["pgrep", "--quiet", "-f", "^gpu-screen-recorder"]
-    onExited: function(code) { cc.recording = code === 0 }
-  }
   readonly property var trayItems: SystemTray.items ? SystemTray.items.values : []
 
   readonly property bool hasIndicators: cc.recording || cc.dnd || cc.nightOn || cc.stayAwake
@@ -146,6 +103,10 @@ ColumnLayout {
   readonly property bool brightnessAvailable: controls.brightnessAvailable
   readonly property int brightness: controls.brightness
   readonly property bool gameMode: controls.gameMode
+  readonly property string keyboardLayout: controls.keyboardLayout
+  readonly property string keyboardDevice: controls.keyboardDevice
+  readonly property bool recording: controls.recording
+  function cycleLayout() { controls.cycleLayout() }
   function setProfile(name) { controls.setProfile(name) }
   function setGameMode(on) { controls.setGameMode(on) }
   function setBrightness(v) { controls.setBrightness(v) }
@@ -200,14 +161,6 @@ ColumnLayout {
   function closeTrayMenu() {
     cc.trayStack = []
     cc.trayMenuItem = null
-  }
-
-  // Keyboard layout: the chip cycles layouts through Hyprland.
-  Process { id: layoutSwitch; onExited: if (!layoutRead.running) layoutRead.running = true }
-  function cycleLayout() {
-    if (cc.keyboardDevice === "") return
-    layoutSwitch.command = ["hyprctl", "switchxkblayout", cc.keyboardDevice, "next"]
-    layoutSwitch.running = true
   }
 
   Timer {
@@ -303,7 +256,7 @@ ColumnLayout {
   function stopRecording() {
     recordingStop.command = ["omarchy-capture-screenrecording", "--stop-recording"]
     recordingStop.running = true
-    cc.recording = false
+    cc.controls.setRecording(false)
   }
   function toggleDnd() {
     if (!cc.notifications) return
@@ -338,8 +291,6 @@ ColumnLayout {
     if (!isNaN(storedTemp) && storedTemp >= cc.nightMin && storedTemp <= cc.nightMax)
       cc.nightTemp = Math.round(storedTemp)
     cc.controls.refresh()
-    if (!layoutRead.running) layoutRead.running = true
-    if (!recordingRead.running) recordingRead.running = true
     cc.status.refresh()
     cc.weather.refresh()
   }
