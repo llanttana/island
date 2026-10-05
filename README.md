@@ -169,11 +169,14 @@ disk in the clear.
 
 - **Weather.** Island reads the location Omarchy stores in
   `~/.local/state/omarchy/settings/weather.json` and sends its latitude and
-  longitude to [`wttr.in`](https://wttr.in). The control center's weather chip
-  refreshes at most once every fifteen minutes while the control center is open,
-  and the weather page asks for a three-day forecast when you open it. There is
-  no setting to turn this off yet; clearing the location file, or blocking
-  `wttr.in` in your firewall or DNS, stops the requests.
+  longitude to [Open-Meteo](https://open-meteo.com), falling back to
+  [`wttr.in`](https://wttr.in) when Open-Meteo cannot be reached. Both receive
+  the coordinates and nothing else. The last answer is cached in
+  `~/.cache/omarchy/island-weather.json`, and the island only asks again once
+  that answer is more than fifteen minutes old, so the weather survives a
+  restart without a request. There is no setting to turn this off yet; clearing
+  the location file, or blocking both hosts in your firewall or DNS, stops the
+  requests.
 - **Ask AI.** A question you type into the launcher is handed to the Claude Code
   or Codex CLI you are signed in to and answered by that service. Nothing is sent
   unless you ask a question.

@@ -201,46 +201,9 @@ ColumnLayout {
     }
   }
 
-  // Weather: the location Omarchy stores, then wttr.in for just the current
-  // temperature (a few bytes, so it is cheap to refresh).
-  property string weatherQuery: ""
-  property string weatherText: ""
-  property double weatherAt: 0
-  FileView {
-    id: weatherLocation
-    path: Quickshell.env("HOME") + "/.local/state/omarchy/settings/weather.json"
-    watchChanges: true
-    printErrors: false
-    onLoaded: {
-      try {
-        var d = JSON.parse(text())
-        cc.weatherQuery = (d.latitude !== undefined && d.longitude !== undefined)
-          ? String(d.latitude) + "," + String(d.longitude)
-          : String(d.name || "")
-      } catch (e) {
-        cc.weatherQuery = ""
-      }
-    }
-    onFileChanged: reload()
-  }
-  Process {
-    id: weatherRead
-    command: ["curl", "-fsS", "--max-time", "8", "https://wttr.in/" + encodeURIComponent(cc.weatherQuery) + "?format=%t"]
-    stdout: StdioCollector {
-      waitForEnd: true
-      onStreamFinished: {
-        var t = String(text || "").trim()
-        if (t === "") return
-        cc.weatherText = t
-        cc.weatherAt = Date.now()
-      }
-    }
-  }
-  function refreshWeather() {
-    if (cc.weatherQuery === "" || weatherRead.running) return
-    if (cc.weatherAt > 0 && Date.now() - cc.weatherAt < 900000) return   // 15 minutes
-    weatherRead.running = true
-  }
+  // Weather comes from the island's one shared service (components/Weather.qml),
+  // so the chip and the Weather page never ask about the same place twice.
+  readonly property var weather: cc.host.weather
 
   // --- Tray menu ---
   // One opener, re-pointed as the menu is drilled into, so submenus work
@@ -492,7 +455,7 @@ ColumnLayout {
     if (!reminderRead.running) reminderRead.running = true
     if (!updateRead.running) updateRead.running = true
     if (!agentsRead.running) agentsRead.running = true
-    cc.refreshWeather()
+    cc.weather.refresh()
   }
   Process {
     id: brightnessRead
@@ -1194,9 +1157,9 @@ ColumnLayout {
                 onClicked: cc.openAgents()
               }
               CcChip {
-                visible: cc.weatherText !== ""
+                visible: cc.weather.chipLabel() !== ""
                 icon: "󰖐"
-                label: cc.weatherText
+                label: cc.weather.chipLabel()
                 onClicked: cc.openWeather()
               }
               CcChip {

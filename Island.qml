@@ -576,6 +576,11 @@ Item {
   // The source is tracked too so its level meter has something to report.
   PwObjectTracker { objects: [Pipewire.defaultAudioSink, Pipewire.defaultAudioSource] }
 
+  // One weather service for the whole island: the control center's chip and the
+  // Weather page share this, so a location is fetched and cached once.
+  readonly property var weather: weatherService
+  Weather { id: weatherService; host: root }
+
   function showFeedback(message, duration, kind) {
     if (surfaceOpen) return
     if (feedbackKind === "notification" && kind !== "notification" && feedbackTimer.running) return

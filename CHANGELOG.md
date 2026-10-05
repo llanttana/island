@@ -14,6 +14,9 @@ All notable changes to Island are recorded here. The format follows
 
 ### Changed
 
+- Weather is one shared service instead of two ad-hoc requests: Open-Meteo
+  first, `wttr.in` as a fallback, the last answer cached on disk, and an
+  offline state that keeps showing the last numbers instead of an error.
 - Settings now opens like every other panel page: it shares the control center's
   width and height ceiling, so the island only changes height as the page
   arrives instead of widening from underneath it.
