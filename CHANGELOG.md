@@ -27,6 +27,10 @@ All notable changes to Island are recorded here. The format follows
 
 ### Changed
 
+- The notification history -- the read, the merge with the banners still on
+  screen, and dismissing or clearing a row -- moved out of `Island.qml` into
+  `components/NotificationHistory.qml`. `Island.qml` is down from 1520 to 1446
+  lines.
 - The notification companion's setup check and install moved out of
   `Island.qml` into `components/Companion.qml`, which owns the path, runs the
   check when it starts, and re-checks after an install.

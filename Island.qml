@@ -335,7 +335,7 @@ Item {
     if (surfaceNames.indexOf(name) === -1) surfaceNames = surfaceNames.concat([name])
   }
   readonly property bool surfaceOpen: surfaceNames.indexOf(view) !== -1
-  property var history: []
+  readonly property var history: notificationHistory.rows
   property string lastNotificationKey: ""
   property bool initialized: false
   readonly property bool barHidden: barOffFlag.count > 0
@@ -580,6 +580,10 @@ Item {
   // Weather page share this, so a location is fetched and cached once.
   readonly property var weather: weatherService
   Weather { id: weatherService; host: root }
+
+  // What the notification companion has kept.
+  readonly property var notificationHistory: notificationHistoryService
+  NotificationHistory { id: notificationHistoryService; host: root; active: root.activeNotifications }
 
   // The notification companion's setup state, and installing it.
   readonly property var companion: companionService
@@ -922,73 +926,19 @@ Item {
     }
   }
 
-  Process {
-    id: historyProc
-    running: false
-    stdout: StdioCollector {
-      waitForEnd: true
-      onStreamFinished: root.loadHistory(text)
-    }
-  }
-
-  function refreshHistory() {
-    if (historyProc.running) return
-    historyProc.command = ["bash", "-c", "awk 1 \"$1\"/*.json 2>/dev/null || true", "--", historyDir]
-    historyProc.running = true
-  }
-
-  function loadHistory(raw) {
-    var rows = []
-    for (var j = 0; j < activeNotifications.length; j++) {
-      var active = Object.assign({}, activeNotifications[j])
-      active.isActive = true
-      rows.push(active)
-    }
-    var lines = String(raw || "").split("\n")
-    for (var i = 0; i < lines.length; i++) {
-      if (!lines[i].trim()) continue
-      try { rows.push(JSON.parse(lines[i])) } catch (e) { }
-    }
-    rows.sort(function(a, b) { return Number(b.timestamp || 0) - Number(a.timestamp || 0) })
-    // No cap of its own: the companion already prunes these files to the
-    // history limit set in Settings, and a second, hard-coded ten here would
-    // quietly hide the rest of what it kept.
-    history = rows
-  }
-
-  function notificationKey(row) {
-    return String(row.timestamp) + ":" + String(row.originalId)
-  }
-
-  function notificationCommand(method, row) {
-    notificationProc.command = ["omarchy-shell", "notifications", method, notificationKey(row)]
-    notificationProc.running = true
-  }
-  Process { id: notificationProc; running: false; onExited: root.refreshHistory() }
+  // The history itself, and everything done to it, lives in
+  // components/NotificationHistory.qml. These keep the names the views call.
+  function refreshHistory() { notificationHistory.refresh() }
+  function notificationKey(row) { return notificationHistory.key(row) }
+  function notificationCommand(method, row) { notificationHistory.act(notificationHistory.commandFor(method, row)) }
+  function clearAllNotifications() { notificationHistory.clearAll() }
+  function dismissNotification(row) { notificationHistory.dismiss(row) }
 
   function dismissPillNotification() {
     var row = lastNotification
     feedbackKind = ""
     view = "rest"
-    if (row) notificationCommand("dismissKey", row)
-  }
-
-  function clearAllNotifications() {
-    history = []
-    notificationProc.command = ["bash", "-c", "omarchy-shell notifications dismissAll; omarchy-shell notifications clear"]
-    notificationProc.running = true
-  }
-
-  function dismissNotification(row) {
-    var key = notificationKey(row)
-    history = history.filter(function(r) { return notificationKey(r) !== key })
-    if (row.isActive) {
-      notificationProc.command = ["omarchy-shell", "notifications", "dismissKey", key]
-    } else {
-      var stem = String(row.timestamp) + "-" + String(row.originalId)
-      notificationProc.command = ["bash", "-c", "rm -f \"$1/$2.json\" \"$1/../images/$2\"-*", "--", historyDir, stem]
-    }
-    notificationProc.running = true
+    if (row) notificationHistory.act(notificationHistory.commandFor("dismissKey", row))
   }
 
   property string menuRoute: "root"
