@@ -13,8 +13,12 @@
 #
 # Nothing here writes to the user's configuration. Every path it clears is
 # copied under $ISLAND_DEMO_DIR first, and everything it creates lives there too.
-# The default is /tmp/island-demo; set ISLAND_DEMO_DIR to keep it somewhere that
-# survives a reboot, or to run the tests for this script.
+#
+# The default is under the state directory, not /tmp: the backup is the user's
+# notification and clipboard history, and a reboot or a dead session between
+# prepare and cleanup would take /tmp with it and leave that history gone for
+# good. Set ISLAND_DEMO_DIR to override it -- tests do, to keep their fixtures
+# out of the state directory.
 set -euo pipefail
 
 # ---------------------------------------------------------------------------
@@ -26,7 +30,7 @@ readonly TIMER_SECONDS=10
 readonly NOTIFY_AGAIN_AT=15   # a second notification, if the first was missed
 # ---------------------------------------------------------------------------
 
-demo_dir=${ISLAND_DEMO_DIR:-/tmp/island-demo}
+demo_dir=${ISLAND_DEMO_DIR:-${XDG_STATE_HOME:-$HOME/.local/state}/island-demo}
 readonly demo_dir
 readonly backup_dir="$demo_dir/backup"
 readonly files_dir="$demo_dir/files"
@@ -84,6 +88,23 @@ backup_all() {
   return 0
 }
 
+# How old the backup is, in words. A backup sitting in the state directory can
+# outlive the session that made it, and an old one is worth noticing: whatever
+# was copied after it was taken is not in it, and cleanup would restore that
+# older state over the newer history.
+backup_age() {
+  local f=$1 now mtime d
+  [ -e "$f" ] || return 0
+  now=$(date +%s)
+  mtime=$(stat -c %Y "$f" 2>/dev/null || echo "$now")
+  d=$((now - mtime))
+  if [ "$d" -lt 3600 ]; then printf '%d min' "$((d / 60))"
+  elif [ "$d" -lt 86400 ]; then printf '%d h' "$((d / 3600))"
+  else printf '%d d' "$((d / 86400))"
+  fi
+  return 0
+}
+
 # ---------------------------------------------------------------------------
 # The neutral file
 #
@@ -119,15 +140,41 @@ $ox
   printf '%s' "$content" >"$out"
 }
 
+# A plain gradient: neutral, no metadata, no personal detail, and it shows as a
+# picture on the shelf rather than as a document icon.
+make_image() {
+  local out=$1
+  ffmpeg -v error -y -f lavfi \
+    -i "gradients=s=1280x720:c0=0x1b2a41:c1=0x7fb2d9:c2=0xd8e6f2:n=3:x0=0:y0=0:x1=1280:y1=720" \
+    -frames:v 1 "$out"
+}
+
+demo_file() {
+  local p
+  for p in "$files_dir/demo-shot.png" "$files_dir/demo-report.pdf"; do
+    if [ -f "$p" ]; then printf '%s' "$p"; return 0; fi
+  done
+  return 0
+}
+
 make_files() {
   head2 "The file to drag onto the island"
   mkdir -p "$files_dir"
-  if [ -s "$files_dir/demo-report.pdf" ]; then
-    say "   already there: $files_dir/demo-report.pdf"
-  else
-    make_pdf "$files_dir/demo-report.pdf"
-    say "   wrote $files_dir/demo-report.pdf"
+  local existing
+  existing=$(demo_file)
+  if [ -n "$existing" ]; then
+    say "   already there: $existing"
+    return 0
   fi
+  if command -v ffmpeg >/dev/null 2>&1 && make_image "$files_dir/demo-shot.png" 2>/dev/null \
+     && [ -s "$files_dir/demo-shot.png" ]; then
+    say "   wrote $files_dir/demo-shot.png"
+    return 0
+  fi
+  rm -f -- "$files_dir/demo-shot.png"
+  make_pdf "$files_dir/demo-report.pdf"
+  say "   ffmpeg is not installed, so this is a plain PDF instead:"
+  say "   $files_dir/demo-report.pdf"
 }
 
 # ---------------------------------------------------------------------------
@@ -173,6 +220,10 @@ cmd_prepare() {
   command -v omarchy-shell >/dev/null || die "omarchy-shell is not on PATH; is this an Omarchy session?"
   if [ -f "$marker" ]; then
     warn "the scene is already prepared; keeping the existing backup and clearing again"
+  elif [ -e "$backup_dir/clipboard-history.json" ]; then
+    warn "an older backup is here (taken $(backup_age "$backup_dir/clipboard-history.json") ago)."
+    warn "Reusing it, so anything copied since then will be missing from the history"
+    warn "that cleanup restores. Remove $backup_dir to start a fresh one."
   fi
   mkdir -p "$demo_dir"
   backup_all
@@ -180,7 +231,7 @@ cmd_prepare() {
   clear_history
   : >"$marker"
   say ""
-  say "scene ready. The file to drag is: $files_dir/demo-report.pdf"
+  say "scene ready. The file to drag is: $(demo_file)"
   say "next: tests/demo.sh run     (start the recorder during the countdown)"
   checklist
 }
@@ -211,7 +262,9 @@ cmd_run() {
   # the scene alone, because the person is still recording around it.
   run_finished=false
   trap 'if [ "$run_finished" != true ]; then printf "\n"; cmd_cleanup; fi' EXIT
-  trap 'printf "\ninterrupted\n"; exit 130' INT TERM
+  # HUP as well: closing the terminal that runs this is the common way to lose
+  # a run, and it must put the history back like any other interruption.
+  trap 'printf "\ninterrupted\n"; exit 130' INT TERM HUP
 
   demo_start=$(date +%s)
   printf '\n'
@@ -302,13 +355,19 @@ cmd_status() {
     say "scene:          not prepared"
   fi
   if [ -d "$backup_dir" ]; then
-    say "backup:         $(find "$backup_dir" -mindepth 1 -maxdepth 1 | wc -l | tr -d ' ') item(s) in $backup_dir"
+    local age=""
+    if [ -e "$backup_dir/clipboard-history.json" ]; then
+      age=" ($(backup_age "$backup_dir/clipboard-history.json") old)"
+    fi
+    say "backup:         $(find "$backup_dir" -mindepth 1 -maxdepth 1 | wc -l | tr -d ' ') item(s) in $backup_dir$age"
     find "$backup_dir" -mindepth 1 -maxdepth 1 -printf '                  %f\n' 2>/dev/null || true
   else
     say "backup:         none"
   fi
-  if [ -f "$files_dir/demo-report.pdf" ]; then
-    say "demo file:      $files_dir/demo-report.pdf"
+  local file
+  file=$(demo_file)
+  if [ -n "$file" ]; then
+    say "demo file:      $file"
   else
     say "demo file:      none"
   fi
@@ -328,8 +387,8 @@ cmd_review() {
   rm -rf -- "$frames"
   mkdir -p "$frames"
   head2 "Pulling a frame a second"
-  ffmpeg -v error -i "$video" -vf fps=1 "$frames/%04d.png"
-  say "   $(find "$frames" -name '*.png' | wc -l | tr -d ' ') frames in $frames"
+  ffmpeg -v error -i "$video" -vf fps=1 "$frames/%02d.jpg"
+  say "   $(find "$frames" -name '*.jpg' | wc -l | tr -d ' ') frames in $frames"
 
   head2 "Watch the frames for"
   cat <<'LIST'
