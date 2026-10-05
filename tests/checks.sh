@@ -92,13 +92,6 @@ step "QML syntax"
 qmllint_bin=$(command -v qmllint || echo /usr/lib/qt6/bin/qmllint)
 if [ -x "$qmllint_bin" ]; then
   mapfile -t files < <(git ls-files '*.qml')
-  # Ubuntu 24.04 ships Qt 6.4 in CI; Omarchy ships 6.11. The older parser
-  # reports "Expected token `identifier'" on a plain `var` statement inside this
-  # file, which the target's Qt parses and runs -- nothing else in the tree
-  # trips it, and this is the only parser disagreement between the two. CI drops
-  # it so one old parser cannot hold the check red; the local check, on the Qt
-  # the plugin actually runs under, still covers it.
-  runner_skip="companion/lanta.notifications/Service.qml"
   # A runner has neither Quickshell nor, without extra packages, the Qt QML
   # modules, so qmllint there resolves no types at all and every file is a pile
   # of import warnings. Checking only syntax is the honest thing to ask of it:
@@ -106,13 +99,6 @@ if [ -x "$qmllint_bin" ]; then
   # errors, which are the ones that take the whole plugin down. The full lint
   # stays a local check, where the types are there.
   syntax_only=${ISLAND_LINT_SYNTAX_ONLY:-0}
-  if [ "$syntax_only" = "1" ]; then
-    kept=()
-    for f in "${files[@]}"; do
-      [ "$f" = "$runner_skip" ] || kept+=("$f")
-    done
-    files=("${kept[@]}")
-  fi
   qmllint_run "$qmllint_bin" "${files[@]}" && syntax_found=1 || syntax_found=0
   if [ "$syntax_found" = "1" ]; then
     bad "qmllint found syntax errors"

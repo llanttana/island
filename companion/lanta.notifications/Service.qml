@@ -207,11 +207,16 @@ Item {
   // screen; the distinction only decides whether a DND-silenced one is worth
   // recording at all.
   function isEphemeral(notification) {
-    var transient = false
+    // The local is `isTransient`, not `transient`: Quickshell's Notification
+    // type has a property by that name, and Qt 6.4's QML parser refuses a local
+    // that collides with it -- which is what made this file look broken to the
+    // older qmllint in CI. The hint key keeps its own spelling: that is the
+    // freedesktop name, not ours to change.
+    var isTransient = false
     try {
-      transient = !!(notification.hints && notification.hints["transient"])
-    } catch (e) { transient = false }
-    return transient || NotificationLogic.isEphemeralApp(String(notification.appName || ""))
+      isTransient = !!(notification.hints && notification.hints["transient"])
+    } catch (e) { isTransient = false }
+    return isTransient || NotificationLogic.isEphemeralApp(String(notification.appName || ""))
   }
 
   function handleNotification(notification) {
