@@ -97,3 +97,5 @@ checks against a session with changes you cannot restore.
 In the pull request, summarize what changed, how you checked it, and any known
 limitations. Do not include credentials, notification history, or other personal
 state in fixtures or screenshots.
+
+<!-- checked the pull_request trigger of the checks workflow -->
