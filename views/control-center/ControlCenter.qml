@@ -1259,7 +1259,9 @@ ColumnLayout {
 
       Rectangle {
         Layout.fillWidth: true
-        Layout.preferredHeight: notificationBody.implicitHeight + 18
+        // 18 -> 26: the list ends with a bottom inset of its own instead of
+        // sitting on the card's edge.
+        Layout.preferredHeight: notificationBody.implicitHeight + 26
         radius: 22
         color: cc.card
         border.width: 1
@@ -1329,7 +1331,13 @@ ColumnLayout {
           ListView {
             visible: cc.host.history.length > 0
             Layout.fillWidth: true
-            Layout.preferredHeight: Math.min(contentHeight, 190)
+            // The list's real height, not a fixed window: the sections scroller
+            // above is what moves a long panel, and a second cap here would
+            // hide the rows past the fourth and cut the last one in half. Not
+            // interactive, so the wheel reaches that scroller instead of being
+            // swallowed by a nested flickable.
+            Layout.preferredHeight: contentHeight
+            interactive: false
             clip: true
             spacing: 8
             boundsBehavior: Flickable.StopAtBounds

@@ -78,6 +78,13 @@ All notable changes to Island are recorded here. The format follows
   edge resize and the `tileOrder` / `tileWide` settings. The power profiles stay
   as one tabbed control.
 
+### Fixed
+
+- The notification list no longer hides the entries past a fixed 190px window or
+  cuts the last one in half: it reports its full height and lets the control
+  center's own scroller move the panel, so everything the companion kept is
+  reachable, and the card ends with a real bottom inset.
+
 ## [0.4.0] - 2026-10-04
 
 ### Added
