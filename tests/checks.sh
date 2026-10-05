@@ -63,6 +63,20 @@ contains() {
 QMLLINT_OUTPUT=""
 QMLLINT_RC=0
 
+# qmllint tags parse errors with [syntax] when it can classify them, but that
+# tag is not always there: on the CI runner the very same broken file came back
+# as a bare "Expected token `;'" with no category, while the local run had the
+# tag. Both count. A syntax error is the one thing that must never be missed --
+# it takes the whole plugin down -- so the match is deliberately loose here and
+# the negative test below is what keeps it honest.
+is_syntax_error() {
+  contains "$1" '[syntax]' && return 0
+  case $1 in
+    *"Expected token"* | *"Unexpected token"* | *"Expected end"*) return 0 ;;
+  esac
+  return 1
+}
+
 # Run qmllint and leave both behind. Returns 0 when it reported a syntax error,
 # 1 when it did not. The negative test below calls this same function, so what
 # it exercises is the real check and not a second copy of it.
@@ -71,7 +85,7 @@ qmllint_run() {
   shift
   QMLLINT_RC=0
   QMLLINT_OUTPUT=$("$bin" "$@" 2>&1) || QMLLINT_RC=$?
-  contains "$QMLLINT_OUTPUT" '[syntax]'
+  is_syntax_error "$QMLLINT_OUTPUT"
 }
 
 step "QML syntax"
@@ -118,7 +132,8 @@ else
     ok "the broken fixture is reported as a syntax error"
   else
     bad "the broken fixture was NOT reported -- the syntax check cannot be trusted"
-    printf '%s\n' "$QMLLINT_OUTPUT" | sed -n '1,15p' | sed 's/^/        /'
+    printf '        qmllint exit code: %s\n' "$QMLLINT_RC"
+    printf '%s\n' "$QMLLINT_OUTPUT" | sed -n '1,10p' | sed 's/^/        /'
   fi
   if qmllint_run "$qmllint_bin" "$fixture_dir/valid.qml"; then
     bad "a valid file was reported as a syntax error"
