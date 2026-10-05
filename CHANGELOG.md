@@ -11,9 +11,16 @@ All notable changes to Island are recorded here. The format follows
 - Shelf: `Delete` takes the Ctrl+click selection off the shelf, or the tile the
   keyboard is on when nothing is selected.
 - Shelf: double click opens a tile with `xdg-open`.
+- Tests for the companion setup scripts, covering the JSONC menu edit (empty,
+  commented, trailing-comma, CRLF and already-present entries) and the backup
+  rotation, plus a run of `install.sh` twice against a throwaway `HOME`.
+- CI on every push and pull request: `bash -n`, `shellcheck`, `qmllint` over
+  every QML file, JSON manifest checks, whitespace and the tests above.
 
 ### Changed
 
+- The companion setup only backs a config file up when it is actually about to
+  change, and keeps the newest five copies instead of one per run.
 - Weather is one shared service instead of two ad-hoc requests: Open-Meteo
   first, `wttr.in` as a fallback, the last answer cached on disk, and an
   offline state that keeps showing the last numbers instead of an error.

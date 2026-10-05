@@ -12,6 +12,10 @@
 #   bash uninstall.sh --dry-run  shows what it would do and changes nothing
 set -euo pipefail
 
+here=$(cd "$(dirname "$0")" && pwd)
+# shellcheck source=companion/lib.sh
+source "$here/lib.sh"
+
 island_id="lanta.island"
 companion_id="lanta.notifications"
 plugins_dir="$HOME/.config/omarchy/plugins"
@@ -61,9 +65,15 @@ if [[ -f $config ]]; then
   if $dry_run; then
     diff <(jq . "$config") <(jq "$filter" "$config") | sed 's/^/    /' || true
   else
-    cp "$config" "$config.bak.$(date +%s)"
     tmp=$(mktemp "$config.XXXXXX")
-    jq "$filter" "$config" >"$tmp" && mv "$tmp" "$config"
+    jq "$filter" "$config" >"$tmp"
+    if cmp -s -- "$config" "$tmp"; then
+      rm -f -- "$tmp"
+      step "  $config is already clean"
+    else
+      backup_file "$config"
+      mv -- "$tmp" "$config"
+    fi
   fi
 fi
 
@@ -76,7 +86,7 @@ if [[ -f $menu ]]; then
     if $dry_run; then
       printf '%s\n' "$matches" | sed 's/^/    would remove line /'
     else
-      cp "$menu" "$menu.bak.$(date +%s)"
+      backup_file "$menu"
       tmp=$(mktemp "$menu.XXXXXX")
       grep -vE "^[[:space:]]*\"($pattern)\"[[:space:]]*:.*$island_id" "$menu" >"$tmp" && mv "$tmp" "$menu"
       omarchy-menu refresh >/dev/null 2>&1 || true

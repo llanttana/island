@@ -7,6 +7,8 @@
 set -euo pipefail
 
 here=$(cd "$(dirname "$0")" && pwd)
+# shellcheck source=companion/lib.sh
+source "$here/lib.sh"
 source_dir="$here/lanta.notifications"
 plugins_dir="$HOME/.config/omarchy/plugins"
 target_dir="$plugins_dir/lanta.notifications"
@@ -39,6 +41,7 @@ if [[ ! -d $target_dir ]] || ! diff -rq "$source_dir" "$target_dir" >/dev/null 2
       n=$((n + 1))
     done
     mv -- "$target_dir" "$backup"
+    prune_backup_dirs "$plugins_dir/.lanta.notifications.bak."
   fi
 
   if ! mv -- "$staging" "$target_dir"; then
@@ -51,7 +54,6 @@ if [[ ! -d $target_dir ]] || ! diff -rq "$source_dir" "$target_dir" >/dev/null 2
 fi
 
 [[ -f $config ]] || echo '{}' >"$config"
-cp "$config" "$config.bak.$(date +%s)"
 
 disable='["omarchy.notifications"]'
 
@@ -60,7 +62,15 @@ jq --argjson disable "$disable" '
   .plugins = ((.plugins // []) | if map(.id) | index("lanta.notifications") then . else . + [{ id: "lanta.notifications" }] end)
   | .disabledPlugins = (((.disabledPlugins // []) + $disable) | unique)
 ' "$config" >"$tmp"
-mv "$tmp" "$config"
+# Backing the file up before knowing whether anything changed is what used to
+# leave one identical shell.json.bak.<stamp> behind on every single run.
+if cmp -s -- "$config" "$tmp"; then
+  rm -f -- "$tmp"
+  echo "shell.json already lists the companion; left unchanged"
+else
+  backup_file "$config"
+  mv -- "$tmp" "$config"
+fi
 
 # Menu entries: SUPER+SHIFT+CTRL+SPACE runs `omarchy-menu toggle theme`,
 # SUPER+CTRL+SPACE `omarchy-menu toggle background`, SUPER+ESCAPE and the
@@ -84,31 +94,19 @@ if [[ ! -f $menu ]]; then
   printf '{\n}\n' >"$menu"
 fi
 backed_up=false
+menu_backup=""
+menu_add_error=false
 for spec in "${menu_entries[@]}"; do
   id=${spec%%|*} line=${spec#*|}
-  grep -q "\"$id\"" "$menu" && continue
-  if ! $backed_up; then menu_backup="$menu.bak.$(date +%s)"; cp "$menu" "$menu_backup"; backed_up=true; fi
-  tmp=$(mktemp "$menu.XXXXXX")
-  # Insert before the file's final closing brace, adding a comma to the entry
-  # above it when that entry doesn't already end in one.
-  awk -v entry="$line" '
-    { lines[NR] = $0 }
-    /^[[:space:]]*}[[:space:]]*$/ { last = NR }
-    END {
-      for (i = last - 1; i >= 1; i--) if (lines[i] !~ /^[[:space:]]*(\/\/.*)?$/) break
-      if (i >= 1 && lines[i] !~ /[{,][[:space:]]*$/) sub(/[[:space:]]*$/, ",", lines[i])
-      for (i = 1; i <= NR; i++) {
-        if (i == last) print entry
-        print lines[i]
-      }
-    }' "$menu" >"$tmp"
-  mv "$tmp" "$menu"
+  menu_has_entry "$menu" "$id" && continue
+  if ! $backed_up; then backup_file "$menu"; menu_backup="$ISLAND_LAST_BACKUP"; backed_up=true; fi
+  if ! menu_add_entry "$menu" "$line"; then menu_add_error=true; break; fi
 done
 # Omarchy drops every override in a menu file it can't parse (MenuModel.js
 # strips whole-line // comments and trailing commas, then parses JSON), so
 # put the original back rather than leave a broken file.
-if $backed_up && ! perl -0pe 's#^\s*//[^\n]*(\n|$)##gm; s#,(\s*[}\]])#$1#g' "$menu" | jq -e 'type == "object"' >/dev/null 2>&1; then
-  cp "$menu_backup" "$menu"
+if $backed_up && { $menu_add_error || ! menu_is_valid "$menu"; }; then
+  cp -- "$menu_backup" "$menu"
   menu_restored=true
   echo "install.sh: couldn't add the Island entries to $menu; restored it from $menu_backup" >&2
 fi

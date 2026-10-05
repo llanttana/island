@@ -278,8 +278,9 @@ bash ~/.config/omarchy/plugins/lanta.island/companion/uninstall.sh
 
 It switches back to the stock bar, removes the notification companion (Omarchy's
 own notifications come back), undoes the `shell.json` and Omarchy menu changes
-the setup made, removes Island, and restarts the shell. Backups of both config
-files are kept next to them, and your settings stay in
+the setup made, removes Island, and restarts the shell. A config file is only
+backed up when it is actually about to change, and only the newest few copies
+are kept, next to the file itself. Your settings stay in
 `~/.config/omarchy/island.json`. Add `--dry-run` to see what it would change
 first. Keybindings you pointed at Island yourself are listed, not changed.
 
