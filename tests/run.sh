@@ -45,7 +45,13 @@ list_names() {
 
 # The newest match by mtime, which is exactly what the backups sort on.
 newest_backup() {
-  find "$1" -maxdepth 1 -name "$2" -printf '%T@ %p\n' | sort -rn | head -1 | cut -d' ' -f2-
+  # First line without `head`: head exits after one line, sort takes SIGPIPE and
+  # `pipefail` turns the whole pipeline into a failure. Pure shell instead.
+  local listing first
+  listing=$(find "$1" -maxdepth 1 -name "$2" -printf '%T@ %p\n' | sort -rn)
+  first=${listing%%$'\n'*}
+  [ -n "$first" ] || return 0
+  printf '%s' "${first#* }"
 }
 
 mkdir -p "$work/menu"

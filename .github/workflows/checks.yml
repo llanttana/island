@@ -18,6 +18,9 @@ jobs:
     # Pinned rather than latest: the check set depends on the packages this
     # image ships, and that should not change under the repository's feet.
     runs-on: ubuntu-24.04
+    # The whole run takes well under a minute; this is only here so a hung apt
+    # or a stuck lint cannot sit for the six hours GitHub allows by default.
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
 

@@ -1,0 +1,7 @@
+// The other half of the same test: a file that qmllint is happy with, so the
+// detection above cannot be passing merely because it fails on everything.
+import QtQuick
+
+Item {
+  property int value: 1
+}

@@ -1,0 +1,9 @@
+// Deliberately broken QML, used by tests/checks.sh to prove that the syntax
+// check actually fails on a broken file. The name ends in .txt so that the
+// lint over `git ls-files '*.qml'` never sees it; the check copies it to a
+// temporary .qml before handing it to qmllint.
+import QtQuick
+
+Item {
+  property int missing_value:
+}

@@ -45,8 +45,10 @@ pid=$(journalctl --user -b --no-pager 2>/dev/null | grep -v runner.js | grep -oE
 if [ -z "$pid" ]; then
   bad "could not find the running shell in the journal"
 else
+  # sed rather than head: head would leave the greps with SIGPIPE, and pipefail
+  # would then report a failed pipeline for a scan that actually found things.
   warn=$(journalctl --user -b --no-pager 2>/dev/null | grep "\[$pid\]" \
-    | grep -iE "WARN scene|TypeError|failed to load" | grep -v IpcHandler | head -5)
+    | grep -iE "WARN scene|TypeError|failed to load" | grep -v IpcHandler | sed -n '1,5p')
   if [ -z "$warn" ]; then
     ok "nothing from this shell instance"
   else

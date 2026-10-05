@@ -59,6 +59,21 @@ contains() {
   esac
 }
 
+# How the last qmllint run ended: its output, and its exit code.
+QMLLINT_OUTPUT=""
+QMLLINT_RC=0
+
+# Run qmllint and leave both behind. Returns 0 when it reported a syntax error,
+# 1 when it did not. The negative test below calls this same function, so what
+# it exercises is the real check and not a second copy of it.
+qmllint_run() {
+  local bin=$1
+  shift
+  QMLLINT_RC=0
+  QMLLINT_OUTPUT=$("$bin" "$@" 2>&1) || QMLLINT_RC=$?
+  contains "$QMLLINT_OUTPUT" '[syntax]'
+}
+
 step "QML syntax"
 qmllint_bin=$(command -v qmllint || echo /usr/lib/qt6/bin/qmllint)
 if [ -x "$qmllint_bin" ]; then
@@ -70,23 +85,46 @@ if [ -x "$qmllint_bin" ]; then
   # errors, which are the ones that take the whole plugin down. The full lint
   # stays a local check, where the types are there.
   syntax_only=${ISLAND_LINT_SYNTAX_ONLY:-0}
-  rc=0
-  output=$("$qmllint_bin" "${files[@]}" 2>&1) || rc=$?
-  if contains "$output" '[syntax]'; then
+  qmllint_run "$qmllint_bin" "${files[@]}" && syntax_found=1 || syntax_found=0
+  if [ "$syntax_found" = "1" ]; then
     bad "qmllint found syntax errors"
-    printf '%s\n' "$output" | grep -B2 -A3 '\[syntax\]' | head -30 | sed 's/^/        /'
+    printf '%s\n' "$QMLLINT_OUTPUT" | grep -B2 -A3 '\[syntax\]' | sed -n '1,30p' | sed 's/^/        /'
   elif [ "$syntax_only" = "1" ]; then
     ok "${#files[@]} files, no syntax errors (types are not resolved here)"
-  elif [ "$rc" -ne 0 ]; then
+  elif [ "$QMLLINT_RC" -ne 0 ]; then
     # Warnings are normal here -- unresolved first-party services, unqualified
     # access in nested components -- so the exit code decides, not the output.
     bad "qmllint"
-    printf '%s\n' "$output" | head -25 | sed 's/^/        /'
+    printf '%s\n' "$QMLLINT_OUTPUT" | sed -n '1,25p' | sed 's/^/        /'
   else
     ok "${#files[@]} files"
   fi
 else
   skip "qmllint is not installed"
+fi
+
+step "The QML check fails on broken QML"
+# Being told "ok" is only worth something if the check can say otherwise. This
+# proves the detection fires, and that it is not simply failing on everything.
+if [ ! -x "$qmllint_bin" ]; then
+  skip "qmllint is not installed, so there is nothing to test"
+elif [ ! -f "$root/tests/fixtures/broken-qml.txt" ]; then
+  bad "the fixture is missing: tests/fixtures/broken-qml.txt"
+else
+  fixture_dir=$(mktemp -d)
+  cp "$root/tests/fixtures/broken-qml.txt" "$fixture_dir/broken.qml"
+  cp "$root/tests/fixtures/valid-qml.txt" "$fixture_dir/valid.qml"
+  if qmllint_run "$qmllint_bin" "$fixture_dir/broken.qml"; then
+    ok "the broken fixture is reported as a syntax error"
+  else
+    bad "the broken fixture was NOT reported -- the syntax check cannot be trusted"
+  fi
+  if qmllint_run "$qmllint_bin" "$fixture_dir/valid.qml"; then
+    bad "a valid file was reported as a syntax error"
+  else
+    ok "a valid file is left alone"
+  fi
+  rm -rf -- "$fixture_dir"
 fi
 
 step "QML handlers"
