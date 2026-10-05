@@ -102,7 +102,10 @@ if [ -x "$qmllint_bin" ]; then
   qmllint_run "$qmllint_bin" "${files[@]}" && syntax_found=1 || syntax_found=0
   if [ "$syntax_found" = "1" ]; then
     bad "qmllint found syntax errors"
-    printf '%s\n' "$QMLLINT_OUTPUT" | grep -B2 -A3 '\[syntax\]' | sed -n '1,30p' | sed 's/^/        /'
+    # Print the whole head, not just the lines tagged [syntax]: the tag is not
+    # always there, and a failure with no diagnostics is worse than useless.
+    printf '        qmllint exit code: %s\n' "$QMLLINT_RC"
+    printf '%s\n' "$QMLLINT_OUTPUT" | sed -n '1,25p' | sed 's/^/        /'
   elif [ "$syntax_only" = "1" ]; then
     ok "${#files[@]} files, no syntax errors (types are not resolved here)"
   elif [ "$QMLLINT_RC" -ne 0 ]; then
