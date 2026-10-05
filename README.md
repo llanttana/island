@@ -145,15 +145,46 @@ Island runs inside Omarchy's Quickshell process and reserves no screen space.
 
 ## Requirements
 
-- Omarchy 4 (Quattro) with its Quickshell-based `omarchy-shell`.
+- Omarchy 4 (Quattro) with its Quickshell-based `omarchy-shell`. Island builds on
+  the helpers and first-party services that release ships.
 - The notification companion (`lanta.notifications`). It ships in `companion/`
   and the setup pill installs it on first launch.
+- `curl`, for the weather.
+- `wl-clipboard` (`wl-copy` and `wl-paste`), for copying shelf items back and for
+  parking the current clipboard.
+- `xdg-utils` (`xdg-open`), for opening shelf items and links.
 - PipeWire, for the timer chime and the volume and microphone controls; Omarchy
   ships it.
 - Optional, for Ask AI: [Claude Code](https://claude.com/claude-code) or
   [Codex CLI](https://github.com/openai/codex), signed in.
+- Optional, for the shelf's **Drag out…**:
+  [`ripdrag`](https://aur.archlinux.org/packages/ripdrag).
 - Wi-Fi, Bluetooth, power profiles, brightness and the night light all use
   Omarchy's own helpers and the running system services.
+
+## Privacy
+
+Island runs on your machine. Two things leave it, and one thing is written to
+disk in the clear.
+
+- **Weather.** Island reads the location Omarchy stores in
+  `~/.local/state/omarchy/settings/weather.json` and sends its latitude and
+  longitude to [`wttr.in`](https://wttr.in). The control center's weather chip
+  refreshes at most once every fifteen minutes while the control center is open,
+  and the weather page asks for a three-day forecast when you open it. There is
+  no setting to turn this off yet; clearing the location file, or blocking
+  `wttr.in` in your firewall or DNS, stops the requests.
+- **Ask AI.** A question you type into the launcher is handed to the Claude Code
+  or Codex CLI you are signed in to and answered by that service. Nothing is sent
+  unless you ask a question.
+- **Notification history** is plain files under `~/.local/state/omarchy/`:
+  `notifications.json`, and one file per banner in `notifications/history/`,
+  readable by anything running as you. Clear it from the control center when you
+  do not want it kept.
+
+There is no telemetry and no analytics. Island's own settings live in
+`~/.config/omarchy/island.json`, and the shelf is memory-only unless you turn on
+**Keep Shelf**.
 
 ## Install
 
