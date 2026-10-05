@@ -14,8 +14,6 @@ All notable changes to Island are recorded here. The format follows
 - Tests for the companion setup scripts, covering the JSONC menu edit (empty,
   commented, trailing-comma, CRLF and already-present entries) and the backup
   rotation, plus a run of `install.sh` twice against a throwaway `HOME`.
-- CI on every push and pull request: `bash -n`, `shellcheck`, `qmllint` over
-  every QML file, JSON manifest checks, whitespace and the tests above.
 
 ### Changed
 

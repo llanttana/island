@@ -49,9 +49,7 @@ git diff --check
 `tests/run.sh` needs nothing but bash, jq and perl. It covers the JSONC menu
 edit and the backup rotation, and it runs `companion/install.sh` twice against a
 throwaway `HOME` with the Omarchy commands stubbed out, so a second run is
-proven not to touch anything. GitHub Actions runs the same set on every push and
-pull request (`.github/workflows/checks.yml`), plus `qmllint` over every QML
-file.
+proven not to touch anything.
 
 For visual changes, check the affected views in a running Omarchy session and
 include a screenshot in the pull request. For setup or removal changes, test a
