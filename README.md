@@ -224,6 +224,28 @@ restarts the shell.
 The brightness keys and the touchpad keys draw their feedback through the
 island, so the HUD matches the rest of the pill.
 
+### Notifications
+
+Banners land on the pill, and the control center keeps the recent ones.
+
+Two kinds count as **ephemeral**, because they are the ones nobody looks back
+at: anything from `notify-send`, the CLI default, and anything from
+`omarchy-action`, Omarchy's own action toasts. The distinction only matters
+while **Do not disturb** is on:
+
+- an ordinary notification is not shown, but **is written to the history**, so
+  you can see what you missed;
+- an ephemeral one is **neither shown nor recorded**;
+- `notify-send -u critical` and everything from `omarchy-action` **bypass** Do
+  not disturb and appear as usual. A critical notification from any other app
+  does not bypass it, but is still recorded.
+
+So a script with something important to say should say it loudly:
+
+```sh
+notify-send -u critical "Backup finished" "12 files copied"
+```
+
 ### Shelf
 
 Park files, links and text on the island until you clear them or the shell
