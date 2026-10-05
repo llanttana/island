@@ -163,12 +163,9 @@ Island runs inside Omarchy's Quickshell process and reserves no screen space.
   Omarchy's own helpers and the running system services. Island checks for the
   helpers it needs at startup and hides what it cannot offer, so an older
   Omarchy loses features rather than showing controls that do nothing.
-- Hyprland's blur, for the frosted glass. The island asks for it with a layer
-  rule on the `omarchy-island` namespace (`blur = true`, `ignore_alpha = 0.2`;
-  see Omarchy's `~/.config/hypr/looknfeel.lua`) and needs `decoration:blur`
-  enabled. Without either, the pill still works — it is just plain translucent
-  instead of frosted. Raising `decoration:blur:size` frosts harder, which also
-  softens a bright window edge sitting right behind the panel.
+- Hyprland's blur: the glass reads better with `decoration:blur` on and a layer
+  rule on the `omarchy-island` namespace, the way Omarchy's `looknfeel.lua`
+  sets it up. Without them the pill still works — just plain translucent.
 
 ## Privacy
 
