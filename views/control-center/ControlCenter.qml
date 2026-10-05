@@ -286,6 +286,10 @@ ColumnLayout {
     property string title: ""
     property string subtitle: ""
     property bool checked: false
+    // A tile is a button: its title is what a screen reader should say.
+    Accessible.role: Accessible.Button
+    Accessible.name: t.title
+    Accessible.description: t.subtitle
     property bool available: true
     property bool chevron: false
     // When the tile is a radio (Wi-Fi, Bluetooth), the circle switches it and
@@ -380,7 +384,12 @@ ColumnLayout {
     id: r
     property string icon: ""
     property bool checked: false
+    // The round buttons are icon-only, so the words come from the caller.
+    property string accessibleName: ""
     signal clicked()
+    Accessible.role: Accessible.Button
+    Accessible.name: r.accessibleName
+    Accessible.checked: r.checked
 
     Layout.preferredWidth: 52
     Layout.preferredHeight: 52
@@ -506,6 +515,10 @@ ColumnLayout {
     property string icon: ""
     property string label: ""
     property bool on: false        // toggled on: accent filled
+    // A chip is a button; `on` is the state it reports.
+    Accessible.role: Accessible.Button
+    Accessible.name: chip.label
+    Accessible.checked: chip.on
     property bool alert: false     // recording and friends: urgent
     property bool interactive: true
     signal clicked()
@@ -672,6 +685,7 @@ ColumnLayout {
           }
         }
         CcRound {
+          accessibleName: "Settings"
           icon: "󰒓"
           onClicked: cc.host.view = "settings"
         }
@@ -699,6 +713,7 @@ ColumnLayout {
           onClicked: cc.setGameMode(!cc.gameMode)
         }
         CcRound {
+          accessibleName: "Night light"
           icon: "󰖔"
           checked: cc.nightOn
           visible: !!cc.nightlight
@@ -1012,6 +1027,7 @@ ColumnLayout {
               spacing: 8
               IslandSlider {
                 host: cc.host
+                accessibleName: "Night light warmth"
                 Layout.fillWidth: true
                 icon: "󰟸"
                 value: (cc.nightTemp - cc.nightMin) / (cc.nightMax - cc.nightMin)

@@ -8,6 +8,14 @@ All notable changes to Island are recorded here. The format follows
 
 ### Added
 
+- Buttons, switches and sliders now carry `Accessible.name`, a role and their
+  state, so a screen reader can say what a control is and whether it is on.
+  The names come from the labels the user already sees.
+- `tests/smoke.sh`: restarts the shell and checks that the island actually came
+  back -- layer, IPC, and no warnings in the journal -- because a plugin that
+  fails to load only leaves one WARN line behind and a stock bar in its place.
+- `tests/checks.sh` also fails on a file that declares `Component.onCompleted`
+  twice, which qmllint accepts but QML does not.
 - Shelf: `Delete` takes the Ctrl+click selection off the shelf, or the tile the
   keyboard is on when nothing is selected.
 - Shelf: double click opens a tile with `xdg-open`.

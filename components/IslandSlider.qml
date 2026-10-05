@@ -10,6 +10,14 @@ Item {
   property string icon: ""
   property real value: 0
   property string valueText: ""
+  // Named by whoever places it: "Volume", "Brightness", and so on.
+  property string accessibleName: ""
+
+  Accessible.role: Accessible.Slider
+  Accessible.name: accessibleName
+  Accessible.value: Math.round(clamped * 100)
+  Accessible.minimumValue: 0
+  Accessible.maximumValue: 100
   signal moved(real value)
 
   implicitHeight: 34

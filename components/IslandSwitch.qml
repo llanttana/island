@@ -7,6 +7,13 @@ Rectangle {
   id: sw
   required property var host
   property bool checked: false
+  // A switch carries no visible text of its own: the row it sits in supplies
+  // the words, and passes them here.
+  property string accessibleName: ""
+
+  Accessible.role: Accessible.CheckBox
+  Accessible.name: accessibleName
+  Accessible.checked: checked
   signal toggled(bool checked)
 
   implicitWidth: 46

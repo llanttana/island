@@ -49,6 +49,11 @@ omarchy plugin validate .
 omarchy plugin validate companion/lanta.notifications
 ```
 
+On a machine with Omarchy running, `bash tests/smoke.sh` restarts the shell
+and checks that the island came back: its layer is on screen, the IPC target
+answers, and the journal has no warnings from this shell instance. That is the
+rule above turned into one command.
+
 `tests/checks.sh` runs everything that does not need an Omarchy session: bash
 syntax, shellcheck, the manifests as JSON, whitespace, `qmllint` over every QML
 file, and `tests/run.sh`. A tool that is not installed is reported and skipped

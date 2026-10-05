@@ -54,6 +54,20 @@ else
   skip "qmllint is not installed"
 fi
 
+step "QML handlers"
+# A second Component.onCompleted on the same object is a QML error, and a bad
+# one: the file stops loading, and for a bar plugin that means Omarchy falls
+# back to its own bar and disables the island. qmllint does not catch it, an
+# accidental duplicate on the root always starts its line, and a mention inside
+# a comment never does -- hence anchoring to the start of the line. Two objects
+# in one file may each have one, which this would flag; no file here does.
+dups=0
+while IFS= read -r f; do
+  n=$(grep -c "^[[:space:]]*Component\.onCompleted" "$f")
+  if [ "$n" -gt 1 ]; then bad "$f has $n Component.onCompleted"; dups=1; fi
+done < <(git ls-files '*.qml')
+[ "$dups" -ne 0 ] || ok "no file declares Component.onCompleted twice"
+
 step "Companion setup tests"
 if bash tests/run.sh; then ok "tests/run.sh"; else bad "tests/run.sh"; fi
 

@@ -123,7 +123,12 @@ ColumnLayout {
   component SettingsSwitch: Rectangle {
     id: sw
     property bool checked: false
+    // Set at each use from the row's label: the switch itself has no words.
+    property string accessibleName: ""
     signal toggled(bool checked)
+    Accessible.role: Accessible.CheckBox
+    Accessible.name: accessibleName
+    Accessible.checked: checked
     implicitWidth: 46
     implicitHeight: 28
     radius: 14
@@ -399,6 +404,7 @@ ColumnLayout {
           label: "Hover Lift"
           detail: "The clock pill lifts slightly under the pointer"
           SettingsSwitch {
+            accessibleName: "Hover Lift"
             checked: settingsView.settings.hoverLift
             onToggled: function(on) { settingsView.settings.hoverLift = on }
           }
@@ -407,6 +413,7 @@ ColumnLayout {
           label: "Notch Style"
           detail: "Attach the island to the top edge, like a MacBook notch"
           SettingsSwitch {
+            accessibleName: "Notch Style"
             checked: settingsView.settings.notch
             onToggled: function(on) { settingsView.settings.notch = on }
           }
@@ -415,6 +422,7 @@ ColumnLayout {
           label: "Solid Black"
           detail: "Opaque black pill with white ink, like the original"
           SettingsSwitch {
+            accessibleName: "Solid Black"
             checked: settingsView.settings.solidBlack
             onToggled: function(on) { settingsView.settings.solidBlack = on }
           }
@@ -422,6 +430,7 @@ ColumnLayout {
         SettingsRow {
           label: "24-Hour Clock"
           SettingsSwitch {
+            accessibleName: "24-Hour Clock"
             checked: settingsView.settings.clock24h
             onToggled: function(on) { settingsView.settings.clock24h = on }
           }
@@ -430,6 +439,7 @@ ColumnLayout {
           label: "Clock Seconds"
           detail: "Count seconds in the resting clock"
           SettingsSwitch {
+            accessibleName: "Clock Seconds"
             checked: settingsView.settings.clockSeconds
             onToggled: function(on) { settingsView.settings.clockSeconds = on }
           }
@@ -438,6 +448,7 @@ ColumnLayout {
           label: "Workspace Dots"
           detail: "Workspace indicators on the resting pill"
           SettingsSwitch {
+            accessibleName: "Workspace Dots"
             checked: settingsView.settings.workspaceDots
             onToggled: function(on) { settingsView.settings.workspaceDots = on }
           }
@@ -447,6 +458,7 @@ ColumnLayout {
           detail: "Charge glyph and percentage on the resting pill"
           last: true
           SettingsSwitch {
+            accessibleName: "Battery"
             checked: settingsView.settings.batteryBadge
             onToggled: function(on) { settingsView.settings.batteryBadge = on }
           }
@@ -460,6 +472,7 @@ ColumnLayout {
           label: "Now Playing"
           detail: "Show the cover and sound wave while media plays"
           SettingsSwitch {
+            accessibleName: "Now Playing"
             checked: settingsView.settings.mediaPill
             onToggled: function(on) { settingsView.settings.mediaPill = on }
           }
@@ -468,6 +481,7 @@ ColumnLayout {
           label: "Volume HUD"
           detail: "Show the level when the volume changes"
           SettingsSwitch {
+            accessibleName: "Volume HUD"
             checked: settingsView.settings.volumeHud
             onToggled: function(on) { settingsView.settings.volumeHud = on }
           }
@@ -476,6 +490,7 @@ ColumnLayout {
           label: "Clipboard"
           detail: "Show what you copied for a moment"
           SettingsSwitch {
+            accessibleName: "Clipboard"
             checked: settingsView.settings.clipboard
             onToggled: function(on) { settingsView.settings.clipboard = on }
           }
@@ -484,6 +499,7 @@ ColumnLayout {
           label: "Downloads"
           detail: "Show browser downloads in progress on the pill"
           SettingsSwitch {
+            accessibleName: "Downloads"
             checked: settingsView.settings.downloads
             onToggled: function(on) { settingsView.settings.downloads = on }
           }
@@ -492,6 +508,7 @@ ColumnLayout {
           label: "System Updates"
           detail: "Show pacman, yay, paru, and Omarchy updates on the pill"
           SettingsSwitch {
+            accessibleName: "System Updates"
             checked: settingsView.settings.systemUpdates
             onToggled: function(on) { settingsView.settings.systemUpdates = on }
           }
@@ -500,6 +517,7 @@ ColumnLayout {
           label: "System Monitor"
           detail: "Keep CPU and temperature on the resting pill"
           SettingsSwitch {
+            accessibleName: "System Monitor"
             checked: settingsView.settings.systemMonitor
             onToggled: function(on) { settingsView.settings.systemMonitor = on }
           }
@@ -508,6 +526,7 @@ ColumnLayout {
           label: "Timer Chime"
           detail: "Play a sound when a timer finishes"
           SettingsSwitch {
+            accessibleName: "Timer Chime"
             checked: settingsView.settings.timerChime
             onToggled: function(on) { settingsView.settings.timerChime = on }
           }
@@ -517,6 +536,7 @@ ColumnLayout {
           detail: "Post a desktop notification when a timer finishes"
           last: true
           SettingsSwitch {
+            accessibleName: "Timer Notification"
             checked: settingsView.settings.timerNotify
             onToggled: function(on) { settingsView.settings.timerNotify = on }
           }
@@ -530,6 +550,7 @@ ColumnLayout {
           label: "Hide in Fullscreen"
           detail: "Slide the pill away while a window is fullscreen"
           SettingsSwitch {
+            accessibleName: "Hide in Fullscreen"
             checked: settingsView.settings.hideFullscreen
             onToggled: function(on) { settingsView.settings.hideFullscreen = on }
           }
@@ -539,6 +560,7 @@ ColumnLayout {
           detail: "Show CPU and temperature at 85 °C or 95 % load, unpinned"
           last: true
           SettingsSwitch {
+            accessibleName: "Monitor When Hot"
             checked: settingsView.settings.autoMonitorHot
             onToggled: function(on) { settingsView.settings.autoMonitorHot = on }
           }
@@ -553,6 +575,7 @@ ColumnLayout {
           detail: "Restore parked items after a shell restart"
           last: true
           SettingsSwitch {
+            accessibleName: "Keep Shelf"
             checked: settingsView.settings.keepShelf
             onToggled: function(on) { settingsView.settings.keepShelf = on }
           }

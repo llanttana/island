@@ -7,6 +7,10 @@ Rectangle {
   required property var host
   property string label: ""
   property bool danger: false
+
+  // Screen readers get the label the user already sees.
+  Accessible.role: Accessible.Button
+  Accessible.name: label
   signal clicked()
 
   implicitWidth: buttonLabel.implicitWidth + 26
