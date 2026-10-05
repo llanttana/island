@@ -25,6 +25,9 @@ All notable changes to Island are recorded here. The format follows
 
 ### Changed
 
+- The notification companion's setup check and install moved out of
+  `Island.qml` into `components/Companion.qml`, which owns the path, runs the
+  check when it starts, and re-checks after an install.
 - The control center's chip status reads (dictation, reminders, updates, active
   agent sessions) moved out of the panel into `components/OmarchyStatus.qml`, and
   its controls (power profiles, brightness, Game Mode) into

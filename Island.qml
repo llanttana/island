@@ -581,6 +581,15 @@ Item {
   readonly property var weather: weatherService
   Weather { id: weatherService; host: root }
 
+  // The notification companion's setup state, and installing it.
+  readonly property var companion: companionService
+  Companion { id: companionService; host: root }
+  readonly property string companionStatus: companion.status
+  readonly property bool companionInstalling: companion.installing
+  readonly property bool companionNeedsSetup: companion.needsSetup
+  readonly property string companionWarning: companion.warning
+  function installCompanion() { companion.install() }
+
   // The control center's small status reads, kept out of the panel.
   readonly property var omarchyStatus: omarchyStatusService
   OmarchyStatus { id: omarchyStatusService; host: root }
@@ -863,45 +872,9 @@ Item {
 
   Component.onCompleted: {
     initialized = true
-    companionCheck.running = true
   }
 
   readonly property string pluginDir: String(Qt.resolvedUrl(".")).replace(/^file:\/\//, "").replace(/\/$/, "")
-  readonly property string companionDir: pluginDir + "/companion"
-  property string companionStatus: ""
-  property bool companionInstalling: false
-  readonly property bool companionNeedsSetup: companionStatus !== "" && companionStatus !== "ok"
-  readonly property string companionWarning: companionInstalling ? "Installing notifications…"
-    : companionStatus === "missing" ? "Set up notifications"
-    : companionStatus === "outdated" ? "Update notifications"
-    : companionStatus === "not-enabled" ? "Enable notifications"
-    : companionStatus === "menu" ? "Set up switchers"
-    : "Notifications need setup"
-
-  Process {
-    id: companionCheck
-    command: ["bash", root.companionDir + "/check.sh"]
-    stdout: StdioCollector {
-      waitForEnd: true
-      onStreamFinished: root.companionStatus = String(text || "").trim()
-    }
-  }
-
-  function installCompanion() {
-    if (companionInstall.running) return
-    companionInstalling = true
-    companionInstall.command = ["bash", companionDir + "/install.sh"]
-    companionInstall.running = true
-  }
-  Process {
-    id: companionInstall
-    stderr: StdioCollector { waitForEnd: true; onStreamFinished: if (text) console.warn("island: companion install:", text) }
-    onExited: function(code) {
-      root.companionInstalling = false
-      companionCheck.running = true
-    }
-  }
-
   Timer {
     id: feedbackTimer
     repeat: false
