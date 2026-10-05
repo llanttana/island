@@ -94,6 +94,13 @@ All notable changes to Island are recorded here. The format follows
   cuts the last one in half: it reports its full height and lets the control
   center's own scroller move the panel, so everything the companion kept is
   reachable, and the card ends with a real bottom inset.
+- `tests/demo.sh cleanup` no longer clears the notification history when there
+  is nothing to restore. `companion clear` ran before the backup was looked for,
+  so a bare `cleanup` — or an interrupted `run` whose `prepare` never happened —
+  emptied the history with no copy to put back and reported only "nothing to
+  restore". Cleanup now leaves the live state alone unless a scene was prepared,
+  and `tests/demo.test.sh` pins the `prepare`/`run`/`cleanup` round trip by hash
+  and the bare-cleanup case, with the shell's IPC stubbed and `HOME` thrown away.
 
 ## [0.4.0] - 2026-10-04
 

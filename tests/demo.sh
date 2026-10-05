@@ -23,11 +23,17 @@ set -euo pipefail
 
 # ---------------------------------------------------------------------------
 # The timeline, in seconds from the moment the countdown starts.
-readonly COUNTDOWN=5          # the person starts recording during this
-readonly NOTIFY_AT=7          # first notification
-readonly TIMER_AT=11          # countdown on the island's pill
 readonly TIMER_SECONDS=10
-readonly NOTIFY_AGAIN_AT=15   # a second notification, if the first was missed
+# The timeline is in real seconds; tests divide the whole thing by
+# ISLAND_DEMO_SPEED so the round trip does not cost the suite twenty seconds.
+# Anything that is not a positive integer is ignored.
+speed=${ISLAND_DEMO_SPEED:-1}
+case $speed in ''|*[!0-9]*|0) speed=1 ;; esac
+readonly speed
+readonly COUNTDOWN=$((5 / speed))          # the person starts recording during this
+readonly NOTIFY_AT=$((7 / speed))          # first notification
+readonly TIMER_AT=$((11 / speed))          # countdown on the island's pill
+readonly NOTIFY_AGAIN_AT=$((15 / speed))   # a second notification, if the first was missed
 # ---------------------------------------------------------------------------
 
 demo_dir=${ISLAND_DEMO_DIR:-${XDG_STATE_HOME:-$HOME/.local/state}/island-demo}
@@ -78,7 +84,14 @@ copy_once() {
 backup_all() {
   mkdir -p "$backup_dir"
   head2 "Backing up"
-  [ -d "$notif_history" ] && copy_once "$notif_history" "$backup_dir/notifications-history"
+  if [ -d "$notif_history" ]; then
+    copy_once "$notif_history" "$backup_dir/notifications-history"
+  else
+    # There is nothing to keep, but cleanup still has to know that: the empty
+    # directory is what tells it to put "no history" back instead of leaving the
+    # demo's own notifications behind.
+    mkdir -p "$backup_dir/notifications-history"
+  fi
   [ -f "$clip_history" ] && copy_once "$clip_history" "$backup_dir/clipboard-history.json"
   [ -f "$shelf_file" ] && copy_once "$shelf_file" "$backup_dir/island-shelf.json"
   if [ ! -f "$dnd_state" ]; then
@@ -305,14 +318,25 @@ cmd_run() {
 cmd_cleanup() {
   local restored=0
 
+  # Nothing prepared means nothing to put back -- and nothing to clear either:
+  # `companion clear` wipes the notification history, and with no backup the
+  # restore below has nothing to copy in its place. A bare `cleanup`, or an
+  # interrupted `run` whose `prepare` never happened, used to lose the history
+  # that way and report only "nothing to restore".
+  if [ ! -f "$marker" ] && [ ! -d "$backup_dir" ]; then
+    say "nothing to clean up (the scene was not prepared)"
+    return 0
+  fi
+
   # Notifications still on screen are archived the moment they are dismissed, so
   # they have to go before the history is put back -- otherwise they land in it
   # a second later and the restored state is no longer the one that was saved.
   companion dismissAll
   sleep 1
-  companion clear
 
   if [ -d "$backup_dir/notifications-history" ]; then
+    # Clear only now that there is a backup to put back in the same place.
+    companion clear
     rm -rf -- "$notif_history"
     mkdir -p "$(dirname "$notif_history")"
     cp -a -- "$backup_dir/notifications-history" "$notif_history"

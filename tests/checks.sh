@@ -196,6 +196,9 @@ fi
 step "Companion setup tests"
 if bash tests/run.sh; then ok "tests/run.sh"; else bad "tests/run.sh"; fi
 
+step "Demo scene tests"
+if bash tests/demo.test.sh; then ok "tests/demo.test.sh"; else bad "tests/demo.test.sh"; fi
+
 if [ "$fail" -ne 0 ]; then
   printf '\n%s\n' 'CHECKS FAILED'
 elif [ "$skipped" -ne 0 ]; then
