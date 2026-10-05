@@ -11,6 +11,13 @@ All notable changes to Island are recorded here. The format follows
 - Buttons, switches and sliders now carry `Accessible.name`, a role and their
   state, so a screen reader can say what a control is and whether it is on.
   The names come from the labels the user already sees.
+- `tests/demo.sh`: prepares a scene for recording the demo video (backs up and
+  clears the notification and clipboard history, writes a neutral file to drag)
+  and fires the scripted events on a timeline while a person records. Nothing
+  touches the user's configuration, everything it clears is backed up under
+  `ISLAND_DEMO_DIR`, and `cleanup` -- also run when a run is interrupted -- puts
+  it all back. `review` pulls a frame a second out of a finished recording and
+  lists what to look for before publishing.
 - `tests/smoke.sh`: restarts the shell and checks that the island actually came
   back -- layer, IPC, and no warnings in the journal -- because a plugin that
   fails to load only leaves one WARN line behind and a stock bar in its place.

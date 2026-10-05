@@ -49,6 +49,13 @@ omarchy plugin validate .
 omarchy plugin validate companion/lanta.notifications
 ```
 
+Recording the demo video is `tests/demo.sh`: it backs up and clears the
+notification and clipboard history, generates a neutral file to drag, and fires
+the few events that have to land on a timeline while a person records. It never
+starts a recorder, it only writes under `ISLAND_DEMO_DIR` (default
+`/tmp/island-demo`), and it puts everything back on `cleanup` or when a run is
+interrupted. See `tests/demo.sh` with no arguments for the subcommands.
+
 On a machine with Omarchy running, `bash tests/smoke.sh` restarts the shell
 and checks that the island came back: its layer is on screen, the IPC target
 answers, and the journal has no warnings from this shell instance. That is the
