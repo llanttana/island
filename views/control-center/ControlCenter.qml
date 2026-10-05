@@ -43,6 +43,13 @@ ColumnLayout {
                    bg.b + (fg.b - bg.b) * 0.1,
                    0.92)
   }
+  // Secondary ink on a history row: the age and the body line. `textMuted`
+  // (0.62) and the body's old 0.72 read at 3.2:1 and 3.7:1 over a white window,
+  // under the 4.5:1 the row text needs; 0.9 holds 4.86:1 over white and 5.23:1
+  // over black -- calculated against the row colour above, the lighter of the
+  // two being the white window. The title keeps `cc.text`; the size and weight
+  // still separate the two lines.
+  readonly property color noteInk: host.withAlpha(host.colorText, 0.9)
   // Hairline that defines a card against the frosted glass behind it.
   readonly property color border: host.colorBorder
   readonly property string iconFont: host.fontFamily
@@ -1446,7 +1453,7 @@ ColumnLayout {
                     anchors.baseline: noteTitle.baseline
                     text: cc.host.notificationAge(note.modelData.timestamp)
                     textFormat: Text.PlainText
-                    color: cc.textMuted
+                    color: cc.noteInk
                     font.family: "Adwaita Sans"
                     font.pixelSize: 11
                   }
@@ -1464,7 +1471,7 @@ ColumnLayout {
                   wrapMode: Text.Wrap
                   maximumLineCount: 3
                   elide: Text.ElideRight
-                  color: cc.host.withAlpha(cc.text, 0.72)
+                  color: cc.noteInk
                   font.family: "Adwaita Sans"
                   font.pixelSize: 12
                 }

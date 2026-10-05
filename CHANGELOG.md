@@ -90,6 +90,10 @@ All notable changes to Island are recorded here. The format follows
   of the row text — a white window washed the rows out to 2.6:1 — where the new
   colour holds about 5.6:1 over a white window and 6.0:1 over a black one, blur
   on or off. The card around the rows stays translucent.
+- The age and the body line in a history row now clear 4.5:1 over a white or a
+  black window too. At `textMuted` (0.62) and 0.72 they measured 3.19:1 and
+  3.71:1 over white; both use a 0.9 ink on the row, which measures 4.84:1 and
+  4.85:1 over white and 5.24:1 over black. The title keeps its full strength.
 - The notification list no longer hides the entries past a fixed 190px window or
   cuts the last one in half: it reports its full height and lets the control
   center's own scroller move the panel, so everything the companion kept is
