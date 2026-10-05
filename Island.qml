@@ -585,6 +585,10 @@ Item {
   readonly property var omarchyStatus: omarchyStatusService
   OmarchyStatus { id: omarchyStatusService; host: root }
 
+  // The control center's controls (power profiles, brightness, Game Mode).
+  readonly property var omarchyControls: omarchyControlsService
+  OmarchyControls { id: omarchyControlsService; host: root }
+
   // ---------- Optional Omarchy helpers ----------
   //
   // Island leans on a pile of omarchy-* scripts. On an older Omarchy release,

@@ -135,6 +135,20 @@ ColumnLayout {
   readonly property bool hasIndicators: cc.recording || cc.dnd || cc.nightOn || cc.stayAwake
     || cc.keyboardLayout !== ""
 
+  // What the panel drives lives in components/OmarchyControls.qml, the chips'
+  // reads in components/OmarchyStatus.qml. The panel keeps the same names for
+  // both, so its body does not care where they come from.
+  readonly property var controls: host.omarchyControls
+  readonly property var powerProfiles: controls.powerProfiles
+  readonly property string activeProfile: controls.activeProfile
+  readonly property var profileLabels: controls.profileLabels
+  readonly property var profileIcons: controls.profileIcons
+  readonly property bool brightnessAvailable: controls.brightnessAvailable
+  readonly property int brightness: controls.brightness
+  readonly property bool gameMode: controls.gameMode
+  function setProfile(name) { controls.setProfile(name) }
+  function setGameMode(on) { controls.setGameMode(on) }
+  function setBrightness(v) { controls.setBrightness(v) }
   // The chips' status reads live in components/OmarchyStatus.qml; the panel
   // keeps the same names so its body does not care where they come from.
   readonly property var status: host.omarchyStatus
@@ -252,61 +266,6 @@ ColumnLayout {
     nightApply.restart()
   }
 
-  // --- Game Mode: Hyprland animations off (restored by a config reload) ---
-  property bool gameMode: false
-  Process {
-    id: gameModeRead
-    command: ["hyprctl", "getoption", "animations:enabled"]
-    stdout: StdioCollector {
-      waitForEnd: true
-      onStreamFinished: cc.gameMode = /bool:\s*false/.test(String(text || ""))
-    }
-  }
-  Process { id: gameModeWrite; onExited: gameModeRead.running = true }
-  function setGameMode(on) {
-    gameMode = on
-    gameModeWrite.command = ["hyprctl", "eval", "hl.config({ animations = { enabled = " + (on ? "false" : "true") + " } })"]
-    gameModeWrite.running = true
-  }
-
-  // --- Power profiles (power-profiles-daemon, via Omarchy) ---
-  // Omarchy remembers a profile per power source, and `autodetect` makes the
-  // helper resolve ac/battery from UPower exactly as the shell does, so both
-  // entry points save under the same key.
-  readonly property var profileLabels: ({
-    "power-saver": "Power Saver",
-    "balanced": "Balanced",
-    "performance": "Performance"
-  })
-  // Same glyphs the stock Omarchy power panel uses.
-  readonly property var profileIcons: ({
-    "power-saver": "󰌪",
-    "balanced": "󰊚",
-    "performance": "󰓅"
-  })
-  property var powerProfiles: []
-  property string activeProfile: ""
-  Process {
-    id: profilesRead
-    command: ["omarchy-powerprofiles-list", "--active-state"]
-    stdout: StdioCollector {
-      waitForEnd: true
-      onStreamFinished: {
-        var lines = String(text || "").trim().split("\n")
-        var list = [], active = ""
-        for (var i = 0; i < lines.length; i++) {
-          var parts = lines[i].split("\t")
-          var name = String(parts[0] || "").trim()
-          if (name === "") continue
-          list.push(name)
-          if (String(parts[1] || "").trim() === "1") active = name
-        }
-        cc.powerProfiles = list
-        cc.activeProfile = active
-      }
-    }
-  }
-  Process { id: profileWrite; onExited: profilesRead.running = true }
   Process { id: systemAction }
   Process { id: recordingStop }
   // Anything that opens another panel or a floating terminal needs the island
@@ -366,17 +325,8 @@ ColumnLayout {
     cc.idleService.setIdleEnabled(!next)
     cc.host.announce(next ? "Staying awake" : "Idle lock back on")
   }
-  function setProfile(name) {
-    if (name === cc.activeProfile) return
-    cc.activeProfile = name   // optimistic; profilesRead confirms
-    profileWrite.command = ["omarchy-powerprofiles-set", "autodetect", name]
-    profileWrite.running = true
-    cc.host.announce(cc.profileLabels[name] || name)
-  }
-
-  // --- Brightness (the Display card hides when the output has no control) ---
-  property bool brightnessAvailable: false
-  property int brightness: 0
+  // Brightness and the power profiles are driven through
+  // components/OmarchyControls.qml, aliased above.
   onActiveChanged: {
     if (!active) {
       // Leaving the panel must not leave a tray menu behind for next time.
@@ -387,38 +337,12 @@ ColumnLayout {
     var storedTemp = Number(cc.host.settings.nightTemp)
     if (!isNaN(storedTemp) && storedTemp >= cc.nightMin && storedTemp <= cc.nightMax)
       cc.nightTemp = Math.round(storedTemp)
-    if (!brightnessRead.running && cc.host.hasHelper("omarchy-brightness-display")) brightnessRead.running = true
-    if (!gameModeRead.running) gameModeRead.running = true
-    if (!profilesRead.running && cc.host.hasHelper("omarchy-powerprofiles-list")) profilesRead.running = true
+    cc.controls.refresh()
     if (!layoutRead.running) layoutRead.running = true
     if (!recordingRead.running) recordingRead.running = true
     cc.status.refresh()
     cc.weather.refresh()
   }
-  Process {
-    id: brightnessRead
-    command: ["omarchy-brightness-display", "--monitor", cc.host.outputName]
-    stdout: StdioCollector {
-      waitForEnd: true
-      onStreamFinished: {
-        var value = parseInt(String(text || "").trim(), 10)
-        cc.brightnessAvailable = !isNaN(value)
-        if (!isNaN(value)) cc.brightness = Math.max(0, Math.min(100, value))
-      }
-    }
-    onExited: function(code) { if (code !== 0) cc.brightnessAvailable = false }
-  }
-  Process { id: brightnessWrite }
-  Timer {
-    id: brightnessDebounce
-    interval: 120
-    onTriggered: {
-      if (brightnessWrite.running) { restart(); return }
-      brightnessWrite.command = ["omarchy-brightness-display", "--no-osd", "--monitor", cc.host.outputName, cc.brightness + "%"]
-      brightnessWrite.running = true
-    }
-  }
-
   spacing: 8
 
   // Esc goes back; at the control center itself there is nowhere left to go,
@@ -912,8 +836,7 @@ ColumnLayout {
             valueText: cc.brightness + "%"
             value: cc.brightness / 100
             onMoved: function(v) {
-              cc.brightness = Math.round(v * 100)
-              brightnessDebounce.restart()
+              cc.setBrightness(v * 100)
             }
           }
 
