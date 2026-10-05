@@ -163,6 +163,23 @@ while IFS= read -r f; do
 done < <(git ls-files '*.qml')
 [ "$dups" -ne 0 ] || ok "no file declares Component.onCompleted twice"
 
+step "Notification logic"
+# The transient branch, exercised against the real isEphemeral() lifted out of
+# Service.qml. Node is not a dependency of the plugin; where it is missing the
+# step says so rather than failing.
+if command -v node >/dev/null 2>&1; then
+  rc=0
+  out=$(node "$root/tests/ephemeral.test.js" 2>&1) || rc=1
+  printf '%s\n' "$out" | sed 's/^/        /'
+  if [ "$rc" -eq 0 ]; then
+    ok "the transient branch behaves as documented"
+  else
+    bad "tests/ephemeral.test.js"
+  fi
+else
+  skip "node is not installed, so the notification logic cannot be exercised"
+fi
+
 step "Companion setup tests"
 if bash tests/run.sh; then ok "tests/run.sh"; else bad "tests/run.sh"; fi
 
