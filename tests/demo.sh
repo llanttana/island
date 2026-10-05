@@ -126,12 +126,16 @@ make_pdf() {
   o3=${#content}; content+="$obj3
 "
   ox=${#content}
+  # Every xref entry is exactly 20 bytes, which is why each one ends in a space
+  # before the newline. The space lives in $pad so the source lines themselves do
+  # not end in whitespace, which git --check rightly complains about.
+  local pad=' '
   content+="xref
 0 4
-0000000000 65535 f 
-$(printf '%010d' "$o1") 00000 n 
-$(printf '%010d' "$o2") 00000 n 
-$(printf '%010d' "$o3") 00000 n 
+0000000000 65535 f$pad
+$(printf '%010d' "$o1") 00000 n$pad
+$(printf '%010d' "$o2") 00000 n$pad
+$(printf '%010d' "$o3") 00000 n$pad
 trailer<</Size 4/Root 1 0 R>>
 startxref
 $ox
