@@ -118,6 +118,7 @@ else
     ok "the broken fixture is reported as a syntax error"
   else
     bad "the broken fixture was NOT reported -- the syntax check cannot be trusted"
+    printf '%s\n' "$QMLLINT_OUTPUT" | sed -n '1,15p' | sed 's/^/        /'
   fi
   if qmllint_run "$qmllint_bin" "$fixture_dir/valid.qml"; then
     bad "a valid file was reported as a syntax error"
