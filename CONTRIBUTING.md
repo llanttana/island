@@ -26,6 +26,12 @@ issues. Remove personal information from logs and screenshots before posting.
 4. Do not edit Omarchy's packaged files under `/usr/share/omarchy/`. Use them as
    a reference only.
 
+Anything that shells out to an `omarchy-*` helper should ask
+`host.hasHelper("omarchy-thing")` first and hide, disable or explain itself when
+the helper is missing, so Island on an older Omarchy degrades instead of
+offering controls that do nothing. The probe and the list of names live in
+`Island.qml`.
+
 The main UI is in `Island.qml`, `components/`, and `views/`. Every animation
 takes its duration and easing from the motion tokens on the island root (the
 Motion block in `Island.qml`) instead of hard-coded values, so the whole plugin

@@ -160,7 +160,9 @@ Island runs inside Omarchy's Quickshell process and reserves no screen space.
 - Optional, for the shelf's **Drag out…**:
   [`ripdrag`](https://aur.archlinux.org/packages/ripdrag).
 - Wi-Fi, Bluetooth, power profiles, brightness and the night light all use
-  Omarchy's own helpers and the running system services.
+  Omarchy's own helpers and the running system services. Island checks for the
+  helpers it needs at startup and hides what it cannot offer, so an older
+  Omarchy loses features rather than showing controls that do nothing.
 
 ## Privacy
 

@@ -23,10 +23,16 @@ Item {
 
   property bool suspendAvailable: true
   property bool hibernateAvailable: false
+  // A button whose helper is missing would close the island and then do
+  // nothing, which is worse than not offering it at all.
   readonly property var actions: {
-    var list = [{ label: "Power Off", icon: "󰐥", command: ["omarchy-system-shutdown"] }]
-    list.push({ label: "Reboot", icon: "󰜉", command: ["omarchy-system-reboot"] })
-    list.push({ label: "Lock", icon: "", command: ["omarchy-system-lock"] })
+    var list = []
+    if (host.hasHelper("omarchy-system-shutdown"))
+      list.push({ label: "Power Off", icon: "󰐥", command: ["omarchy-system-shutdown"] })
+    if (host.hasHelper("omarchy-system-reboot"))
+      list.push({ label: "Reboot", icon: "󰜉", command: ["omarchy-system-reboot"] })
+    if (host.hasHelper("omarchy-system-lock"))
+      list.push({ label: "Lock", icon: "", command: ["omarchy-system-lock"] })
     if (hibernateAvailable) list.push({ label: "Hibernate", icon: "󰤁", command: ["systemctl", "hibernate"] })
     if (suspendAvailable) list.push({ label: "Suspend", icon: "󰖔", command: ["systemctl", "suspend"] })
     return list

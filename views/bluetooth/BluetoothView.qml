@@ -113,7 +113,13 @@ ColumnLayout {
     return !!(d && d.connected)
   }
 
+  // Pairing, connecting and forgetting all go through Omarchy's helper. Without
+  // it the page still lists devices, but the controls that would do nothing are
+  // not offered.
+  readonly property bool canControl: host.hasHelper("omarchy-bluetooth-device")
+
   function runAction(row, action) {
+    if (!canControl) return
     if (pendingAddress !== "" && pendingAddress !== row.address) return
     pendingAddress = row.address
     pendingAction = action
@@ -272,7 +278,7 @@ ColumnLayout {
       }
       Rectangle {
         anchors.verticalCenter: parent.verticalCenter
-        visible: device.showForget
+        visible: device.showForget && bt.canControl
         width: 26
         height: 26
         radius: 13
@@ -298,6 +304,7 @@ ColumnLayout {
     MouseArea {
       id: rowMouse
       anchors.fill: parent
+      enabled: bt.canControl
       hoverEnabled: true
       cursorShape: Qt.PointingHandCursor
       onClicked: bt.rowClicked(device.row)

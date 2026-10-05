@@ -11,7 +11,9 @@ Picker {
   placeholder: "Search themes…"
   emptyText: "No themes match"
   currentKey: host.themeName
-  applyCommand: function(entry) { return ["omarchy-theme-set", entry.name] }
+  // Browsing still works without the helper; applying says why it can't.
+  applyCommand: host.hasHelper("omarchy-theme-set")
+    ? function(entry) { return ["omarchy-theme-set", entry.name] } : null
 
   card: Component {
     Rectangle {

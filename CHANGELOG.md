@@ -11,6 +11,11 @@ All notable changes to Island are recorded here. The format follows
 - Shelf: `Delete` takes the Ctrl+click selection off the shelf, or the tile the
   keyboard is on when nothing is selected.
 - Shelf: double click opens a tile with `xdg-open`.
+- Island probes the `omarchy-*` helpers it uses at startup. On an older or
+  trimmed Omarchy a feature whose helper is missing now hides itself -- the
+  Record chip, the power buttons, the theme and wallpaper pickers, the Bluetooth
+  controls -- instead of offering a control that quietly does nothing, and the
+  timer notification falls back to `notify-send`.
 - Tests for the companion setup scripts, covering the JSONC menu edit (empty,
   commented, trailing-comma, CRLF and already-present entries) and the backup
   rotation, plus a run of `install.sh` twice against a throwaway `HOME`.

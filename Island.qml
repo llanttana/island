@@ -581,6 +581,67 @@ Item {
   readonly property var weather: weatherService
   Weather { id: weatherService; host: root }
 
+  // ---------- Optional Omarchy helpers ----------
+  //
+  // Island leans on a pile of omarchy-* scripts. On an older Omarchy release,
+  // or a trimmed install, some of them are simply not there -- and a missing
+  // helper used to mean a chip that never fills in, or a button that looks
+  // perfectly normal and does nothing at all. The whole list is probed once at
+  // startup (on PATH and in Omarchy's own bin directory); a feature whose helper
+  // is missing hides itself, or says why, instead of failing quietly.
+  property var helpers: ({})
+  property bool helpersProbed: false
+  readonly property bool helpersReady: helpersProbed
+  function hasHelper(name) { return helpers[name] === true }
+
+  readonly property var helperNames: [
+    "omarchy-bluetooth-device",
+    "omarchy-brightness-display",
+    "omarchy-capture-screenrecording",
+    "omarchy-clipboard-open",
+    "omarchy-clipboard-paste-file",
+    "omarchy-clipboard-paste-text",
+    "omarchy-hibernation-available",
+    "omarchy-launch-floating-terminal-with-presentation",
+    "omarchy-menu",
+    "omarchy-notification-send",
+    "omarchy-powerprofiles-list",
+    "omarchy-powerprofiles-set",
+    "omarchy-reminder",
+    "omarchy-system-lock",
+    "omarchy-system-reboot",
+    "omarchy-system-shutdown",
+    "omarchy-theme-bg-set",
+    "omarchy-theme-set",
+    "omarchy-toggle-enabled",
+    "omarchy-update",
+    "omarchy-update-available",
+    "omarchy-voxtype-status",
+    "notify-send"
+  ]
+
+  Process {
+    id: helperProbe
+    running: true
+    command: ["bash", "-c",
+      'bin=$1; shift; for c in "$@"; do ' +
+      'if command -v "$c" >/dev/null 2>&1 || { [ -n "$bin" ] && [ -x "$bin/$c" ]; }; then printf "%s\n" "$c"; fi; ' +
+      'done', "--", root.omarchyPath !== "" ? root.omarchyPath + "/bin" : ""].concat(root.helperNames)
+    stdout: StdioCollector {
+      waitForEnd: true
+      onStreamFinished: {
+        var found = {}
+        var lines = String(text || "").split("\n")
+        for (var i = 0; i < lines.length; i++) {
+          var name = lines[i].trim()
+          if (name !== "") found[name] = true
+        }
+        root.helpers = found
+        root.helpersProbed = true
+      }
+    }
+  }
+
   function showFeedback(message, duration, kind) {
     if (surfaceOpen) return
     if (feedbackKind === "notification" && kind !== "notification" && feedbackTimer.running) return
@@ -669,7 +730,11 @@ Item {
         timerChime.running = true
       }
       if (root.settings.timerNotify) {
-        timerNotify.command = ["omarchy-notification-send", "Timer", label + " finished"]
+        // The Omarchy helper routes through the companion and gets the island's
+        // own styling; notify-send is what a machine without it can still do.
+        timerNotify.command = root.hasHelper("omarchy-notification-send")
+          ? ["omarchy-notification-send", "Timer", label + " finished"]
+          : ["notify-send", "Timer", label + " finished"]
         timerNotify.running = true
       }
       if (root.settings.pomodoro)

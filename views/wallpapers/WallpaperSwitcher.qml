@@ -15,7 +15,8 @@ Picker {
   placeholder: "Search wallpapers…"
   emptyText: "No wallpapers match"
   currentKey: currentPath
-  applyCommand: function(entry) { return ["omarchy-theme-bg-set", entry.path] }
+  applyCommand: host.hasHelper("omarchy-theme-bg-set")
+    ? function(entry) { return ["omarchy-theme-bg-set", entry.path] } : null
   onApplied: linkReader.running = true
 
   onActiveChanged: {

@@ -65,6 +65,10 @@ Item {
   onSelectedChanged: if (selected) lastSelectedKey = selected.key
   onItemsChanged: {
     if (!active) return
+    // A view whose model resolves late can hand us `items` as undefined, and
+    // `filtered` derives from it; without this the loop below throws every time
+    // that view opens.
+    if (!filtered) return
     for (var i = 0; i < filtered.length; i++)
       if (filtered[i].key === lastSelectedKey) { jumpTo(i); return }
     selectCurrent()
@@ -93,7 +97,14 @@ Item {
   property var pendingEntry: null
   function apply() {
     if (!selected || applier.running) return
-    if (selected.key === currentKey || !applyCommand) { close(); return }
+    if (selected.key === currentKey) { close(); return }
+    // A switcher whose helper is missing passes no applyCommand at all: say so
+    // rather than closing as though something had happened.
+    if (!applyCommand) {
+      close()
+      Qt.callLater(function() { picker.host.announce("That needs a newer Omarchy") })
+      return
+    }
     pendingEntry = selected
     applier.command = applyCommand(selected)
     applier.running = true

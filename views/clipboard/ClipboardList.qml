@@ -50,7 +50,15 @@ ListPicker {
   // Omarchy's commands paste (or just copy) the entry by its history index.
   Process { id: runner }
   function run(argv) {
+    // Check the helper before going anywhere: closing the view and then failing
+    // reads as the island eating the click. The note is deferred because the
+    // island stays quiet while a view is still open.
+    var name = String(argv[0] || "").split("/").pop()
     host.view = "rest"
+    if (!host.hasHelper(name)) {
+      Qt.callLater(function() { host.announce("That needs a newer Omarchy") })
+      return
+    }
     // Pasting copies the entry again; that's not news for the Copied pill.
     host.clipboardQuietUntil = Date.now() + 2500
     runner.command = ["bash", "-c", 'sleep 0.15; exec "$@"', "--"].concat(argv)

@@ -446,14 +446,14 @@ ColumnLayout {
     var storedTemp = Number(cc.host.settings.nightTemp)
     if (!isNaN(storedTemp) && storedTemp >= cc.nightMin && storedTemp <= cc.nightMax)
       cc.nightTemp = Math.round(storedTemp)
-    if (!brightnessRead.running) brightnessRead.running = true
+    if (!brightnessRead.running && cc.host.hasHelper("omarchy-brightness-display")) brightnessRead.running = true
     if (!gameModeRead.running) gameModeRead.running = true
-    if (!profilesRead.running) profilesRead.running = true
+    if (!profilesRead.running && cc.host.hasHelper("omarchy-powerprofiles-list")) profilesRead.running = true
     if (!layoutRead.running) layoutRead.running = true
     if (!recordingRead.running) recordingRead.running = true
-    if (!voxtypeRead.running) voxtypeRead.running = true
-    if (!reminderRead.running) reminderRead.running = true
-    if (!updateRead.running) updateRead.running = true
+    if (!voxtypeRead.running && cc.host.hasHelper("omarchy-voxtype-status")) voxtypeRead.running = true
+    if (!reminderRead.running && cc.host.hasHelper("omarchy-reminder")) reminderRead.running = true
+    if (!updateRead.running && cc.host.hasHelper("omarchy-update-available")) updateRead.running = true
     if (!agentsRead.running) agentsRead.running = true
     cc.weather.refresh()
   }
@@ -1117,6 +1117,10 @@ ColumnLayout {
                 onClicked: cc.cycleLayout()
               }
               CcChip {
+                // Recording starts through the Omarchy menu and stops through
+                // the capture helper, so the chip needs both to be any use.
+                visible: cc.host.hasHelper("omarchy-menu")
+                  && cc.host.hasHelper("omarchy-capture-screenrecording")
                 icon: "󰻂"
                 label: cc.recording ? "REC" : "Record"
                 alert: cc.recording
