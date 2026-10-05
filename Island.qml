@@ -581,6 +581,10 @@ Item {
   readonly property var weather: weatherService
   Weather { id: weatherService; host: root }
 
+  // The control center's small status reads, kept out of the panel.
+  readonly property var omarchyStatus: omarchyStatusService
+  OmarchyStatus { id: omarchyStatusService; host: root }
+
   // ---------- Optional Omarchy helpers ----------
   //
   // Island leans on a pile of omarchy-* scripts. On an older Omarchy release,

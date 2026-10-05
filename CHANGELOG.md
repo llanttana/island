@@ -25,6 +25,10 @@ All notable changes to Island are recorded here. The format follows
 
 ### Changed
 
+- The control center's chip status reads (dictation, reminders, updates,
+  active agent sessions) moved out of the panel into `components/OmarchyStatus.qml`.
+  The panel keeps the same property names, so its body is unchanged; it is the
+  first step of splitting the two large files into services and views.
 - The companion setup only backs a config file up when it is actually about to
   change, and keeps the newest five copies instead of one per run.
 - Weather is one shared service instead of two ad-hoc requests: Open-Meteo

@@ -135,71 +135,15 @@ ColumnLayout {
   readonly property bool hasIndicators: cc.recording || cc.dnd || cc.nightOn || cc.stayAwake
     || cc.keyboardLayout !== ""
 
-  // The rest of what the old bar carried. Everything here is a plain local
-  // command, refreshed when the panel opens (and, for the two that change
-  // while it is open, on a slow timer).
-  property bool dictating: false
-  Process {
-    id: voxtypeRead
-    command: ["omarchy-voxtype-status"]
-    stdout: StdioCollector {
-      waitForEnd: true
-      onStreamFinished: {
-        try { cc.dictating = String(JSON.parse(String(text || "{}")).class || "idle") !== "idle" }
-        catch (e) { cc.dictating = false }
-      }
-    }
-  }
-
-  property int reminderCount: 0
-  property string reminderTooltip: ""
-  Process {
-    id: reminderRead
-    command: ["omarchy-reminder", "show", "--json"]
-    stdout: StdioCollector {
-      waitForEnd: true
-      onStreamFinished: {
-        try {
-          var data = JSON.parse(String(text || "{}"))
-          cc.reminderCount = Number(data.count || 0)
-          cc.reminderTooltip = String(data.tooltip || "")
-        } catch (e) {
-          cc.reminderCount = 0
-        }
-      }
-    }
-  }
-
-  property bool updatesAvailable: false
-  property string updatesText: ""
-  Process {
-    id: updateRead
-    command: ["omarchy-update-available"]
-    stdout: StdioCollector {
-      waitForEnd: true
-      onStreamFinished: cc.updatesText = String(text || "").trim()
-    }
-    // The script exits 1 when there is nothing to do, 0 when updates wait.
-    onExited: function(code) { cc.updatesAvailable = code === 0 }
-  }
-
-  readonly property string agentsDir: (Quickshell.env("XDG_STATE_HOME") || Quickshell.env("HOME") + "/.local/state") + "/omarchy/agents/usage"
-  property int agentsActive: 0
-  Process {
-    id: agentsRead
-    command: ["sh", "-c",
-      'today=$(date +%F); n=0; for f in "$1"/*.json; do [ -e "$f" ] || continue; ' +
-      'if jq -e --arg t "$today" \'((.todayPrompts // 0) > 0) or ((.todaySessions // 0) > 0) or (((.activeDates // []) | index($t)) != null)\' "$f" >/dev/null 2>&1; then n=$((n+1)); fi; ' +
-      'done; echo $n',
-      "--", agentsDir]
-    stdout: StdioCollector {
-      waitForEnd: true
-      onStreamFinished: {
-        var n = parseInt(String(text || "").trim(), 10)
-        cc.agentsActive = isNaN(n) ? 0 : n
-      }
-    }
-  }
+  // The chips' status reads live in components/OmarchyStatus.qml; the panel
+  // keeps the same names so its body does not care where they come from.
+  readonly property var status: host.omarchyStatus
+  readonly property bool dictating: status.dictating
+  readonly property int reminderCount: status.reminderCount
+  readonly property string reminderTooltip: status.reminderTooltip
+  readonly property bool updatesAvailable: status.updatesAvailable
+  readonly property string updatesText: status.updatesText
+  readonly property int agentsActive: status.agentsActive
 
   // Weather comes from the island's one shared service (components/Weather.qml),
   // so the chip and the Weather page never ask about the same place twice.
@@ -256,10 +200,7 @@ ColumnLayout {
     interval: 4000
     repeat: true
     running: cc.active
-    onTriggered: {
-      if (!voxtypeRead.running) voxtypeRead.running = true
-      if (!reminderRead.running) reminderRead.running = true
-    }
+    onTriggered: cc.status.refreshLive()
   }
 
   // --- Bluetooth ---
@@ -387,7 +328,7 @@ ColumnLayout {
     systemAction.running = true
     dictationRefresh.restart()
   }
-  Timer { id: dictationRefresh; interval: 700; onTriggered: if (!voxtypeRead.running) voxtypeRead.running = true }
+  Timer { id: dictationRefresh; interval: 700; onTriggered: cc.status.refreshDictation() }
   function showReminders() {
     cc.host.announce(cc.reminderTooltip !== "" ? cc.reminderTooltip : "Reminders")
   }
@@ -451,10 +392,7 @@ ColumnLayout {
     if (!profilesRead.running && cc.host.hasHelper("omarchy-powerprofiles-list")) profilesRead.running = true
     if (!layoutRead.running) layoutRead.running = true
     if (!recordingRead.running) recordingRead.running = true
-    if (!voxtypeRead.running && cc.host.hasHelper("omarchy-voxtype-status")) voxtypeRead.running = true
-    if (!reminderRead.running && cc.host.hasHelper("omarchy-reminder")) reminderRead.running = true
-    if (!updateRead.running && cc.host.hasHelper("omarchy-update-available")) updateRead.running = true
-    if (!agentsRead.running) agentsRead.running = true
+    cc.status.refresh()
     cc.weather.refresh()
   }
   Process {
