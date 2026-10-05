@@ -71,6 +71,11 @@ All notable changes to Island are recorded here. The format follows
   arrives instead of widening from underneath it.
 - Every animation takes its duration and easing from one set of motion tokens on
   the island root, so the whole plugin runs at a single tempo and easing family.
+- `tests/checks.sh` calls a missing shellcheck out on its own WARN line and
+  counts it in the summary, so a run that ends in "all checks passed" can no
+  longer hide a linter that never ran; `ISLAND_REQUIRE_SHELLCHECK=1` turns the
+  absence into a failure. CI runs shellcheck, so this is the pre-commit path,
+  where the tool is not on `PATH`.
 
 ### Removed
 

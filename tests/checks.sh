@@ -2,7 +2,10 @@
 # Everything the project checks before a change lands. This is the script CI
 # runs, and it is meant to work on a developer machine too: a missing tool is
 # reported and skipped, so a fresh checkout without Qt or shellcheck still gets
-# the rest of the checks instead of failing on the first one.
+# the rest of the checks instead of failing on the first one. Shellcheck is the
+# exception: a missing shellcheck says so on its own WARN line and is counted in
+# the summary, and ISLAND_REQUIRE_SHELLCHECK=1 turns the absence into a failure
+# rather than a quiet pass.
 set -uo pipefail
 
 here=$(cd "$(dirname "$0")" && pwd)
@@ -10,10 +13,12 @@ root=$(cd "$here/.." && pwd)
 cd "$root" || exit 1
 
 fail=0
+skipped=0
 step() { printf '\n== %s\n' "$1"; }
 ok()   { printf '   ok    %s\n' "$1"; }
 bad()  { printf '   FAIL  %s\n' "$1"; fail=1; }
-skip() { printf '   skip  %s\n' "$1"; }
+skip() { printf '   skip  %s\n' "$1"; skipped=$((skipped + 1)); }
+warn() { printf '   WARN  %s\n' "$1"; }
 
 step "Bash syntax"
 shopt -s nullglob
@@ -25,7 +30,15 @@ step "shellcheck"
 if command -v shellcheck >/dev/null 2>&1; then
   if shellcheck -x --severity=warning companion/*.sh tests/*.sh githooks/*; then ok "clean"; else bad "shellcheck reported problems"; fi
 else
-  skip "shellcheck is not installed"
+  # A bare `skip` inside a run that still ends in "all checks passed" is a
+  # check people believe ran. Say it in full, count it, and let anyone who
+  # wants a hard gate -- CI, a strict clone -- set ISLAND_REQUIRE_SHELLCHECK=1.
+  warn "shellcheck is not installed: no shell file was checked"
+  printf '   WARN  install shellcheck, or set ISLAND_REQUIRE_SHELLCHECK=1 to fail on its absence\n'
+  skipped=$((skipped + 1))
+  if [ "${ISLAND_REQUIRE_SHELLCHECK:-0}" = 1 ]; then
+    bad "shellcheck is required but was not found"
+  fi
 fi
 
 step "Manifests are valid JSON"
@@ -183,5 +196,11 @@ fi
 step "Companion setup tests"
 if bash tests/run.sh; then ok "tests/run.sh"; else bad "tests/run.sh"; fi
 
-printf '\n%s\n' "$([ $fail -eq 0 ] && echo 'all checks passed' || echo 'CHECKS FAILED')"
+if [ "$fail" -ne 0 ]; then
+  printf '\n%s\n' 'CHECKS FAILED'
+elif [ "$skipped" -ne 0 ]; then
+  printf '\n%s\n' "all checks passed, but $skipped check(s) were skipped -- see above"
+else
+  printf '\n%s\n' 'all checks passed'
+fi
 exit $fail
