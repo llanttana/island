@@ -48,17 +48,42 @@ else
   bad "whitespace errors in HEAD"
 fi
 
+# A pipe into `grep -q` is a trap here: grep exits on the first match, the
+# writing side takes SIGPIPE, and `set -o pipefail` turns that into a failed
+# pipeline -- so the condition reads as "not found" exactly when it was found.
+# This does the same job with no process in between.
+contains() {
+  case $1 in
+    *"$2"*) return 0 ;;
+    *) return 1 ;;
+  esac
+}
+
 step "QML syntax"
 qmllint_bin=$(command -v qmllint || echo /usr/lib/qt6/bin/qmllint)
 if [ -x "$qmllint_bin" ]; then
   mapfile -t files < <(git ls-files '*.qml')
-  if "$qmllint_bin" "${files[@]}" >/dev/null 2>&1; then
-    ok "${#files[@]} files"
-  else
+  # A runner has neither Quickshell nor, without extra packages, the Qt QML
+  # modules, so qmllint there resolves no types at all and every file is a pile
+  # of import warnings. Checking only syntax is the honest thing to ask of it:
+  # ISLAND_LINT_SYNTAX_ONLY=1 turns the type warnings off and keeps the syntax
+  # errors, which are the ones that take the whole plugin down. The full lint
+  # stays a local check, where the types are there.
+  syntax_only=${ISLAND_LINT_SYNTAX_ONLY:-0}
+  rc=0
+  output=$("$qmllint_bin" "${files[@]}" 2>&1) || rc=$?
+  if contains "$output" '[syntax]'; then
+    bad "qmllint found syntax errors"
+    printf '%s\n' "$output" | grep -B2 -A3 '\[syntax\]' | head -30 | sed 's/^/        /'
+  elif [ "$syntax_only" = "1" ]; then
+    ok "${#files[@]} files, no syntax errors (types are not resolved here)"
+  elif [ "$rc" -ne 0 ]; then
+    # Warnings are normal here -- unresolved first-party services, unqualified
+    # access in nested components -- so the exit code decides, not the output.
     bad "qmllint"
-    # The real output, not a grep for "error": the interesting line is often a
-    # warning, and half the diagnostics mention "printErrors" anyway.
-    "$qmllint_bin" "${files[@]}" 2>&1 | head -25 | sed 's/^/        /'
+    printf '%s\n' "$output" | head -25 | sed 's/^/        /'
+  else
+    ok "${#files[@]} files"
   fi
 else
   skip "qmllint is not installed"

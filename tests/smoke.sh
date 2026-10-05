@@ -18,12 +18,19 @@ omarchy restart shell >/dev/null 2>&1 || true
 sleep 8
 
 step "The island's layer"
-if hyprctl layers 2>/dev/null | grep -q "namespace: omarchy-island"; then
-  ok "omarchy-island is on screen"
-else
-  bad "no omarchy-island layer -- the plugin did not load"
-  hyprctl layers 2>/dev/null | grep -oE "namespace: [a-z-]+" | sort -u | sed 's/^/        /'
-fi
+# Captured rather than piped into grep -q: that would let grep exit early, hand
+# SIGPIPE to hyprctl, and fail the pipeline under `set -o pipefail` even on a
+# match.
+layers=$(hyprctl layers 2>/dev/null || true)
+case $layers in
+  *"namespace: omarchy-island"*)
+    ok "omarchy-island is on screen"
+    ;;
+  *)
+    bad "no omarchy-island layer -- the plugin did not load"
+    printf '%s\n' "$layers" | grep -oE "namespace: [a-z-]+" | sort -u | sed 's/^/        /' || true
+    ;;
+esac
 
 step "The plugin answers"
 if timeout 10 omarchy-shell lanta.island toggle >/dev/null 2>&1; then

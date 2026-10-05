@@ -30,6 +30,10 @@ jobs:
           printf '/usr/lib/qt6/bin\n' >> "$GITHUB_PATH"
           /usr/lib/qt6/bin/qmllint --version
 
-      # The same script a developer runs, so the two cannot drift apart.
+      # The same script a developer runs, so the two cannot drift apart. The
+      # runner has no Quickshell, so the QML step is asked for syntax only:
+      # anything beyond that needs the types, and those are checked locally.
       - name: Run the checks
+        env:
+          ISLAND_LINT_SYNTAX_ONLY: "1"
         run: bash tests/checks.sh

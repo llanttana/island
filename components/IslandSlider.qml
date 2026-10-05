@@ -13,11 +13,13 @@ Item {
   // Named by whoever places it: "Volume", "Brightness", and so on.
   property string accessibleName: ""
 
+  // Only properties this Qt actually has. Qt 6.11's Accessible has no `value`,
+  // `minimumValue` or `maximumValue`, and assigning one stops the whole file
+  // from loading -- which takes the control center and the island down with it.
+  // The reading goes in `description` instead.
   Accessible.role: Accessible.Slider
   Accessible.name: accessibleName
-  Accessible.value: Math.round(clamped * 100)
-  Accessible.minimumValue: 0
-  Accessible.maximumValue: 100
+  Accessible.description: valueText
   signal moved(real value)
 
   implicitHeight: 34
