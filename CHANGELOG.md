@@ -21,6 +21,10 @@ All notable changes to Island are recorded here. The format follows
   Record chip, the power buttons, the theme and wallpaper pickers, the Bluetooth
   controls -- instead of offering a control that quietly does nothing, and the
   timer notification falls back to `notify-send`.
+- `tests/checks.sh`, one command that runs everything which does not need an
+  Omarchy session: bash syntax, shellcheck, the manifests as JSON, whitespace,
+  `qmllint` over every QML file and the companion tests. Missing tools are
+  skipped rather than fatal.
 - Tests for the companion setup scripts, covering the JSONC menu edit (empty,
   commented, trailing-comma, CRLF and already-present entries) and the backup
   rotation, plus a run of `install.sh` twice against a throwaway `HOME`.

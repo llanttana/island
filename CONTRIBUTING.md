@@ -44,13 +44,16 @@ when a user-facing action, dependency, or configuration path changes.
 From the repository root, run:
 
 ```sh
+bash tests/checks.sh
 omarchy plugin validate .
 omarchy plugin validate companion/lanta.notifications
-bash -n companion/*.sh tests/*.sh
-shellcheck -x --severity=warning companion/*.sh tests/*.sh
-bash tests/run.sh
-git diff --check
 ```
+
+`tests/checks.sh` runs everything that does not need an Omarchy session: bash
+syntax, shellcheck, the manifests as JSON, whitespace, `qmllint` over every QML
+file, and `tests/run.sh`. A tool that is not installed is reported and skipped
+rather than failing the run, so it is useful on a fresh checkout. The two
+`omarchy plugin validate` calls do need Omarchy, which is why they are separate.
 
 `tests/run.sh` needs nothing but bash, jq and perl. It covers the JSONC menu
 edit and the backup rotation, and it runs `companion/install.sh` twice against a
