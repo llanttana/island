@@ -80,6 +80,11 @@ All notable changes to Island are recorded here. The format follows
 
 ### Fixed
 
+- The notification history rows draw their own near-opaque backing instead of
+  the card's 7% tint. At 0.07 the window behind the panel decided the contrast
+  of the row text — a white window washed the rows out to 2.6:1 — where the new
+  colour holds about 5.6:1 over a white window and 6.0:1 over a black one, blur
+  on or off. The card around the rows stays translucent.
 - The notification list no longer hides the entries past a fixed 190px window or
   cuts the last one in half: it reports its full height and lets the control
   center's own scroller move the panel, so everything the companion kept is

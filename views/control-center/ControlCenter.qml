@@ -29,6 +29,20 @@ ColumnLayout {
   readonly property color tile: host.withAlpha(host.colorText, 0.1)
   readonly property color card: host.withAlpha(host.colorText, 0.07)
   readonly property color well: host.withAlpha(host.colorText, 0.08)
+  // A history row is its own surface, not the card's 7% tint: the theme
+  // background nudged 10% towards the text and then laid down almost opaque.
+  // At 0.07 the row let the window behind it decide the text contrast -- a
+  // white window washed it out -- where this keeps the same contrast whatever
+  // is behind the panel and however the user's blur is set. The card around
+  // it stays translucent.
+  readonly property color noteRow: {
+    var bg = host.colorBackground
+    var fg = host.colorText
+    return Qt.rgba(bg.r + (fg.r - bg.r) * 0.1,
+                   bg.g + (fg.g - bg.g) * 0.1,
+                   bg.b + (fg.b - bg.b) * 0.1,
+                   0.92)
+  }
   // Hairline that defines a card against the frosted glass behind it.
   readonly property color border: host.colorBorder
   readonly property string iconFont: host.fontFamily
@@ -1349,7 +1363,7 @@ ColumnLayout {
               width: ListView.view.width
               height: noteBody.implicitHeight + 20
               radius: 20
-              color: noteMouse.containsMouse ? cc.host.withAlpha(cc.text, 0.12) : cc.card
+              color: noteMouse.containsMouse ? cc.host.withAlpha(cc.text, 0.12) : cc.noteRow
 
               MouseArea {
                 id: noteMouse
