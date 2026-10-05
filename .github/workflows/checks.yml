@@ -1,0 +1,35 @@
+name: checks
+
+# Everything here runs without Omarchy, which is why `omarchy plugin validate`
+# and tests/smoke.sh are not part of it: the first only exists inside an Omarchy
+# install and the second needs a live session. tests/checks.sh skips a tool it
+# cannot find instead of failing, so a bare runner still gets every other check.
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  checks:
+    name: Checks
+    # Pinned rather than latest: the check set depends on the packages this
+    # image ships, and that should not change under the repository's feet.
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+
+      # qmllint lives here. shellcheck and jq are already on the runner.
+      - name: Install qmllint
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends qt6-declarative-dev-tools
+          # Debian puts it in /usr/lib/qt6/bin, which is not on PATH.
+          printf '/usr/lib/qt6/bin\n' >> "$GITHUB_PATH"
+          /usr/lib/qt6/bin/qmllint --version
+
+      # The same script a developer runs, so the two cannot drift apart.
+      - name: Run the checks
+        run: bash tests/checks.sh
