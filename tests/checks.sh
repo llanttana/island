@@ -56,7 +56,9 @@ if [ -x "$qmllint_bin" ]; then
     ok "${#files[@]} files"
   else
     bad "qmllint"
-    "$qmllint_bin" "${files[@]}" 2>&1 | grep -i "error" | head -10
+    # The real output, not a grep for "error": the interesting line is often a
+    # warning, and half the diagnostics mention "printErrors" anyway.
+    "$qmllint_bin" "${files[@]}" 2>&1 | head -25 | sed 's/^/        /'
   fi
 else
   skip "qmllint is not installed"
