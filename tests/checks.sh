@@ -17,13 +17,13 @@ skip() { printf '   skip  %s\n' "$1"; }
 
 step "Bash syntax"
 shopt -s nullglob
-for f in companion/*.sh tests/*.sh; do
+for f in companion/*.sh tests/*.sh githooks/*; do
   if bash -n "$f"; then ok "$f"; else bad "$f"; fi
 done
 
 step "shellcheck"
 if command -v shellcheck >/dev/null 2>&1; then
-  if shellcheck -x --severity=warning companion/*.sh tests/*.sh; then ok "clean"; else bad "shellcheck reported problems"; fi
+  if shellcheck -x --severity=warning companion/*.sh tests/*.sh githooks/*; then ok "clean"; else bad "shellcheck reported problems"; fi
 else
   skip "shellcheck is not installed"
 fi
@@ -38,7 +38,15 @@ else
 fi
 
 step "Whitespace"
-if git show --check --format=%h HEAD >/dev/null 2>&1; then ok "no whitespace errors in HEAD"; else bad "whitespace errors in HEAD"; fi
+# In a commit hook there is something staged, and that is the diff that matters.
+# In CI nothing is staged, so it is the commit that was just pushed.
+if ! git diff --cached --quiet 2>/dev/null; then
+  if git diff --cached --check; then ok "no whitespace errors in the staged changes"; else bad "whitespace in the staged changes"; fi
+elif git show --check --format=%h HEAD >/dev/null 2>&1; then
+  ok "no whitespace errors in HEAD"
+else
+  bad "whitespace errors in HEAD"
+fi
 
 step "QML syntax"
 qmllint_bin=$(command -v qmllint || echo /usr/lib/qt6/bin/qmllint)

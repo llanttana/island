@@ -1,0 +1,27 @@
+#!/bin/bash
+# Run the project's checks before a commit lands, so that "commit only when it
+# is green" is a rule the repository enforces rather than one a person has to
+# remember. Set it up once per clone:
+#
+#   git config core.hooksPath githooks
+#
+# Bypass it with `git commit --no-verify` when the check itself is what is wrong
+# -- and say why in the commit message, because this is the check that catches
+# the things a person cannot see.
+set -uo pipefail
+
+cd "$(git rev-parse --show-toplevel)" || exit 1
+
+# A fresh clone without the tooling should still be able to commit: the checks
+# skip what they cannot run, but the tests themselves need jq.
+if ! command -v jq >/dev/null 2>&1; then
+  printf 'pre-commit: jq is not installed, skipping the checks\n' >&2
+  exit 0
+fi
+
+if [ ! -f tests/checks.sh ]; then
+  printf 'pre-commit: tests/checks.sh is missing, skipping the checks\n' >&2
+  exit 0
+fi
+
+exec bash tests/checks.sh

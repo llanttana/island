@@ -43,6 +43,15 @@ when a user-facing action, dependency, or configuration path changes.
 
 From the repository root, run:
 
+Turn the checks on as a commit hook, once per clone:
+
+```sh
+git config core.hooksPath githooks
+```
+
+After that `tests/checks.sh` runs before every commit and a red one blocks
+it. `git commit --no-verify` bypasses it; say why if you use it.
+
 ```sh
 bash tests/checks.sh
 omarchy plugin validate .
