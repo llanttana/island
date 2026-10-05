@@ -65,8 +65,13 @@ Item {
     id: persisted
     reloadableId: "omarchy-notifications"
     property bool doNotDisturb: false
+    property int historyLimit: 10
     onDoNotDisturbChanged: {
       // Suppress the write that load-time hydration would otherwise trigger.
+      if (service._hydrating) return
+      service.scheduleSettingsSave()
+    }
+    onHistoryLimitChanged: {
       if (service._hydrating) return
       service.scheduleSettingsSave()
     }
@@ -130,7 +135,26 @@ Item {
 
   // How many notifications the history directory keeps, and therefore how
   // many `showHistory` can replay.
-  readonly property int historyLimit: 10
+  // How many notifications the history keeps. Ten was the old fixed value.
+  readonly property alias historyLimit: persisted.historyLimit
+  readonly property int maxHistoryLimit: 100
+
+  function setHistoryLimit(value) {
+    var n = Math.round(Number(value))
+    if (isNaN(n)) return
+    n = Math.max(0, Math.min(service.maxHistoryLimit, n))
+    if (n === service.historyLimit) return
+    persisted.historyLimit = n
+    // The new ceiling applies to what is already on disk, not just to what
+    // arrives next: shrinking the limit should not need a new notification.
+    service.pruneHistory()
+  }
+
+  function pruneHistory() {
+    enqueuePopupFileJob(["bash", "-c",
+      "hist=\"$1\" limit=\"$2\" imgs=\"$3\"\n" + trimHistoryScript, "--",
+      historyDir, String(service.historyLimit), imagesDir])
+  }
 
   readonly property int lowPopupDuration: 5000
   readonly property int normalPopupDuration: 8000
@@ -859,6 +883,12 @@ Item {
       service._hydrating = false
     }
 
+    if (parsed.historyLimit !== null) {
+      service._hydrating = true
+      persisted.historyLimit = Math.max(0, Math.min(service.maxHistoryLimit, Math.round(parsed.historyLimit)))
+      service._hydrating = false
+    }
+
     service.settingsLoaded = true
     // Versions before the history moved into its own directory kept every
     // notification in here. Rewrite once so that dead payload doesn't sit in
@@ -867,7 +897,11 @@ Item {
   }
 
   function flushSettings() {
-    settingsFile.setText(JSON.stringify({ version: 3, dnd: persisted.doNotDisturb }, null, 2) + "\n")
+    settingsFile.setText(JSON.stringify({
+      version: 3,
+      dnd: persisted.doNotDisturb,
+      historyLimit: persisted.historyLimit
+    }, null, 2) + "\n")
   }
 
   Component.onCompleted: {
@@ -897,6 +931,17 @@ Item {
 
     function dndState(): string {
       return service.doNotDisturb ? "on" : "off"
+    }
+
+    // How much of the history to keep. The island's settings read and write
+    // this; 0 keeps nothing.
+    function getHistoryLimit(): string {
+      return String(service.historyLimit)
+    }
+
+    function setHistoryLimit(value: string): string {
+      service.setHistoryLimit(value)
+      return String(service.historyLimit)
     }
 
     function toggleDnd(): string {

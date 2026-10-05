@@ -258,13 +258,14 @@ function historyEntry(value, normalUrgency) {
 // so the service can rewrite the file without the dead payload.
 function parseSettings(raw) {
   var text = String(raw || "").trim()
-  if (!text) return { error: false, dnd: null, legacy: false }
+  if (!text) return { error: false, dnd: null, historyLimit: null, legacy: false }
 
   try {
     var parsed = JSON.parse(text)
     return {
       error: false,
       dnd: parsed && typeof parsed.dnd === "boolean" ? parsed.dnd : null,
+      historyLimit: parsed && typeof parsed.historyLimit === "number" ? parsed.historyLimit : null,
       legacy: !!(parsed && (parsed.pending || parsed.past || parsed.entries))
     }
   } catch (e) {

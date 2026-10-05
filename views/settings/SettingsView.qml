@@ -1,5 +1,6 @@
 import QtQuick
 import QtQuick.Layouts
+import Quickshell.Io
 import "../../components"
 
 // The island's own settings, laid out like iOS Settings: a navigation bar with
@@ -65,8 +66,46 @@ ColumnLayout {
   readonly property color divider: host.withAlpha(host.colorText, 0.08)
   readonly property int animDuration: host.motionBase
 
+  // Notification history lives in the companion, so it is read and written over
+  // its IPC rather than bound directly. The default matches the companion's, so
+  // the row is right even before the first read comes back.
+  property int historyLimit: 10
+  property bool historyCleared: false
+  Process {
+    id: historyLimitRead
+    command: ["omarchy-shell", "notifications", "getHistoryLimit"]
+    stdout: StdioCollector {
+      waitForEnd: true
+      onStreamFinished: {
+        var n = parseInt(String(text || "").trim(), 10)
+        if (!isNaN(n)) settingsView.historyLimit = n
+      }
+    }
+  }
+  Process { id: historyLimitWrite; onExited: historyLimitRead.running = true }
+  Process { id: historyClear }
+  function setHistoryLimit(value) {
+    settingsView.historyLimit = value
+    historyLimitWrite.command = ["omarchy-shell", "notifications", "setHistoryLimit", String(value)]
+    historyLimitWrite.running = true
+  }
+  function clearHistory() {
+    settingsView.historyCleared = true
+    historyClearedTimer.restart()
+    historyClear.command = ["omarchy-shell", "notifications", "clear"]
+    historyClear.running = true
+  }
+  Timer {
+    id: historyClearedTimer
+    interval: 2600
+    onTriggered: settingsView.historyCleared = false
+  }
+
   spacing: 8
-  onActiveChanged: if (active) Qt.callLater(function() { settingsView.forceActiveFocus() })
+  onActiveChanged: if (active) {
+    Qt.callLater(function() { settingsView.forceActiveFocus() })
+    if (!historyLimitRead.running) historyLimitRead.running = true
+  }
   Keys.onEscapePressed: host.goBack()
   // The list is long now, so the keyboard moves it as well as the wheel.
   Keys.onPressed: function(event) {
@@ -540,11 +579,33 @@ ColumnLayout {
         title: "Notifications"
         SettingsRow {
           label: "Banner Duration"
-          last: true
           SettingsSegments {
             options: [{ label: "3 s", value: 3 }, { label: "5 s", value: 5 }, { label: "8 s", value: 8 }]
             value: settingsView.settings.bannerSeconds
             onPicked: function(v) { settingsView.settings.bannerSeconds = v }
+          }
+        }
+        SettingsRow {
+          label: "Keep in History"
+          detail: "How many notifications the history holds before the oldest go"
+          SettingsSegments {
+            options: [{ label: "5", value: 5 }, { label: "10", value: 10 },
+                      { label: "25", value: 25 }, { label: "50", value: 50 }]
+            value: settingsView.historyLimit
+            onPicked: function(v) { settingsView.setHistoryLimit(v) }
+          }
+        }
+        SettingsRow {
+          label: "History"
+          detail: "Delete every notification the history is holding"
+          last: true
+          // One control, not a label beside it: a row's trailing slot has no
+          // layout of its own, so two children would sit on top of each other.
+          IslandButton {
+            host: settingsView.host
+            label: settingsView.historyCleared ? "Cleared" : "Clear"
+            danger: true
+            onClicked: settingsView.clearHistory()
           }
         }
       }

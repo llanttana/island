@@ -57,6 +57,13 @@ edit and the backup rotation, and it runs `companion/install.sh` twice against a
 throwaway `HOME` with the Omarchy commands stubbed out, so a second run is
 proven not to touch anything.
 
+For a QML change, confirm the plugin actually loaded after restarting the shell
+(`hyprctl layers` should list a layer named `omarchy-island`). Omarchy falls back
+to its own bar, and disables the plugin, when one of its files fails to load --
+and the only clue is a `bar option lanta.island failed to load` warning in the
+journal. A missing import is enough: a view that uses `Process` needs
+`import Quickshell.Io`.
+
 For visual changes, check the affected views in a running Omarchy session and
 include a screenshot in the pull request. For setup or removal changes, test a
 fresh install, a repeat run, and `companion/uninstall.sh --dry-run`. Confirm that

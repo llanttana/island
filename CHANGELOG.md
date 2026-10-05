@@ -11,6 +11,9 @@ All notable changes to Island are recorded here. The format follows
 - Shelf: `Delete` takes the Ctrl+click selection off the shelf, or the tile the
   keyboard is on when nothing is selected.
 - Shelf: double click opens a tile with `xdg-open`.
+- The notification history limit is a setting rather than a hard-coded ten,
+  with a **Clear** button next to it in Settings; the island reads and writes
+  both through the companion's IPC.
 - Island probes the `omarchy-*` helpers it uses at startup. On an older or
   trimmed Omarchy a feature whose helper is missing now hides itself -- the
   Record chip, the power buttons, the theme and wallpaper pickers, the Bluetooth
