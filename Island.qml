@@ -950,7 +950,10 @@ Item {
       try { rows.push(JSON.parse(lines[i])) } catch (e) { }
     }
     rows.sort(function(a, b) { return Number(b.timestamp || 0) - Number(a.timestamp || 0) })
-    history = rows.slice(0, 10)
+    // No cap of its own: the companion already prunes these files to the
+    // history limit set in Settings, and a second, hard-coded ten here would
+    // quietly hide the rest of what it kept.
+    history = rows
   }
 
   function notificationKey(row) {

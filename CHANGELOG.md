@@ -14,6 +14,8 @@ All notable changes to Island are recorded here. The format follows
 - The notification history limit is a setting rather than a hard-coded ten,
   with a **Clear** button next to it in Settings; the island reads and writes
   both through the companion's IPC.
+- The history list no longer imposes its own cap of ten entries: it shows
+  everything the companion kept, which is what the limit above controls.
 - Island probes the `omarchy-*` helpers it uses at startup. On an older or
   trimmed Omarchy a feature whose helper is missing now hides itself -- the
   Record chip, the power buttons, the theme and wallpaper pickers, the Bluetooth
