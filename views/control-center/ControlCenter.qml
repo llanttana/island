@@ -106,6 +106,10 @@ ColumnLayout {
   readonly property string keyboardLayout: controls.keyboardLayout
   readonly property string keyboardDevice: controls.keyboardDevice
   readonly property bool recording: controls.recording
+  readonly property int nightMin: controls.nightMin
+  readonly property int nightMax: controls.nightMax
+  readonly property int nightTemp: controls.nightTemp
+  function setNightTemp(k) { controls.setNightTemp(k) }
   function cycleLayout() { controls.cycleLayout() }
   function setProfile(name) { controls.setProfile(name) }
   function setGameMode(on) { controls.setGameMode(on) }
@@ -180,44 +184,9 @@ ColumnLayout {
 
   // --- Shell services ---
   readonly property var notifications: host.shell ? host.shell.firstPartyServiceFor("omarchy.notifications") : null
-  readonly property var nightlight: host.shell ? host.shell.firstPartyServiceFor("omarchy.nightlight") : null
+  readonly property var nightlight: controls.nightlight
   readonly property bool dnd: notifications ? !!notifications.doNotDisturb : false
-  readonly property bool nightOn: nightlight ? !!nightlight.enabled : false
-
-  // --- Night light warmth ---
-  readonly property int nightMin: 2500
-  readonly property int nightMax: 6500
-  property int nightTemp: 4000
-  property int nightAttempts: 0
-  Process {
-    id: nightWrite
-    onExited: function(code) {
-      // hyprsunset may still be starting up after the toggle; retry until it
-      // accepts the temperature.
-      if (code !== 0 && cc.nightOn && cc.nightAttempts < 8) {
-        cc.nightAttempts++
-        nightApply.restart()
-      }
-    }
-  }
-  Timer { id: nightApply; interval: 220; onTriggered: cc.applyNightTemp() }
-  function applyNightTemp() {
-    if (!cc.nightlight) return
-    if (!cc.nightOn) {
-      cc.nightlight.setNightlight(true)
-      cc.nightAttempts = 0
-      nightApply.restart()
-      return
-    }
-    cc.host.settings.nightTemp = cc.nightTemp
-    nightWrite.command = ["hyprctl", "hyprsunset", "temperature", String(cc.nightTemp)]
-    nightWrite.running = true
-  }
-  function setNightTemp(k) {
-    cc.nightTemp = Math.max(cc.nightMin, Math.min(cc.nightMax, Math.round(k)))
-    cc.nightAttempts = 0
-    nightApply.restart()
-  }
+  readonly property bool nightOn: controls.nightOn
 
   Process { id: systemAction }
   Process { id: recordingStop }
@@ -268,6 +237,8 @@ ColumnLayout {
     if (!cc.nightlight) return
     var next = !cc.nightOn
     cc.nightlight.setNightlight(next)
+    // Bring the saved warmth back when the filter comes on.
+    if (next) cc.controls.restartNightTemp()
     cc.host.announce(next ? "Night light on" : "Night light off")
   }
   function toggleStayAwake() {
@@ -287,9 +258,7 @@ ColumnLayout {
       return
     }
     Qt.callLater(function() { cc.forceActiveFocus() })
-    var storedTemp = Number(cc.host.settings.nightTemp)
-    if (!isNaN(storedTemp) && storedTemp >= cc.nightMin && storedTemp <= cc.nightMax)
-      cc.nightTemp = Math.round(storedTemp)
+    cc.controls.loadStoredTemp()
     cc.controls.refresh()
     cc.status.refresh()
     cc.weather.refresh()
@@ -733,13 +702,7 @@ ColumnLayout {
           icon: "󰖔"
           checked: cc.nightOn
           visible: !!cc.nightlight
-          onClicked: {
-            var next = !cc.nightOn
-            cc.nightlight.setNightlight(next)
-            // Bring the saved warmth back when the filter comes on.
-            if (next) { cc.nightAttempts = 0; nightApply.restart() }
-            cc.host.announce(next ? "Night light on" : "Night light off")
-          }
+          onClicked: cc.toggleNightlight()
         }
       }
 

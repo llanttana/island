@@ -179,6 +179,61 @@ Item {
   // capture helper); this only keeps the state honest.
   function setRecording(on) { controls.recording = !!on }
 
+  // ---------- Night light warmth ----------
+  //
+  // The night light itself is Omarchy's own service; the warmth goes to it
+  // through hyprsunset, which may still be starting up when the toggle flips,
+  // so a failed write is retried a few times.
+  readonly property int nightMin: 2500
+  readonly property int nightMax: 6500
+  property int nightTemp: 4000
+  property int nightAttempts: 0
+  readonly property var nightlight: host.shell ? host.shell.firstPartyServiceFor("omarchy.nightlight") : null
+  readonly property bool nightOn: nightlight ? !!nightlight.enabled : false
+
+  Process {
+    id: nightWrite
+    onExited: function(code) {
+      if (code !== 0 && controls.nightOn && controls.nightAttempts < 8) {
+        controls.nightAttempts++
+        nightApply.restart()
+      }
+    }
+  }
+  Timer { id: nightApply; interval: 220; onTriggered: controls.applyNightTemp() }
+
+  function applyNightTemp() {
+    if (!controls.nightlight) return
+    if (!controls.nightOn) {
+      controls.nightlight.setNightlight(true)
+      controls.nightAttempts = 0
+      nightApply.restart()
+      return
+    }
+    controls.host.settings.nightTemp = controls.nightTemp
+    nightWrite.command = ["hyprctl", "hyprsunset", "temperature", String(controls.nightTemp)]
+    nightWrite.running = true
+  }
+
+  function setNightTemp(k) {
+    controls.nightTemp = Math.max(controls.nightMin, Math.min(controls.nightMax, Math.round(k)))
+    controls.nightAttempts = 0
+    nightApply.restart()
+  }
+
+  // When the filter is switched on, put the saved warmth back on it.
+  function restartNightTemp() {
+    controls.nightAttempts = 0
+    nightApply.restart()
+  }
+
+  // The warmth from settings, ignored when it is out of range.
+  function loadStoredTemp() {
+    var stored = Number(host.settings.nightTemp)
+    if (!isNaN(stored) && stored >= controls.nightMin && stored <= controls.nightMax)
+      controls.nightTemp = Math.round(stored)
+  }
+
   // Called when the panel opens.
   function refresh() {
     if (!brightnessRead.running && host.hasHelper("omarchy-brightness-display")) brightnessRead.running = true

@@ -29,9 +29,10 @@ All notable changes to Island are recorded here. The format follows
   agent sessions) moved out of the panel into `components/OmarchyStatus.qml`, and
   its controls (power profiles, brightness, Game Mode) into
   `components/OmarchyControls.qml`. The panel keeps the same property names for
-  both, so its body barely changed. The keyboard layout and the screen-recording
-  state followed them. `ControlCenter.qml` is down from 1677 to 1489 lines and
-  is now layout, theme colours and the Quickshell service bindings.
+  both, so its body barely changed. The keyboard layout, the screen-recording
+  state and the night light warmth followed them. `ControlCenter.qml` is down
+  from 1677 to 1452 lines and is now layout, theme colours and the Quickshell
+  service bindings.
 - The companion setup only backs a config file up when it is actually about to
   change, and keeps the newest five copies instead of one per run.
 - Weather is one shared service instead of two ad-hoc requests: Open-Meteo
