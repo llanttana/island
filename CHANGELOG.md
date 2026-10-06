@@ -6,6 +6,8 @@ All notable changes to Island are recorded here. The format follows
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-10-06
+
 ### Added
 
 - Buttons, switches and sliders now carry `Accessible.name`, a role and their
@@ -45,6 +47,8 @@ All notable changes to Island are recorded here. The format follows
   rotation, plus a run of `install.sh` twice against a throwaway `HOME`.
 
 ### Changed
+- CI fetches the source as an archive instead of cloning it, so the repository's
+  clone graph counts people rather than workflow runners.
 
 - The notification history -- the read, the merge with the banners still on
   screen, and dismissing or clearing a row -- moved out of `Island.qml` into
@@ -84,6 +88,12 @@ All notable changes to Island are recorded here. The format follows
   as one tabbed control.
 
 ### Fixed
+- The theme and wallpaper pickers apply on one click again. A click only moved
+  the selection, and the apply that was supposed to follow read the previous
+  card, found it equal to the current one and closed the view instead.
+- `tests/demo.sh` no longer restores a stale backup: a new scene replaces the
+  snapshot it finds, so `cleanup` puts back the state you had when you prepared
+  rather than one from an earlier run.
 
 - The notification history rows draw their own near-opaque backing instead of
   the card's 7% tint. At 0.07 the window behind the panel decided the contrast

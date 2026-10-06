@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "id": "lanta.island",
   "name": "Island",
-  "version": "0.4.0",
+  "version": "0.5.0",
   "author": "lanta",
   "description": "A floating, morphing Omarchy bar, with menus, live activities and a drag-and-drop shelf",
   "license": "MIT",
