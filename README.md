@@ -109,14 +109,6 @@ Island runs inside Omarchy's Quickshell process and reserves no screen space.
   </tr>
 </table>
 
-### Search
-
-<table>
-  <tr>
-    <td colspan="2" align="center"><strong>Emoji</strong><br><img src="assets/emoji.jpg" alt="The emoji picker" width="50%"></td>
-  </tr>
-</table>
-
 ### Shelf
 
 <table>
@@ -129,9 +121,8 @@ Island runs inside Omarchy's Quickshell process and reserves no screen space.
 
 <table>
   <tr>
-    <td width="33%" align="center"><strong>Themes</strong><br><img src="assets/themes.jpg" alt="The theme switcher" width="100%"></td>
-    <td width="33%" align="center"><strong>Wallpapers</strong><br><img src="assets/wallpapers.jpg" alt="The wallpaper switcher" width="100%"></td>
-    <td width="33%" align="center"><strong>Power</strong><br><img src="assets/power.jpg" alt="The power menu" width="100%"></td>
+    <td width="50%" align="center"><strong>Themes</strong><br><img src="assets/themes.jpg" alt="The theme switcher" width="100%"></td>
+    <td width="50%" align="center"><strong>Wallpapers</strong><br><img src="assets/wallpapers.jpg" alt="The wallpaper switcher" width="100%"></td>
   </tr>
   <tr>
     <td colspan="3" align="center"><strong>Settings</strong><br><img src="assets/settings.jpg" alt="The settings pane in the control center" width="40%"></td>
