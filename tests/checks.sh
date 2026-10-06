@@ -203,6 +203,20 @@ else
   skip "node is not installed, so the activity model cannot be exercised"
 fi
 
+# The legacy pill rules the model has to reproduce are frozen in
+# tests/fixtures/island-legacy-pills.qml. This reads that freeze and not
+# Island.qml: stage 2 rewrites the very lines it was cut from, and the reference
+# is the thing that has to stand still while that happens. The comparison with
+# the live sources is `node tests/pill-legacy.test.js --verify-live`, kept out of
+# this script on purpose -- it is expected to differ once the sources move.
+if command -v node >/dev/null 2>&1; then
+  rc=0
+  out=$(node "$root/tests/pill-legacy.test.js" 2>&1) || rc=1
+  if [[ $rc -eq 0 ]]; then ok "tests/pill-legacy.test.js"; else bad "tests/pill-legacy.test.js"; printf '%s\n' "$out" | sed 's/^/       /'; fi
+else
+  skip "node is not installed, so the legacy pill reference cannot be exercised"
+fi
+
 step "Companion setup tests"
 if bash tests/run.sh; then ok "tests/run.sh"; else bad "tests/run.sh"; fi
 
