@@ -272,8 +272,17 @@ Item {
           anchors.fill: parent
           cursorShape: Qt.PointingHandCursor
           onClicked: {
-            if (slot.isSelected) picker.apply()
-            else carousel.currentIndex = slot.index
+            if (slot.isSelected) {
+              picker.apply()
+            } else {
+              // Select and apply in one click, like the list pickers do. The
+              // selection `apply()` reads is bound to the carousel, and a
+              // binding is only refreshed after this handler returns -- so
+              // applying straight away used to look at the *previous* card,
+              // find it equal to `currentKey` and just close the view.
+              carousel.currentIndex = slot.index
+              Qt.callLater(picker.apply)
+            }
             search.focusInput()
           }
         }
