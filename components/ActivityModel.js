@@ -29,6 +29,9 @@ var LIMITS = {
   id: 64,
   defaultTtl: 10000,
   maxTtl: 86400000,
+  // Number.MAX_SAFE_INTEGER, written out: the same value in both engines, and
+  // one constant for the model and its test to share.
+  maxTimestamp: 9007199254740991,
   externalPriority: 79,   // strictly below the timer's 80: an external activity must never tie with it
   updatesPerSecond: 4
 }
@@ -48,15 +51,42 @@ var FORBIDDEN_KEYS = ["__proto__", "constructor", "prototype"]
 var CONTROL = /[\u0000-\u001f\u007f-\u009f]/g
 var MARKS = /[\u200b-\u200f\u2028-\u202e\u2066-\u2069]/g
 
+// Cuts a string to at most `max` characters without splitting a surrogate pair.
+//
+// This does not use Array.from. The QML engine's Array.from walks UTF-16 units
+// rather than code points -- measured on Qt 6.11.2, a 60-emoji string came back
+// as 120 elements -- so the same text was cut to 48 units (24 emoji) on the
+// island and to 48 code points under node, and when the cut landed mid-pair the
+// text ended on a lone high surrogate: a broken character, or a replacement
+// glyph, in a file name on the pill. Counting the units by hand is the same
+// everywhere.
+//
+// A grapheme cluster built from more than one code point -- a ZWJ sequence, a
+// flag, a letter with a combining mark -- can still be cut in the middle. Qt's
+// JS has no Intl.Segmenter to tell them apart, and the pill elides by width
+// anyway, so this is the honest limit of what the model guarantees.
+function cutTo(value, max) {
+  if (value.length <= max) return value      // units are never fewer than code points
+  var out = ""
+  var taken = 0
+  for (var i = 0; i < value.length && taken < max; i++) {
+    var unit = value.charCodeAt(i)
+    var pair = unit >= 0xd800 && unit <= 0xdbff && i + 1 < value.length
+      && value.charCodeAt(i + 1) >= 0xdc00 && value.charCodeAt(i + 1) <= 0xdfff
+    out += pair ? value.substring(i, i + 2) : value.charAt(i)
+    if (pair) i++
+    taken++
+  }
+  return out
+}
+
 function cleanString(value, max) {
   if (typeof value !== "string") return null
   // A control character is a separator, a bidi mark is noise: keeping the first
   // as a space is what makes "a\u0000b" read as "a b" instead of "ab".
   var out = value.replace(CONTROL, " ").replace(MARKS, "").replace(/\s+/g, " ").trim()
   if (!out) return null
-  var chars = Array.from(out)
-  if (chars.length > max) out = chars.slice(0, max).join("")
-  return out
+  return cutTo(out, max)
 }
 
 function finiteNumber(value, fallback, min, max) {
@@ -70,7 +100,12 @@ function finiteNumber(value, fallback, min, max) {
 function integer(value, fallback, min, max) {
   var n = finiteNumber(value, fallback, min, max)
   if (n === null) return null
-  return Math.round(n)
+  // Only a fractional input needs rounding, and the QML engine's Math.round is
+  // not exact near the top of the double range: Math.round(2^53 - 1) is 2^53
+  // there, while Number.MAX_SAFE_INTEGER itself is right (measured on Qt
+  // 6.11.2). Handing back a value that is already whole keeps the model's
+  // answer the same in both engines for every timestamp it accepts.
+  return n % 1 === 0 ? n : Math.round(n)
 }
 
 // The one place that decides whether an incoming activity may be stored.
@@ -101,7 +136,7 @@ function sanitize(input, now) {
   if (source === "ext" && priority > LIMITS.externalPriority) priority = LIMITS.externalPriority
   var ttl = integer(input.ttl, LIMITS.defaultTtl, 0, LIMITS.maxTtl)
   if (ttl === null) return { ok: false, error: "ttl must be an integer between 0 and " + LIMITS.maxTtl }
-  var createdAt = integer(input.createdAt, now === undefined ? Date.now() : now, 0, Number.MAX_SAFE_INTEGER)
+  var createdAt = integer(input.createdAt, now === undefined ? Date.now() : now, 0, LIMITS.maxTimestamp)
   if (createdAt === null) return { ok: false, error: "createdAt must be a number" }
   var click = null
   if (isPlainObject(input.click)) {
