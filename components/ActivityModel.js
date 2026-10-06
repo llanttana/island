@@ -4,15 +4,23 @@
 // node instead of a copy of it.
 //
 // An activity is a plain object:
-//   { id, source, icon, text, detail, progress, priority, createdAt, ttl, click, owner }
+//   { id, source, icon, text, detail, progress, priority, createdAt, ttl, click, owner, done }
 // Only `id`, `source` and `text` are required; everything else falls back to the
-// defaults below.
+// defaults below. `done` marks a finished download or update: the sources still
+// carry finished/active booleans of their own, and the pill draws a finished
+// entry with a check rather than a spinner.
 
 var SOURCES = ["timer", "download", "update", "media", "system", "ext"]
 
 // What the pill shows when nobody said otherwise. `ext` is deliberately never
 // above the timer: a process of the same user must not be able to hide it.
 var PRIORITY = { timer: 80, download: 60, update: 60, media: 40, system: 20, ext: 55 }
+
+// The order the boolean chain on the island root expressed, as numbers, used by
+// activitiesFromState() below. Downloads and updates share 90 because Downloads
+// and PackageUpdates shared one pill slot, and the file tracker takes that slot
+// from a package update whenever it has anything to show.
+var LEGACY_PRIORITY = { download: 90, update: 90, timer: 80, system: 70, media: 60 }
 
 var LIMITS = {
   activities: 8,
@@ -187,4 +195,77 @@ function allowsUpdate(times, now, rate) {
   var at = now === undefined ? Date.now() : now
   var recent = (Array.isArray(times) ? times : []).filter(function (t) { return at - t < 1000 })
   return recent.length < limit
+}
+
+// The companion's setup state, Companion.qml:17: an empty status means the check
+// has not answered yet, "ok" means there is nothing to set up, and anything else
+// puts the setup pill on screen and keeps the activities off it.
+function companionNeedsSetup(status) {
+  return status !== "" && status !== "ok"
+}
+
+// Turns the raw state the island root holds today into the activity list the
+// pill will draw. Stage 2 calls this where it computes the *Pill booleans by
+// hand; nothing calls it yet, and Island.qml does not know it exists.
+//
+// `raw` is the state the root already has:
+//   view, status                   the view, and the companion's status
+//   settings                       { downloads, systemUpdates, mediaPill,
+//                                    systemMonitor, autoMonitorHot, notch }
+//   timerRunning, mediaPlaying     the two services
+//   fileActive, fileFinishedName   the Downloads tracker
+//   pkgActive, pkgFinishedTitle    the PackageUpdates tracker
+//   systemReady, hot               the system sampler
+//   now                            the timestamp stamped on every entry
+//
+// The list reproduces the old chain exactly, exclusions included: media shows
+// only when nothing else does, the system monitor only while the timer is idle,
+// and a finished download or update hides the one that is still running, which
+// is what `!downloadDone` did. Downloads and updates are two activities at the
+// same priority because they shared one slot; the file tracker wins it because
+// its id sorts first, which is the rule DownloadPill.qml already had.
+//
+// `text` is a placeholder until stage 3 has the real labels (the timer's
+// remaining time, the track title): a finished entry carries the name it
+// finished with, everything else carries its source. `progress` stays null for
+// the same reason -- none of these sources knows a total.
+function activitiesFromState(raw) {
+  var s = isPlainObject(raw) ? raw : {}
+  var set = isPlainObject(s.settings) ? s.settings : {}
+  var now = typeof s.now === "number" ? s.now : Date.now()
+  if (s.view !== "rest" || companionNeedsSetup(s.status)) return []
+
+  var fileDone = !!s.fileFinishedName
+  var pkgDone = !!set.systemUpdates && !!s.pkgFinishedTitle
+  var done = fileDone || pkgDone
+  // The `!downloadDone` guard, source by source: a finished entry suppresses the
+  // half that is still running, exactly as the single boolean did.
+  var fileActive = !!set.downloads && !!s.fileActive && !done
+  var pkgActive = !!set.systemUpdates && !!s.pkgActive && !done
+  var timer = !!s.timerRunning
+
+  var out = []
+  function push(source, finished, text, view) {
+    out.push({ id: source, source: source, icon: null, text: text, detail: null,
+      progress: null, priority: LEGACY_PRIORITY[source], createdAt: now, ttl: 0,
+      click: { view: view }, owner: "island", done: finished })
+  }
+  // A file download and a package update both open what openDownloads() opened
+  // at Island.qml:1287; the design's note about a different view for updates is
+  // stage 3's call, not this one's.
+  if (fileDone || fileActive) {
+    push("download", fileDone, (typeof s.fileFinishedName === "string" && s.fileFinishedName) || "download", "downloads")
+  }
+  if (pkgDone || pkgActive) {
+    push("update", pkgDone, (typeof s.pkgFinishedTitle === "string" && s.pkgFinishedTitle) || "update", "downloads")
+  }
+  var download = fileDone || fileActive || pkgDone || pkgActive
+
+  if (timer) push("timer", false, "timer", "timer")
+  var system = !!s.systemReady && !timer
+    && (!!set.systemMonitor || (!!set.autoMonitorHot && !!s.hot))
+  if (system) push("system", false, "system", "system")
+  var media = !!s.mediaPlaying && !!set.mediaPill && !download && !system && !timer
+  if (media) push("media", false, "media", "player")
+  return out
 }
