@@ -11,6 +11,7 @@ import Quickshell.Wayland
 import qs.Commons
 import "components"
 import "views"
+import "components/ActivityModel.js" as ActivityModel
 import "views/shelf/ShelfModel.js" as ShelfModel
 import "file:///usr/share/omarchy/shell/plugins/clipboard/ClipboardHistory.js" as ClipboardHistory
 import "companion/lanta.notifications/NotificationLogic.js" as NotificationLogic
@@ -34,7 +35,8 @@ Item {
   onReportedArtChanged: if (reportedArt) { keptArt = reportedArt; keptArtTitle = mediaTitle }
   onMediaTitleChanged: if (mediaTitle !== keptArtTitle) { keptArt = reportedArt; keptArtTitle = mediaTitle }
   readonly property string mediaArt: reportedArt || (mediaTitle === keptArtTitle ? keptArt : "")
-  readonly property bool mediaPill: view === "rest" && mediaPlaying && !companionNeedsSetup && settings.mediaPill && !downloadPill && !systemPill && !timerPill
+  // Whether media takes the pill is decided in one place now, with every other
+  // source: see the `activities` list below.
 
   property string askQuestion: ""
   readonly property var askProviders: ({
@@ -61,21 +63,63 @@ Item {
     active: root.view === "system" || root.settings.systemMonitor || root.settings.autoMonitorHot
   }
   readonly property var systemStats: systemSampler
-  readonly property bool systemPinned: !!settings.systemMonitor
-  readonly property bool systemHot: !!settings.autoMonitorHot && systemSampler.ready && (systemSampler.temp >= 85 || systemSampler.cpu >= 95)
-  readonly property bool systemPill: view === "rest" && !companionNeedsSetup && systemSampler.ready && !timerPill
-    && (systemPinned || systemHot)
   // Countdown timer, shared by the control-center chip, the Timer page, and
   // the live activity on the resting pill.
   TimerService { id: timerService }
   readonly property var timer: timerService
   readonly property bool timerRunning: timerService.running
-  readonly property bool timerPill: view === "rest" && !companionNeedsSetup && timerService.running
-  readonly property bool downloadDone: view === "rest" && !companionNeedsSetup
-    && (downloadTracker.finishedName !== "" || packageTracker.finishedTitle !== "")
-  readonly property bool downloadActive: view === "rest" && !companionNeedsSetup
-    && (downloadTracker.active || packageTracker.active) && !downloadDone
-  readonly property bool downloadPill: downloadDone || downloadActive
+
+  // What the pill could show, straight from the raw state: which sources are
+  // live right now and which of them wins. The order and the exclusions live in
+  // components/ActivityModel.js, so the *Pill booleans below are one reading of
+  // this list instead of a second copy of the rules.
+  //
+  // Every field the model looks at is read here, in the binding -- a setting
+  // included, which is why the settings are copied field by field instead of
+  // being handed over whole. A read that happens inside the JS call is a read
+  // QML cannot see, and the pill would then ignore a setting change until
+  // something else moved.
+  readonly property var activities: ActivityModel.activitiesFromState({
+    view: view,
+    status: companionStatus,
+    settings: ({
+      downloads: settings.downloads,
+      systemUpdates: settings.systemUpdates,
+      mediaPill: settings.mediaPill,
+      systemMonitor: settings.systemMonitor,
+      autoMonitorHot: settings.autoMonitorHot,
+      notch: settings.notch
+    }),
+    timerRunning: timerService.running,
+    fileActive: downloadTracker.active,
+    fileFinishedName: downloadTracker.finishedName,
+    pkgActive: packageTracker.active,
+    pkgFinishedTitle: packageTracker.finishedTitle,
+    mediaPlaying: mediaPlaying,
+    systemReady: systemSampler.ready,
+    hot: systemSampler.temp >= 85 || systemSampler.cpu >= 95
+  })
+
+  function activitySource(source) {
+    for (var i = 0; i < activities.length; i++) {
+      if (activities[i].source === source) return activities[i]
+    }
+    return null
+  }
+
+  // Downloads and updates share one slot in the model; fileDownloadRunning is
+  // the half of it that wants the narrower box (see targetWidth below).
+  readonly property var activitySlot: activitySource("download") || activitySource("update")
+  readonly property bool fileDownloadRunning: {
+    var entry = activitySource("download")
+    return !!entry && !entry.done
+  }
+  readonly property bool timerPill: !!activitySource("timer")
+  readonly property bool systemPill: !!activitySource("system")
+  readonly property bool mediaPill: !!activitySource("media")
+  readonly property bool downloadPill: !!activitySlot
+  readonly property bool downloadDone: !!activitySlot && activitySlot.done
+  readonly property bool downloadActive: !!activitySlot && !activitySlot.done
   Process { id: downloadOpener }
   function openDownloads() {
     if (!downloadTracker.active && downloadTracker.finishedName === "") {
@@ -1142,7 +1186,7 @@ Item {
             : root.view === "feedback" ? 330
             : root.companionNeedsSetup ? 250
             : root.downloadDone ? 360
-            : root.downloadActive ? (root.downloadTracker.active ? 240 : 280)
+            : root.downloadActive ? (root.fileDownloadRunning ? 240 : 280)
             : root.timerPill ? 240
             : root.systemPill ? 240
             : root.mediaPill ? 240
