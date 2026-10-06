@@ -11,6 +11,10 @@
 // `node tests/pill-legacy.test.js --verify-live` re-cuts every block out of the
 // live sources and reports the first difference. That comparison is not part of
 // tests/checks.sh on purpose: the freeze is supposed to outlive the sources.
+//
+// Every state in the enumeration goes through ActivityModel.activitiesFromState()
+// and the answer is read back out of the activities it returns. The adapter is
+// what stage 2 connects, so the adapter is what has to reproduce the reference.
 // Delete this file and legacyClickTarget() in stage 3.
 const fs = require("fs"), path = require("path"), vm = require("vm"), crypto = require("crypto")
 const root = path.join(__dirname, "..")
@@ -164,6 +168,12 @@ function legacyClickTarget(s, zone) {
 }
 
 // ------------------------------------------------------------------ enumeration
+// Every state goes through the adapter, and the reference reads the answer back
+// out of the activities it returns: the owner of the display, the six booleans,
+// the pill's box and the click target. The raw flags never reach the comparison
+// on their own, which is what makes this a test of the adapter rather than a
+// restating of the formulas.
+const BASELINE = "74f43afe7e8e6d87"
 const SETTINGS = [{ downloads: 1, systemUpdates: 1, mediaPill: 1, systemMonitor: 0, autoMonitorHot: 1, notch: 0 },
   { downloads: 0, systemUpdates: 1, mediaPill: 1, systemMonitor: 0, autoMonitorHot: 1, notch: 0 },
   { downloads: 1, systemUpdates: 0, mediaPill: 1, systemMonitor: 0, autoMonitorHot: 1, notch: 0 },
@@ -172,25 +182,76 @@ const SETTINGS = [{ downloads: 1, systemUpdates: 1, mediaPill: 1, systemMonitor:
   { downloads: 1, systemUpdates: 1, mediaPill: 1, systemMonitor: 0, autoMonitorHot: 0, notch: 0 }]
 const BITS = ["fileActive", "fileFinishedName", "pkgActive", "pkgFinishedTitle", "timerRunning",
   "mediaPlaying", "systemReady", "hot", "pillHidden"]
-let states = 0, mismatch = [], table = new Map(), boolHash = crypto.createHash("sha256")
+const SLOTS = ["download", "update"]
+
+// The legacy chain had one slot for downloads and updates; the adapter splits it
+// into two sources of equal priority, so the package half is the same owner.
+function ownerOf(activities) {
+  const top = M.visible(activities, 1)[0]
+  return top ? (top.source === "update" ? "download" : top.source) : null
+}
+
+// The booleans and the pill's box, read out of the activities. `done` and the
+// source of the active half are what stand in for downloadDone, downloadActive
+// and the 240-versus-280 width the old chain took from the file tracker.
+function derived(activities, s) {
+  const has = src => activities.some(a => a.source === src)
+  const slots = activities.filter(a => SLOTS.indexOf(a.source) >= 0)
+  const downloadDone = slots.some(a => a.done)
+  const downloadActive = slots.some(a => !a.done)
+  const download = downloadDone || downloadActive
+  const timer = has("timer"), system = has("system"), media = has("media")
+  const set = s.settings, rest = s.view === "rest"
+  const width = !rest ? null : downloadDone ? 360
+    : downloadActive ? (slots.some(a => a.source === "download" && !a.done) ? 240 : 280)
+    : timer || system || media || download ? 240
+    : needsSetup(s.status) ? 250 : null
+  const height = !rest ? null : downloadDone ? 64
+    : (media || download || system || timer) ? (set.notch ? 40 : 44)
+    : needsSetup(s.status) ? null : (set.notch ? 36 : 40)
+  return { timer, downloadDone, downloadActive, download, system, media, width, height, ns: needsSetup(s.status) }
+}
+
+// The reference returns 0/1 for some of these: `&&` and `||` hand back their
+// operands in JS, and the transcription of the QML leans on that. Coercing both
+// sides is what lets the adapter, which works in real booleans, be compared with
+// the frozen formulas at all.
+const BOOLEAN_FIELDS = ["timer", "downloadDone", "downloadActive", "download", "system", "media"]
+const rawTuple = x => [x.timer, x.downloadDone, x.downloadActive, x.download, x.system, x.media, x.width, x.height, x.ns]
+const boolTuple = x => [!!x.timer, !!x.downloadDone, !!x.downloadActive, !!x.download, !!x.system, !!x.media, x.width, x.height, !!x.ns]
+
+let states = 0, table = new Map()
+const ownerMismatch = [], boolMismatch = [], clickMismatch = []
+const refHash = crypto.createHash("sha256"), boolHash = crypto.createHash("sha256"), adapterHash = crypto.createHash("sha256")
 for (const settings of SETTINGS) for (const status of STATUSES) for (let mask = 0; mask < (1 << BITS.length); mask++) {
   const s = { view: "rest", feedbackKind: "", settings, status }
   BITS.forEach((b, i) => { s[b] = !!(mask & (1 << i)) })
   states++
   const L = leg(s)
-  const list = []
-  for (const src of ["download", "timer", "system", "media"]) {
-    if (L[src]) list.push({ id: src, source: src, text: src, priority: LEGACY_PRIORITY[src], createdAt: 1000, ttl: 0 })
-  }
-  const got = M.visible(list, 1)[0]
-  if ((got ? got.source : null) !== L.owner) mismatch.push(s)
-  boolHash.update(JSON.stringify([L.timer, L.downloadDone, L.downloadActive, L.download, L.system, L.media, L.width, L.height, needsSetup(s.status)]))
+  const activities = M.activitiesFromState(Object.assign({}, s, { now: 1000 }))
+  const D = derived(activities, s)
+  const top = M.visible(activities, 1)[0]
+  if (ownerOf(activities) !== L.owner) ownerMismatch.push(s)
+  if (BOOLEAN_FIELDS.some(f => !!D[f] !== !!L[f]) || D.width !== L.width || D.height !== L.height) boolMismatch.push(s)
+  if (top && (!top.click || top.click.view !== legacyClickTarget(s, "edge"))) clickMismatch.push(s)
+  refHash.update(JSON.stringify(rawTuple(L)))
+  boolHash.update(JSON.stringify(boolTuple(L)))
+  adapterHash.update(JSON.stringify(boolTuple(D)))
   const key = `${L.owner}|${legacyClickTarget(s, "clock")}|${legacyClickTarget(s, "edge")}`
   table.set(key, (table.get(key) || 0) + 1)
 }
+const ref = refHash.digest("hex").slice(0, 16)
+const refBools = boolHash.digest("hex").slice(0, 16), fromAdapter = adapterHash.digest("hex").slice(0, 16)
+const hashOk = ref === BASELINE && refBools === fromAdapter
+const priorityOk = ["download", "update", "timer", "system", "media"].every(src => M.LEGACY_PRIORITY[src] === LEGACY_PRIORITY[src])
 console.log(`\nenumeration: ${SETTINGS.length} settings x ${STATUSES.length} companion statuses x 2^${BITS.length} = ${states} states`)
-console.log(`legacyOwner vs model mismatches: ${mismatch.length}`)
-console.log(`legacy booleans + pill box baseline sha256: ${boolHash.digest("hex").slice(0, 16)}`)
+for (const [name, list] of [["display owner", ownerMismatch], ["booleans and pill box", boolMismatch], ["click target", clickMismatch]]) {
+  console.log(`  ${list.length === 0 ? "ok  " : "FAIL"} ${name}: ${list.length} mismatches${list.length ? "\n       first: " + JSON.stringify(list[0]) : ""}`)
+}
+console.log(`  ${ref === BASELINE ? "ok  " : "FAIL"} baseline sha256: ${ref} (the frozen reference, want ${BASELINE})`)
+console.log(`  ${refBools === fromAdapter ? "ok  " : "FAIL"} read as booleans: reference ${refBools}, through the adapter ${fromAdapter}`)
+console.log(`  ${priorityOk ? "ok  " : "FAIL"} the adapter's priority table matches the reference`)
 console.log("\ndistinct outcomes (owner | clock click | edge click):")
 for (const [k, n] of [...table.entries()].sort()) console.log(`  ${k.padEnd(34)} ${n}`)
-process.exit(mismatch.length + proofFail === 0 ? 0 : 1)
+const failed = proofFail + ownerMismatch.length + boolMismatch.length + clickMismatch.length + (hashOk ? 0 : 1) + (priorityOk ? 0 : 1)
+process.exit(failed === 0 ? 0 : 1)
