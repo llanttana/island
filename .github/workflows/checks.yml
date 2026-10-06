@@ -22,7 +22,16 @@ jobs:
     # or a stuck lint cannot sit for the six hours GitHub allows by default.
     timeout-minutes: 10
     steps:
-      - uses: actions/checkout@v4
+      # The source comes as an archive, not through actions/checkout: a clone
+      # in CI lands in the repository's clone graph and makes "how many people
+      # actually installed this" unreadable. tests/checks.sh lists tracked
+      # *.qml and checks staged whitespace, so a git index is made locally.
+      - name: Fetch the source
+        run: |
+          curl -sSL "https://github.com/${GITHUB_REPOSITORY}/archive/${GITHUB_SHA}.tar.gz" | tar -xz --strip-components=1
+          git init -q .
+          git add -A
+          git -c user.name=ci -c user.email=ci@localhost commit -qm "source ${GITHUB_SHA}"
 
       # qmllint lives here. shellcheck and jq are already on the runner.
       - name: Install qmllint
