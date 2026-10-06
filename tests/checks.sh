@@ -193,6 +193,16 @@ else
   skip "node is not installed, so the notification logic cannot be exercised"
 fi
 
+# The activity model is pure logic as well: order, what the pill shows and what
+# is left over. Same node-or-skip treatment as the notification logic above.
+if command -v node >/dev/null 2>&1; then
+  rc=0
+  out=$(node "$root/tests/activity.test.js" 2>&1) || rc=1
+  if [[ $rc -eq 0 ]]; then ok "tests/activity.test.js"; else bad "tests/activity.test.js"; printf '%s\n' "$out" | sed 's/^/       /'; fi
+else
+  skip "node is not installed, so the activity model cannot be exercised"
+fi
+
 step "Companion setup tests"
 if bash tests/run.sh; then ok "tests/run.sh"; else bad "tests/run.sh"; fi
 
