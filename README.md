@@ -102,8 +102,7 @@ Island runs inside Omarchy's Quickshell process and reserves no screen space.
 
 <table>
   <tr>
-    <td width="50%" align="center"><strong>Player</strong><br><img src="assets/player.jpg" alt="The player with album art, a progress bar and controls" width="100%"></td>
-    <td width="50%" align="center"><strong>App launcher</strong><br><img src="assets/launcher.jpg" alt="The app launcher" width="100%"></td>
+    <td colspan="2" align="center"><strong>Player</strong><br><img src="assets/player.jpg" alt="The player with album art, a progress bar and controls" width="50%"></td>
   </tr>
   <tr>
     <td colspan="2" align="center"><strong>Omarchy menu</strong><br><img src="assets/menu.jpg" alt="The Omarchy menu" width="50%"></td>
@@ -114,8 +113,7 @@ Island runs inside Omarchy's Quickshell process and reserves no screen space.
 
 <table>
   <tr>
-    <td width="50%" align="center"><strong>Emoji</strong><br><img src="assets/emoji.jpg" alt="The emoji picker" width="100%"></td>
-    <td width="50%" align="center"><strong>Keybindings</strong><br><img src="assets/keybinds.jpg" alt="The keybinding search" width="100%"></td>
+    <td colspan="2" align="center"><strong>Emoji</strong><br><img src="assets/emoji.jpg" alt="The emoji picker" width="50%"></td>
   </tr>
 </table>
 

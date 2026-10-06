@@ -82,8 +82,9 @@ All notable changes to Island are recorded here. The format follows
   where the tool is not on `PATH`.
 
 ### Removed
-- The clipboard screenshot is gone from the README: a clipboard view shows
-  whatever was copied last, which is not something to publish.
+- The clipboard, keybinding and app launcher screenshots are gone from the
+  README: a clipboard view shows whatever was copied last, and the other two
+  show the reader nothing about the island itself.
 
 - The user-arrangeable control-center tiles: arrange mode, drag-to-reorder,
   edge resize and the `tileOrder` / `tileWide` settings. The power profiles stay
