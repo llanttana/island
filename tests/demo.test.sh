@@ -119,5 +119,19 @@ check "cleanup clears the companion exactly once" \
   "$(grep -c 'notifications clear' "$(calls_of trip)" || true)" "1"
 
 # ---------------------------------------------------------------------------
+
+# ---------------------------------------------------------------------------
+section "a stale backup is replaced, not restored"
+
+make_session stale
+run_demo stale prepare
+run_demo stale cleanup
+# the user copies something after the first scene is over
+printf '%s' '[[{"type":"text","text":"copied after the first scene"}]]' >"$(clip_of stale)"
+after_clip=$(cat "$(clip_of stale)")
+run_demo stale prepare
+run_demo stale cleanup
+check "cleanup restores the state the second prepare saw" "$(cat "$(clip_of stale)")" "$after_clip"
+
 printf '\n%d passed, %d failed\n' "$pass" "$fail"
 [[ $fail -eq 0 ]]

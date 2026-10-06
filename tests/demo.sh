@@ -82,6 +82,15 @@ copy_once() {
 }
 
 backup_all() {
+  # A new scene has to back up the state as it is right now. The backup
+  # directory deliberately survives cleanup (it is kept for the user to look
+  # at), so `copy_once` would keep a snapshot from an earlier run and cleanup
+  # would later restore *that*: the history and clipboard would silently roll
+  # back to an older state. prepare only gets here when no scene is active, so
+  # anything already in the directory is stale by definition.
+  if [ -d "$backup_dir" ]; then
+    rm -rf -- "$backup_dir"
+  fi
   mkdir -p "$backup_dir"
   head2 "Backing up"
   if [ -d "$notif_history" ]; then
@@ -239,8 +248,8 @@ cmd_prepare() {
     warn "the scene is already prepared; keeping the existing backup and clearing again"
   elif [ -e "$backup_dir/clipboard-history.json" ]; then
     warn "an older backup is here (taken $(backup_age "$backup_dir/clipboard-history.json") ago)."
-    warn "Reusing it, so anything copied since then will be missing from the history"
-    warn "that cleanup restores. Remove $backup_dir to start a fresh one."
+    warn "Replacing it: a new scene backs up the state as it is now, so cleanup"
+    warn "restores what you have at this moment instead of an old snapshot."
   fi
   mkdir -p "$demo_dir"
   backup_all
