@@ -95,5 +95,75 @@ const times = [0, 100, 200, 300]
 check("a burst inside one second is refused", M.allowsUpdate(times, 400), false)
 check("an old burst is forgotten", M.allowsUpdate(times, 1500), true)
 
+console.log("the engine's own built-ins")
+// Measured in the real QML engine -- Qt 6.11.2, the V4 the island runs under:
+//
+//   * Array.from("😀" x60) has 120 elements there, not 60, so sanitize cut a
+//     title to 48 UTF-16 units (24 emoji instead of 48) and, when the cut landed
+//     mid-pair, left a lone high surrogate at the end: a broken character on the
+//     pill. Measured with a one-off spike, not by this test.
+//   * Math.round(2^53 - 1) there is 2^53 -- the value is one off, and
+//     Number.MAX_SAFE_INTEGER itself is right. That only matters because
+//     integer() was rounding a timestamp that is already whole.
+//
+// Node has the correct values for both, which is exactly why a plain run cannot
+// see either difference: the engine's versions are put in their place below, and
+// the model has to answer the same in that world, because that is the world it
+// ships into.
+const EMOJI = "\ud83d\ude00"
+let sixty = ""
+for (let i = 0; i < 60; i++) sixty += EMOJI
+
+function engineLike() {
+  const context = {}
+  vm.createContext(context)
+  // One element per UTF-16 unit, the way the engine's Array.from walks a string.
+  vm.runInContext("Array.from = function (value) { var out = []; for (var i = 0; i < value.length; i++) out.push(value.charAt(i)); return out }", context)
+  // And a Math.round that refuses to run at all: a whole number must not need it.
+  vm.runInContext("Math.round = function () { throw new Error('the engine would round here') }", context)
+  vm.runInContext(src, context)
+  return context
+}
+const E = engineLike()
+
+function codePoints(value) { return Array.from(value).length }   // node's Array.from, the correct one
+function loneSurrogate(value) {
+  for (let i = 0; i < value.length; i++) {
+    const unit = value.charCodeAt(i)
+    if (unit < 0xd800 || unit > 0xdfff) continue
+    const next = i + 1 < value.length ? value.charCodeAt(i + 1) : 0
+    if (unit <= 0xdbff && next >= 0xdc00 && next <= 0xdfff) { i++; continue }
+    return true
+  }
+  return false
+}
+function sanitizeThere(input) {
+  try { return E.sanitize(input, T) } catch (error) { return { ok: false, error: String(error) } }
+}
+const WHOLE = { id: "x", source: "timer", text: "ok", priority: 80, ttl: 1000 }
+
+check("the substituted Array.from walks units, as the engine's does",
+  vm.runInContext("Array.from(String.fromCharCode(0xd83d, 0xde00)).length", E), 2)
+check("a long emoji text is cut to the limit in code points there too",
+  codePoints(E.sanitize({ id: "x", source: "timer", text: sixty }, T).value.text), M.LIMITS.text)
+check("text short in code points is not cut there, however many units it is",
+  codePoints(E.sanitize({ id: "x", source: "timer", text: EMOJI + EMOJI }, T).value.text), 2)
+check("a cut never ends on half a pair there",
+  loneSurrogate(E.sanitize({ id: "x", source: "timer", text: "a" + sixty }, T).value.text), false)
+check("a whole timestamp is accepted there without rounding",
+  sanitizeThere({ id: "x", source: "timer", text: "ok", priority: 80, ttl: 1000, createdAt: 9007199254740991 }).ok, true)
+check("and comes back unchanged", sanitizeThere({ id: "x", source: "timer", text: "ok", priority: 80, ttl: 1000, createdAt: 9007199254740991 }).value.createdAt, 9007199254740991)
+check("2^53 is not a timestamp there either", sanitizeThere({ id: "x", source: "timer", text: "ok", createdAt: 9007199254740992 }).ok, false)
+check("a whole priority and ttl need no rounding either", sanitizeThere(WHOLE).ok, true)
+
+check("the bound is the largest safe integer", M.LIMITS.maxTimestamp, 9007199254740991)
+check("a whole timestamp comes back unchanged here too",
+  M.sanitize({ id: "x", source: "timer", text: "ok", priority: 80, ttl: 1000, createdAt: 9007199254740991 }, T).value.createdAt, 9007199254740991)
+check("2^53 is not a timestamp here", M.sanitize({ id: "x", source: "timer", text: "ok", createdAt: 9007199254740992 }, T).ok, false)
+check("the largest safe integer still is",
+  M.sanitize({ id: "x", source: "timer", text: "ok", createdAt: M.LIMITS.maxTimestamp }, T).ok, true)
+check("a 60-emoji title still lands on the limit here",
+  codePoints(M.sanitize({ id: "x", source: "timer", text: sixty }, T).value.text), M.LIMITS.text)
+
 console.log(`\n${pass} passed, ${fail} failed`)
 process.exit(fail === 0 ? 0 : 1)
