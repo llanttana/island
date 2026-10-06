@@ -117,9 +117,6 @@ Island runs inside Omarchy's Quickshell process and reserves no screen space.
     <td width="50%" align="center"><strong>Emoji</strong><br><img src="assets/emoji.jpg" alt="The emoji picker" width="100%"></td>
     <td width="50%" align="center"><strong>Keybindings</strong><br><img src="assets/keybinds.jpg" alt="The keybinding search" width="100%"></td>
   </tr>
-  <tr>
-    <td colspan="2" align="center"><strong>Clipboard history</strong><br><img src="assets/clipboard.jpg" alt="Clipboard history" width="50%"></td>
-  </tr>
 </table>
 
 ### Shelf
