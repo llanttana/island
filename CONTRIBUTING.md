@@ -76,6 +76,12 @@ file, and `tests/run.sh`. A tool that is not installed is reported and skipped
 rather than failing the run, so it is useful on a fresh checkout. The two
 `omarchy plugin validate` calls do need Omarchy, which is why they are separate.
 
+On CI that QML step runs with `ISLAND_LINT_SYNTAX_ONLY=1`: the runner carries Qt
+6.4, and the type checks need the types Quickshell and the island provide, so
+only syntax is checked there. Locally nothing is skipped on purpose -- a tool
+that is missing is reported as a skip with a counter, and
+`ISLAND_REQUIRE_SHELLCHECK=1` turns a missing shellcheck into a failure.
+
 `tests/run.sh` needs nothing but bash, jq and perl. It covers the JSONC menu
 edit and the backup rotation, and it runs `companion/install.sh` twice against a
 throwaway `HOME` with the Omarchy commands stubbed out, so a second run is
