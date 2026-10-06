@@ -76,8 +76,19 @@ check("progress above one is refused", M.sanitize({ id: "x", source: "timer", te
 check("a negative ttl is refused", M.sanitize({ id: "x", source: "timer", text: "ok", ttl: -1 }, T).ok, false)
 check("a non-numeric priority is refused", M.sanitize({ id: "x", source: "timer", text: "ok", priority: "high" }, T).ok, false)
 check("an external activity cannot outrank the timer",
-  M.sanitize({ id: "e", source: "ext", text: "ok", priority: 100 }, T).value.priority, M.LIMITS.externalPriority)
+  M.sanitize({ id: "e", source: "ext", text: "ok", priority: 100 }, T).value.priority, 79)
 check("an id with a slash is refused", M.sanitize({ id: "a/b", source: "timer", text: "ok" }, T).ok, false)
+
+console.log("external activities stay below the timer")
+check("the sanitize cap is 79", M.LIMITS.externalPriority, 79)
+check("sanitize clamps an external to 79",
+  M.sanitize({ id: "e", source: "ext", text: "ok", priority: 100 }, T).value.priority, 79)
+check("an external cannot tie with the timer",
+  M.order([act("e", "ext", { priority: 80 }), act("t", "timer", { priority: 80 })], T).map(a => a.id), ["t", "e"])
+check("a hand-built external above the timer is still ranked below it",
+  M.order([act("e", "ext", { priority: 100 }), act("t", "timer", { priority: 80 })], T).map(a => a.id), ["t", "e"])
+check("an external still beats media",
+  M.order([act("e", "ext", { priority: 79 }), act("m", "media", { priority: 40 })], T).map(a => a.id), ["e", "m"])
 
 console.log("rate limit")
 const times = [0, 100, 200, 300]

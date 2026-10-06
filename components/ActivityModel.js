@@ -21,7 +21,7 @@ var LIMITS = {
   id: 64,
   defaultTtl: 10000,
   maxTtl: 86400000,
-  externalPriority: 80,
+  externalPriority: 79,   // strictly below the timer's 80: an external activity must never tie with it
   updatesPerSecond: 4
 }
 
@@ -122,8 +122,13 @@ function order(list, now) {
   for (var i = 0; i < items.length; i++) {
     if (isPlainObject(items[i]) && items[i].id && alive(items[i], at)) out.push(items[i])
   }
+  // Defence in depth: sanitize() already caps an external activity below the
+  // timer, but a list built by hand must not be able to tie with it either.
+  var rank = function (entry) {
+    return entry.source === "ext" ? Math.min(entry.priority, LIMITS.externalPriority) : entry.priority
+  }
   out.sort(function (a, b) {
-    if (b.priority !== a.priority) return b.priority - a.priority
+    if (rank(b) !== rank(a)) return rank(b) - rank(a)
     if (a.createdAt !== b.createdAt) return a.createdAt - b.createdAt
     return a.id < b.id ? -1 : a.id > b.id ? 1 : 0
   })
