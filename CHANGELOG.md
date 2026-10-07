@@ -6,6 +6,11 @@ All notable changes to Island are recorded here. The format follows
 
 ## [Unreleased]
 
+### Fixed
+- With **System updates** switched off, a running package update is no longer
+  shown on the resting pill: the setting used to apply only once the check it
+  had started happened to finish.
+
 ## [0.5.0] - 2026-10-06
 
 ### Added
