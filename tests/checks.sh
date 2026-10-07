@@ -213,6 +213,15 @@ else
   skip "node is not installed, so the Ask provider choice cannot be exercised"
 fi
 
+# The weather switch is one decision, and everything hangs off it.
+if command -v node >/dev/null 2>&1; then
+  rc=0
+  out=$(node "$root/tests/weather.test.js" 2>&1) || rc=1
+  if [[ $rc -eq 0 ]]; then ok "tests/weather.test.js"; else bad "tests/weather.test.js"; printf '%s\n' "$out" | sed 's/^/       /'; fi
+else
+  skip "node is not installed, so the weather switch cannot be exercised"
+fi
+
 # The legacy pill rules the model has to reproduce are frozen in
 # tests/fixtures/island-legacy-pills.qml. This reads that freeze and not
 # Island.qml: stage 2 rewrites the very lines it was cut from, and the reference

@@ -1,6 +1,7 @@
 import QtQuick
 import Quickshell
 import Quickshell.Io
+import "WeatherLogic.js" as WeatherLogic
 
 // One weather service for the whole island. The control center's temperature
 // chip and the Weather page read the same numbers from here, so a location is
@@ -48,6 +49,10 @@ Item {
 
   readonly property var sources: ["open-meteo", "wttr.in"]
   readonly property bool loading: fetch.running
+  // The switch in Settings. Off means the island makes no weather request at
+  // all: refresh() below is inert, and the chip is not offered either (see
+  // ControlCenter). The cache is still read, which is a file read, not a call.
+  readonly property bool enabled: WeatherLogic.enabled(host.settings.weather)
   readonly property string cachePath: host.home + "/.cache/omarchy/island-weather.json"
   // A quarter of an hour is plenty for a chip, and these are free services
   // worth being polite to.
@@ -169,7 +174,7 @@ Item {
   // Views call this when they open. Cheap when the answer is fresh, and it never
   // starts a second request while one is in flight.
   function refresh(force) {
-    if (!weather.hasLocation || fetch.running) return
+    if (!weather.enabled || !weather.hasLocation || fetch.running) return
     if (!force && weather.fetchedAt > 0 && Date.now() - weather.fetchedAt < weather.maxAgeMs) return
     weather.tried = 0
     weather.startFetch(weather.lastGoodSource !== "" ? weather.lastGoodSource : weather.sources[0])

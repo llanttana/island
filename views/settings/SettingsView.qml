@@ -2,6 +2,7 @@ import QtQuick
 import QtQuick.Layouts
 import Quickshell.Io
 import "../../components"
+import "../../components/WeatherLogic.js" as WeatherLogic
 
 // The island's own settings, laid out like iOS Settings: a navigation bar with
 // a back button, then inset grouped rows with switches and segmented pickers.
@@ -563,6 +564,21 @@ ColumnLayout {
             accessibleName: "Monitor When Hot"
             checked: settingsView.settings.autoMonitorHot
             onToggled: function(on) { settingsView.settings.autoMonitorHot = on }
+          }
+        }
+      }
+
+      SettingsGroup {
+        visible: settingsView.tab === "system"
+        title: "Weather"
+        SettingsRow {
+          label: "Weather"
+          detail: "Fetch the forecast and show the temperature chip"
+          last: true
+          SettingsSwitch {
+            accessibleName: "Weather"
+            checked: WeatherLogic.enabled(settingsView.settings.weather)
+            onToggled: function(on) { settingsView.settings.weather = on ? "on" : "off" }
           }
         }
       }

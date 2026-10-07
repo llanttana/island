@@ -216,6 +216,7 @@ Item {
       property bool pomodoro: false
       property bool hideFullscreen: true
       property string askAi: "chatgpt"
+      property string weather: "on"
       property bool clockSeconds: false
       property bool workspaceDots: true
       property bool batteryBadge: true

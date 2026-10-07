@@ -6,6 +6,11 @@ All notable changes to Island are recorded here. The format follows
 
 ## [Unreleased]
 
+### Added
+- A **Weather** switch in Settings. With it off the island makes no weather
+  request at all -- the chip, the page and the fetch all stay away -- and an
+  `island.json` without the key keeps reading as on.
+
 ### Changed
 - The first click on the pill while the notifications companion is not set up
   asks before doing anything: what setting it up means, and **Set up** or
