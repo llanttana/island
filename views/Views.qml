@@ -20,6 +20,7 @@ import "calendar"
 import "weather"
 import "timer"
 import "shelf"
+import "companion"
 
 // Every view the island can open. Each is a Surface: its name (also its IPC
 // route: `omarchy-shell lanta.island show <name>`), how wide the
@@ -29,7 +30,7 @@ Item {
   id: views
   required property var host
 
-  readonly property var surfaces: [controlsSurface, audioSurface, systemSurface, themesSurface, wallpapersSurface, appsSurface, powerSurface, emojiSurface, keybindsSurface, clipboardSurface, menuSurface, playerSurface, settingsSurface, answerSurface, wifiSurface, bluetoothSurface, calendarSurface, weatherSurface, timerSurface, shelfSurface]
+  readonly property var surfaces: [controlsSurface, audioSurface, systemSurface, themesSurface, wallpapersSurface, appsSurface, powerSurface, emojiSurface, keybindsSurface, clipboardSurface, menuSurface, playerSurface, settingsSurface, answerSurface, wifiSurface, bluetoothSurface, calendarSurface, weatherSurface, timerSurface, shelfSurface, companionSurface]
   function surfaceFor(name) {
     for (var i = 0; i < surfaces.length; i++) if (surfaces[i].viewName === name) return surfaces[i]
     return null
@@ -257,6 +258,18 @@ Item {
     maxHeight: 640
     content: Component {
       ShelfView { host: views.host; active: shelfSurface.active; anchors.fill: parent }
+    }
+  }
+
+  // The companion's setup question, opened by a click on the setup pill. Wide
+  // enough for the sentence on one or two lines, and no wider.
+  Surface {
+    id: companionSurface
+    host: views.host
+    viewName: "companion"
+    fixedWidth: 440
+    content: Component {
+      CompanionView { host: views.host; active: companionSurface.active; anchors.fill: parent }
     }
   }
 }

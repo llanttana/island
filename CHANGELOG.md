@@ -6,18 +6,35 @@ All notable changes to Island are recorded here. The format follows
 
 ## [Unreleased]
 
+### Added
+- A **Weather** switch in Settings. With it off the island makes no weather
+  request at all -- the chip, the page and the fetch all stay away -- and an
+  `island.json` without the key keeps reading as on.
+
+### Changed
+- The first click on the pill while the notifications companion is not set up
+  asks before doing anything: what setting it up means, and **Set up** or
+  **Later**. **Later** leaves the pill as it was and does not ask again until the
+  shell restarts; a click used to install the companion and restart the shell on
+  its own.
+
 ### Fixed
 - With **System updates** switched off, a running package update is no longer
   shown on the resting pill: the setting used to apply only once the check it
   had started happened to finish.
+- The launcher's **Ask** row is only offered when the CLI it would run is
+  installed, and uses the other provider when the chosen one is missing: a
+  machine without `claude` used to offer "Ask Claude" and then fail once the
+  question was typed. **None** still means no Ask row at all.
 
 ## [0.5.0] - 2026-10-06
 
 ### Added
 
-- Buttons, switches and sliders now carry `Accessible.name`, a role and their
-  state, so a screen reader can say what a control is and whether it is on.
-  The names come from the labels the user already sees.
+- Buttons, switches and sliders carry a name and a role taken from the labels the
+  user already sees, so a screen reader can say what a control is. Whether the
+  state is announced has not been checked with a screen reader, and Qt 6.11 has
+  no `Accessible.value`, so slider values are not exposed.
 - `tests/demo.sh`: prepares a scene for recording the demo video (backs up and
   clears the notification and clipboard history, writes a neutral file to drag)
   and fires the scripted events on a timeline while a person records. Nothing

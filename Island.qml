@@ -12,6 +12,7 @@ import qs.Commons
 import "components"
 import "views"
 import "components/ActivityModel.js" as ActivityModel
+import "components/AskProviders.js" as AskProviders
 import "views/shelf/ShelfModel.js" as ShelfModel
 import "file:///usr/share/omarchy/shell/plugins/clipboard/ClipboardHistory.js" as ClipboardHistory
 import "companion/lanta.notifications/NotificationLogic.js" as NotificationLogic
@@ -43,7 +44,15 @@ Item {
     claude: { name: "Claude", cli: "claude", glyph: "\uec82", tile: "#d97757", ink: "#ffffff" },
     chatgpt: { name: "Codex", cli: "codex", glyph: "\uec81", tile: "#f2f2f2", ink: "#000000" }
   })
-  readonly property var askProvider: settings.askAi === "none" ? null : askProviders[settings.askAi] || askProviders.chatgpt
+  // Which AI the Ask row runs: the chosen provider when its CLI is installed,
+  // the other one when it is not, and nothing at all when neither is -- the row
+  // then stays out of the launcher instead of failing after the question is
+  // typed. "none" is the user's explicit off, and stays off either way.
+  readonly property string askProviderKey: AskProviders.choose(settings.askAi, ({
+    claude: hasHelper("claude"),
+    chatgpt: hasHelper("codex")
+  }))
+  readonly property var askProvider: askProviderKey ? askProviders[askProviderKey] : null
   function ask(question) {
     question = String(question || "").trim()
     if (!question || !askProvider) return
@@ -207,6 +216,7 @@ Item {
       property bool pomodoro: false
       property bool hideFullscreen: true
       property string askAi: "chatgpt"
+      property string weather: "on"
       property bool clockSeconds: false
       property bool workspaceDots: true
       property bool batteryBadge: true
@@ -636,6 +646,10 @@ Item {
   readonly property bool companionInstalling: companion.installing
   readonly property bool companionNeedsSetup: companion.needsSetup
   readonly property string companionWarning: companion.warning
+  // "Later" on the setup question: the pill keeps its usual behaviour and the
+  // question stays away until the shell restarts, because this is a property and
+  // not something written to island.json.
+  property bool companionSetupDismissed: false
   function installCompanion() { companion.install() }
 
   // The control center's small status reads, kept out of the panel.
@@ -682,7 +696,11 @@ Item {
     "omarchy-update",
     "omarchy-update-available",
     "omarchy-voxtype-status",
-    "notify-send"
+    "notify-send",
+    // The Ask providers are not omarchy helpers, but the same probe answers the
+    // only question the launcher has about them: is the CLI there?
+    "claude",
+    "codex"
   ]
 
   Process {
@@ -1327,7 +1345,10 @@ Item {
                 root.view = "rest"
               }
               else if (root.clipboardPill) root.view = "clipboard"
-              else if (root.view === "rest" && root.companionNeedsSetup) root.installCompanion()
+              // The setup pill asks before switching Omarchy's notifications
+              // over; "Later" silences the question until the shell restarts, and
+              // the pill then behaves like any other resting pill.
+              else if (root.view === "rest" && root.companionNeedsSetup && !root.companionSetupDismissed) root.view = "companion"
               else if (root.downloadDone || (root.downloadActive && (mouse.x < 56 || mouse.x > width - 90))) root.openDownloads()
               else if (root.timerPill) root.view = "timer"
               else if (root.systemPill) root.view = "system"

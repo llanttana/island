@@ -10,6 +10,7 @@ import Quickshell.Services.SystemTray
 import Quickshell.Services.UPower
 import Quickshell.Widgets
 import "../../components"
+import "../../components/WeatherLogic.js" as WeatherLogic
 
 // The expanded "controls" surface: two rows of toggle pills with a round
 // button at the end of each, a Levels card with vertical volume and brightness
@@ -241,6 +242,9 @@ ColumnLayout {
     cc.runExternal(["omarchy-shell", "shell", "toggle", "omarchy.agents"])
   }
   function openWeather() {
+    // With the weather switch off there is no chip to click, and this is the
+    // only way in from the island itself.
+    if (!WeatherLogic.enabled(cc.host.settings.weather)) return
     cc.host.view = "weather"
   }
   function stopRecording() {
@@ -972,7 +976,7 @@ ColumnLayout {
                 onClicked: cc.openAgents()
               }
               CcChip {
-                visible: cc.weather.chipLabel() !== ""
+                visible: WeatherLogic.chipVisible(cc.host.settings.weather, cc.weather.chipLabel())
                 icon: "󰖐"
                 label: cc.weather.chipLabel()
                 onClicked: cc.openWeather()
