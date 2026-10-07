@@ -31,9 +31,10 @@ All notable changes to Island are recorded here. The format follows
 
 ### Added
 
-- Buttons, switches and sliders now carry `Accessible.name`, a role and their
-  state, so a screen reader can say what a control is and whether it is on.
-  The names come from the labels the user already sees.
+- Buttons, switches and sliders carry a name and a role taken from the labels the
+  user already sees, so a screen reader can say what a control is. Whether the
+  state is announced has not been checked with a screen reader, and Qt 6.11 has
+  no `Accessible.value`, so slider values are not exposed.
 - `tests/demo.sh`: prepares a scene for recording the demo video (backs up and
   clears the notification and clipboard history, writes a neutral file to drag)
   and fires the scripted events on a timeline while a person records. Nothing
