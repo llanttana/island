@@ -645,6 +645,10 @@ Item {
   readonly property bool companionInstalling: companion.installing
   readonly property bool companionNeedsSetup: companion.needsSetup
   readonly property string companionWarning: companion.warning
+  // "Later" on the setup question: the pill keeps its usual behaviour and the
+  // question stays away until the shell restarts, because this is a property and
+  // not something written to island.json.
+  property bool companionSetupDismissed: false
   function installCompanion() { companion.install() }
 
   // The control center's small status reads, kept out of the panel.
@@ -1340,7 +1344,10 @@ Item {
                 root.view = "rest"
               }
               else if (root.clipboardPill) root.view = "clipboard"
-              else if (root.view === "rest" && root.companionNeedsSetup) root.installCompanion()
+              // The setup pill asks before switching Omarchy's notifications
+              // over; "Later" silences the question until the shell restarts, and
+              // the pill then behaves like any other resting pill.
+              else if (root.view === "rest" && root.companionNeedsSetup && !root.companionSetupDismissed) root.view = "companion"
               else if (root.downloadDone || (root.downloadActive && (mouse.x < 56 || mouse.x > width - 90))) root.openDownloads()
               else if (root.timerPill) root.view = "timer"
               else if (root.systemPill) root.view = "system"

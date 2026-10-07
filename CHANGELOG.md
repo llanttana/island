@@ -6,6 +6,13 @@ All notable changes to Island are recorded here. The format follows
 
 ## [Unreleased]
 
+### Changed
+- The first click on the pill while the notifications companion is not set up
+  asks before doing anything: what setting it up means, and **Set up** or
+  **Later**. **Later** leaves the pill as it was and does not ask again until the
+  shell restarts; a click used to install the companion and restart the shell on
+  its own.
+
 ### Fixed
 - With **System updates** switched off, a running package update is no longer
   shown on the resting pill: the setting used to apply only once the check it
