@@ -10,6 +10,10 @@ All notable changes to Island are recorded here. The format follows
 - With **System updates** switched off, a running package update is no longer
   shown on the resting pill: the setting used to apply only once the check it
   had started happened to finish.
+- The launcher's **Ask** row is only offered when the CLI it would run is
+  installed, and uses the other provider when the chosen one is missing: a
+  machine without `claude` used to offer "Ask Claude" and then fail once the
+  question was typed. **None** still means no Ask row at all.
 
 ## [0.5.0] - 2026-10-06
 

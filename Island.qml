@@ -12,6 +12,7 @@ import qs.Commons
 import "components"
 import "views"
 import "components/ActivityModel.js" as ActivityModel
+import "components/AskProviders.js" as AskProviders
 import "views/shelf/ShelfModel.js" as ShelfModel
 import "file:///usr/share/omarchy/shell/plugins/clipboard/ClipboardHistory.js" as ClipboardHistory
 import "companion/lanta.notifications/NotificationLogic.js" as NotificationLogic
@@ -43,7 +44,15 @@ Item {
     claude: { name: "Claude", cli: "claude", glyph: "\uec82", tile: "#d97757", ink: "#ffffff" },
     chatgpt: { name: "Codex", cli: "codex", glyph: "\uec81", tile: "#f2f2f2", ink: "#000000" }
   })
-  readonly property var askProvider: settings.askAi === "none" ? null : askProviders[settings.askAi] || askProviders.chatgpt
+  // Which AI the Ask row runs: the chosen provider when its CLI is installed,
+  // the other one when it is not, and nothing at all when neither is -- the row
+  // then stays out of the launcher instead of failing after the question is
+  // typed. "none" is the user's explicit off, and stays off either way.
+  readonly property string askProviderKey: AskProviders.choose(settings.askAi, ({
+    claude: hasHelper("claude"),
+    chatgpt: hasHelper("codex")
+  }))
+  readonly property var askProvider: askProviderKey ? askProviders[askProviderKey] : null
   function ask(question) {
     question = String(question || "").trim()
     if (!question || !askProvider) return
@@ -682,7 +691,11 @@ Item {
     "omarchy-update",
     "omarchy-update-available",
     "omarchy-voxtype-status",
-    "notify-send"
+    "notify-send",
+    // The Ask providers are not omarchy helpers, but the same probe answers the
+    // only question the launcher has about them: is the CLI there?
+    "claude",
+    "codex"
   ]
 
   Process {
